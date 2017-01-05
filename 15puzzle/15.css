@@ -1,0 +1,129 @@
+/*-CSS-reset----------------------------------------------------------------*/
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed, 
+figure, figcaption, footer, header, hgroup, 
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 100%;
+    font: inherit;
+    vertical-align: baseline;
+}
+
+article, aside, details, figcaption, figure, 
+footer, header, hgroup, menu, nav, section {
+    display: block;
+}
+body {
+    line-height: 1;
+}
+ol, ul {
+    list-style: none;
+}
+blockquote, q {
+    quotes: none;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+    content: '';
+    content: none;
+}
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+/*--------------------------------------------------------------------------*/
+
+body {
+    background-color: black;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+* {
+    -webkit-user-select: none;
+     -khtml-user-select: none;
+       -moz-user-select: none;
+        -ms-user-select: none;
+            user-select: none;
+}
+
+.pane {
+    width: 400px;
+    height: 400px;
+    display: inline-block;
+    position: relative;
+}
+.tile.control {
+    width: 380px;
+    background-color: black;
+}
+#restart {
+    top: 0px;
+    width: 205px;
+}
+#solve {
+    top: 0px;
+    left: 225;
+    width: 155px;
+}
+#controls {
+    height: 100px;
+}
+
+.tile {
+    margin: 5px;
+    width: 80px;
+    height: 80px;
+    position: absolute;
+    border: 5px solid orange;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    text-align: center;
+    cursor: pointer;
+    font-size: 40px;
+    font-weight: bold;
+    color: orange;
+    font-family: sans-serif;
+    background-color: sienna;
+    border-radius: 10px;
+    box-sizing: content-box;
+}
+
+#gamePane > .tile {
+    transition: left .1s, top .1s;
+}
+#gamePane.restarting > .tile {
+    transition-duration: .4s;
+}
+
+.tile.border-blink {
+    -webkit-animation: border-blink .5s infinite;
+            animation: border-blink .5s infinite;
+}
+@keyframes border-blink {
+    from {
+        color: orange;
+    }
+    50% {
+        color: black;
+    }
+    to {
+        color: orange;
+    }	
+}
