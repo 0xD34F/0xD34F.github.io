@@ -98,16 +98,17 @@ table {
 }
 
 .spinner-container {
-    width: 250px;
+    width: 251px;
     height: 250px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    float: right;
+    float: left;
     overflow: hidden;
     box-sizing: border-box;
     border: 1px solid #CCC;
     margin: -1px 0 0 -1px;
+    padding-left: 1px; /* fix google chrome */
     position: relative;
 }
 
