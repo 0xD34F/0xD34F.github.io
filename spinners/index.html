@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Spinners</title>
+    <title>Single element CSS spinners</title>
+    <meta name="description" content="Single element CSS spinners">
     <link rel="stylesheet" type="text/css" media="screen" href="main.css">
     <link rel="stylesheet" type="text/css" media="screen" href="spinners.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
@@ -996,7 +997,7 @@ var spinners = {
 };
 
 $(document).ready(function() {
-    $('.spinner-collection').append($.map(spinners, function(data, name) {
+    $('main > .content').append($.map(spinners, function(data, name) {
         var $container = $('<div class="spinner-container" data-spinner="' + name + '"><div class="'+ name + '"></div></div>');
 
         if (data.title) {
@@ -1023,8 +1024,16 @@ $(document).ready(function() {
     </script>
 </head>
 <body>
-    <div class="spinner-collection"></div>
-    <div class="overlay hidden"></div>
-    <div class="source hidden"><textarea readonly="readonly"></textarea></div>
+    <header>
+        <div class="content">
+            <div class="title">CSS spinners</div>
+            <a class="github-button" href="https://github.com/0xD34F/spinners" target="_blank">View on GitHub</a>
+        </div>
+    </header>
+    <main>
+        <div class="content"></div>
+        <div class="overlay hidden"></div>
+        <div class="source hidden"><textarea readonly="readonly"></textarea></div>
+    </main>
 </body>
 </html>
