@@ -46,6 +46,9 @@ table {
 
 /*--------------------------------------------------------------------------*/
 
+html {
+    height: 100%;
+}
 body {
     background-color: black;
     display: flex;
@@ -80,7 +83,7 @@ body {
 }
 #solve {
     top: 0px;
-    left: 225;
+    left: 225px;
     width: 155px;
 }
 #controls {

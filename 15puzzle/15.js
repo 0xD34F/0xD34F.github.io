@@ -13,17 +13,17 @@ var puzzle = {
     ],
     gameStarted: false,
     gamePane: null,
+    setTileCoord: function(t, x, y) {
+        t.style.left = 100 * x + 'px';
+        t.style.top = 100 * y + 'px';
+    },
     initGamePane: function() {
         for (var i = 0; i < 15; i++) {
-            var x = i % 4,
-                y = Math.floor(i / 4);
-
             var t = document.createElement('div');
             t.classList.add('tile');
-            t.style.left = x * 100;
-            t.style.top = y * 100;
             t.innerHTML = '' + (i + 1);
             t.tileData = (i + 1);
+            puzzle.setTileCoord(t, i % 4, Math.floor(i / 4));
 
             puzzle.gamePane.appendChild(t);
             puzzle.tiles.push(t);
@@ -64,9 +64,9 @@ var puzzle = {
     endGameMessage: (function() {
         var t = document.createElement('div');
         t.classList.add('tile', 'control');
-        t.style.width = 230;
-        t.style.left = 75;
-        t.style.top = 150;
+        t.style.width = '230px';
+        t.style.left = '75px';
+        t.style.top = '150px';
         t.style.position = 'absolute';
         t.innerHTML = 'DONE!';
 
@@ -121,8 +121,7 @@ nextSolution:
             if (n.tile === null) {
                 puzzle.emptyCoord = n.coord;
             } else {
-                n.tile.style.left = (n.coord % 4) * 100;
-                n.tile.style.top = Math.floor(n.coord / 4) * 100;
+                puzzle.setTileCoord(n.tile, n.coord % 4, Math.floor(n.coord / 4));
             }
         });
     },
