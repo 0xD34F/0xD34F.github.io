@@ -108,7 +108,6 @@ table {
     box-sizing: border-box;
     border: 1px solid #CCC;
     margin: -1px 0 0 -1px;
-    padding-left: 1px; /* fix google chrome */
     position: relative;
 }
 
