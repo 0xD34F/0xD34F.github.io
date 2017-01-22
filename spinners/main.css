@@ -59,6 +59,7 @@ table {
     font-family: sans-serif;
     color: black;
     padding: 20px 0px;
+    margin-left: 20px;
 }
 
 .overlay {
@@ -132,6 +133,9 @@ table {
     }
     .spinner-container {
         width: 100%;
+        margin-left: 0;
+        border-left: none;
+        border-right: none;
     }
 }
 

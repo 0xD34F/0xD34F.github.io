@@ -354,7 +354,7 @@ var spinners = {
     border-bottom-color: black;\n\
     border-radius: 50%;\n\
     box-sizing: border-box;\n\
-    animation: spinner-11 1s infinite linear;\n\
+    animation: spinner-11 1.5s infinite linear;\n\
 }\n\
 .spinner-11::before,\n\
 .spinner-11::after {\n\
@@ -370,7 +370,7 @@ var spinners = {
     border-bottom-color: black;\n\
 }\n\
 .spinner-11::after {\n\
-    left: -.5em;\n\
+    left: -.3em;\n\
     top: 5.6em;\n\
     border-top-color: black;\n\
     border-left-color: black;\n\
@@ -1002,12 +1002,77 @@ var spinners = {
         box-shadow: 2em 0em transparent, 0em 2em transparent, 2em 2em transparent, 4em 2em, 0em 4em transparent, 2em 4em transparent, 4em 4em transparent, 6em 4em, 2em 6em, 4em 6em, 6em 6em;\n\
     }\n\
 }'
+    },
+    'spinner-wi-fi': {
+        title: 'wi-fi signal',
+        source:
+'.spinner-wi-fi {\n\
+    font-size: 10px;\n\
+    width: 2em;\n\
+    height: 2em;\n\
+    border-radius: 50%;\n\
+    background-color: black;\n\
+    position: relative;\n\
+    margin: 3.5em 3.5em 1.5em 1.5em;\n\
+    animation: spinner-wi-fi-core 1.2s infinite linear;\n\
+    animation-delay: -.4s;\n\
+}\n\
+.spinner-wi-fi::before,\n\
+.spinner-wi-fi::after {\n\
+    content: "";\n\
+    position: absolute;\n\
+    background-color: transparent;\n\
+    border: 1em solid transparent;\n\
+    border-top-color: black;\n\
+    border-radius: 50%;\n\
+    animation: spinner-wi-fi-signal 1.2s infinite linear;\n\
+}\n\
+.spinner-wi-fi::before {\n\
+    width: 3em;\n\
+    height: 3em;\n\
+    left: -1.5em;\n\
+    top: -1.5em;\n\
+    animation-delay: -.2s;\n\
+}\n\
+.spinner-wi-fi::after {\n\
+    width: 6em;\n\
+    height: 6em;\n\
+    left: -3em;\n\
+    top: -3em;\n\
+    animation-delay: 0s;\n\
+}\n\
+@keyframes spinner-wi-fi-core {\n\
+    0%, 30%, 100% {\n\
+        background-color: black;\n\
+    }\n\
+    15% {\n\
+        background-color: #888;\n\
+    }\n\
+}\n\
+@keyframes spinner-wi-fi-signal {\n\
+    0%, 30%, 100% {\n\
+        border-top-color: black;\n\
+        transform: scale(1) rotate(45deg);\n\
+    }\n\
+    15% {\n\
+        border-top-color: #888;\n\
+        transform: scale(1.1) rotate(45deg);\n\
+    }\n\
+}'
     }
 };
 
 $(document).ready(function() {
-    $('main > .content').append($.map(spinners, function(data, name) {
-        var $container = $('<div class="spinner-container" data-spinner="' + name + '"><div class="'+ name + '"></div></div>');
+    $('main > .content').append([
+        'spinner-1', 'spinner-2', 'spinner-3', 'spinner-4', 'spinner-5',
+        'spinner-6', 'spinner-7', 'spinner-8', 'spinner-9', 'spinner-11',
+        'spinner-12', 'spinner-13', 'spinner-14', 'spinner-15', 'spinner-16',
+        'spinner-wi-fi', 'spinner-heart', 'spinner-hydrogen',
+        'spinner-yin-yang', 'spinner-clock', 'spinner-counter',
+        'spinner-zebra', 'spinner-collisions', 'spinner-glider',
+     ].map(function(name) {
+        var data = spinners[name],
+            $container = $('<div class="spinner-container" data-spinner="' + name + '"><div class="'+ name + '"></div></div>');
 
         if (data.title) {
             $container.prepend($('<div class="spinner-title">' + data.title + '</div>'));
@@ -1035,7 +1100,7 @@ $(document).ready(function() {
 <body>
     <header>
         <div class="content">
-            <div class="title">CSS spinners</div>
+            <div class="title">Single element CSS spinners</div>
             <a class="github-button" href="https://github.com/0xD34F/spinners" target="_blank">View on GitHub</a>
         </div>
     </header>
