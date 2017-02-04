@@ -1088,7 +1088,9 @@ $(document).ready(function() {
             spinnerData = spinners[spinnerName];
 
         $('.overlay').removeClass('hidden');
-        $('.source').removeClass('hidden').find('textarea').val(spinnerData.source).scrollTop(0);
+        $('.source').removeClass('hidden')
+            .find('.source-html').val('<div class="' + spinnerName +'"></div>').end()
+            .find('.source-css').val(spinnerData.source).scrollTop(0);
     });
 
     $('.overlay').click(function() {
@@ -1107,7 +1109,10 @@ $(document).ready(function() {
     <main>
         <div class="content"></div>
         <div class="overlay hidden"></div>
-        <div class="source hidden"><textarea readonly="readonly"></textarea></div>
+        <div class="source hidden">
+            <textarea readonly="readonly" class="source-html"></textarea>
+            <textarea readonly="readonly" class="source-css"></textarea>
+        </div>
     </main>
 </body>
 </html>
