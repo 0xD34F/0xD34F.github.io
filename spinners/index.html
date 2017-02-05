@@ -1069,9 +1069,9 @@ $(document).ready(function() {
         'spinner-12', 'spinner-13', 'spinner-14', 'spinner-15', 'spinner-16',
         'spinner-wi-fi', 'spinner-heart', 'spinner-hydrogen',
         'spinner-yin-yang', 'spinner-clock', 'spinner-counter',
-        'spinner-zebra', 'spinner-collisions', 'spinner-glider',
+        'spinner-zebra', 'spinner-collisions', 'spinner-glider'
      ].map(function(name) {
-        var data = spinners[name],
+        var data = spinners[name] || {},
             $container = $('<div class="spinner-container" data-spinner="' + name + '"><div class="'+ name + '"></div></div>');
 
         if (data.title) {
@@ -1089,7 +1089,7 @@ $(document).ready(function() {
 
         $('.overlay').removeClass('hidden');
         $('.source').removeClass('hidden')
-            .find('.source-html').val('<div class="' + spinnerName +'"></div>').end()
+            .find('.source-html').val($('.' + spinnerName)[0].outerHTML).end()
             .find('.source-css').val(spinnerData.source).scrollTop(0);
     });
 
@@ -1103,7 +1103,7 @@ $(document).ready(function() {
     <header>
         <div class="content">
             <div class="title">Single element CSS spinners</div>
-            <a class="github-button" href="https://github.com/0xD34F/spinners" target="_blank">View on GitHub</a>
+            <a class="github-button" href="https://github.com/0xD34F/spinners" target="_blank" title="View on GitHub"></a>
         </div>
     </header>
     <main>
