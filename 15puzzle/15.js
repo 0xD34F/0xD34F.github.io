@@ -88,6 +88,13 @@ var puzzle = {
         puzzle.gameStarted = false;
         puzzle.endGameMessage(true);
     },
+    restartBlink: function() {
+        var restart = document.getElementById('restart');
+        restart.classList.add('border-blink');
+        setTimeout(function() {
+            restart.classList.remove('border-blink');
+        }, 1000);
+    },
     isSolved: function() {
         var currentSolution = puzzle.tiles.map(function(n) {
             return n ? n.tileData : null;
@@ -171,11 +178,7 @@ window.onload = function() {
                 puzzle.makeStep(t, puzzle.emptyCoord - 4) ||
                 puzzle.makeStep(t, puzzle.emptyCoord + 4);
             } else {
-                var restart = document.getElementById('restart');
-                restart.classList.add('border-blink');
-                setTimeout(function() {
-                    restart.classList.remove('border-blink');
-                }, 1000);
+                puzzle.restartBlink();
             }
         }
     };
@@ -198,5 +201,7 @@ window.onkeydown = function(e) {
         }
 
         puzzle.makeStep(puzzle.tiles[coord], coord);
+    } else {
+        puzzle.restartBlink();
     }
 };
