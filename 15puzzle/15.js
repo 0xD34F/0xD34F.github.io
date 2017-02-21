@@ -6,11 +6,6 @@ function getRandomInt(max, min) {
 
 var puzzle = {
     tiles: [],
-    solutions: [
-        [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, null ],
-        [ null, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ],
-        [ 13, 9, 5, 1, 14, 10, 6, 2, 15, 11, 7, 3, null, 12, 8, 4 ]
-    ],
     gameStarted: false,
     gamePane: null,
     setTileCoord: function(t, x, y) {
@@ -47,15 +42,30 @@ var puzzle = {
         puzzle.endGameMessage(false);
         puzzle.gameStarted = true;
 
-        var tiles = [ null ];
+        var tileIndexesSorted = [ null ];
         for (var i = 1; i < 16; i++) {
-            tiles.push(i);
+            tileIndexesSorted.push(i);
+        }
+        tileIndexesRandom = [];
+        for (i = 0; i < 16; i++) {
+            tileIndexesRandom.push(tileIndexesSorted.splice(getRandomInt(tileIndexesSorted.length), 1)[0]);
+        }
+
+        if (!puzzle.solution.exists(tileIndexesRandom)) {
+            var empty01 = tileIndexesRandom[0] === null || tileIndexesRandom[1] === null,
+                p = empty01 ? 14 : 0,
+                q = empty01 ? 15 : 1,
+                t = tileIndexesRandom[p];
+
+            tileIndexesRandom[p] = tileIndexesRandom[q];
+            tileIndexesRandom[q] = t;
+        } else {
         }
 
         var data = [];
         for (i = 0; i < 16; i++) {
             data.push({
-                tile: puzzle.getTileByIndex(tiles.splice(getRandomInt(tiles.length), 1)[0]),
+                tile: puzzle.getTileByIndex(tileIndexesRandom[i]),
                 coord: i
             })
         }
@@ -95,24 +105,48 @@ var puzzle = {
             restart.classList.remove('border-blink');
         }, 1000);
     },
-    isSolved: function() {
-        var currentSolution = puzzle.tiles.map(function(n) {
-            return n ? n.tileData : null;
-        });
-
-nextSolution:
-        for (var i = 0; i < puzzle.solutions.length; i++) {
-            var s = puzzle.solutions[i];
-            for (var j = 0; j < s.length; j++) {
-                if (s[j] !== currentSolution[j]) {
-                    continue nextSolution;
+    solution: {
+        combinations: [
+            [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, null ]
+        ],
+        exists: function(tiles) {
+            var controlSum = 0;
+            for (i = 0; i < 16; i++) {
+                var n = tiles[i];
+                if (n === null) {
+                    controlSum += 1 + Math.floor(i / 4);
+                } else {
+                    var k = 0;
+                    for (var j = i + 1; j < 16; j++) {
+                        var m = tiles[j];
+                        if (m !== null && m < n) {
+                            controlSum++;
+                        }
+                    }
                 }
             }
 
-            return true;
-        }
+            return !(controlSum % 2);
+        },
+        found: function() {
+            var currentSolution = puzzle.tiles.map(function(n) {
+                return n ? n.tileData : null;
+            });
 
-        return false;
+nextSolution:
+            for (var i = 0; i < puzzle.solution.combinations.length; i++) {
+                var s = puzzle.solution.combinations[i];
+                for (var j = 0; j < s.length; j++) {
+                    if (s[j] !== currentSolution[j]) {
+                        continue nextSolution;
+                    }
+                }
+
+                return true;
+            }
+
+            return false;
+        }
     },
     moveTiles: function(data, slow) {
         if (slow) {
@@ -145,7 +179,7 @@ nextSolution:
             coord: coord
         } ]);
 
-        if (puzzle.isSolved()) {
+        if (puzzle.solution.found()) {
             puzzle.endGame();
         }
 
@@ -160,9 +194,9 @@ window.onload = function() {
 
     document.getElementById('solve').onclick = function(e) {
         puzzle.gameStarted = false;
-        puzzle.moveTiles(puzzle.tiles.map(function(n, i) {
+        puzzle.moveTiles(puzzle.solution.combinations[0].map(function(n, i) {
             return {
-                tile: puzzle.getTileByIndex(i + 1),
+                tile: puzzle.getTileByIndex(n),
                 coord: i
             };
         }), true);
