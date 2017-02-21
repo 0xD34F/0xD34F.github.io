@@ -652,6 +652,46 @@ var spinners = {
     }\n\
 }'
     },
+    'spinner-17': {
+        source:
+'.spinner-17 {\n\
+    font-size: 8px;\n\
+    width: 10em;\n\
+    height: 10em;\n\
+    position: relative;\n\
+    animation: spinner-17 .9s infinite linear;\n\
+}\n\
+.spinner-17::before,\n\
+.spinner-17::after {\n\
+    content: "";\n\
+    position: absolute;\n\
+}\n\
+.spinner-17::before {\n\
+    width: 10em;\n\
+    height: 5em;\n\
+    left: 0;\n\
+    top: 0;\n\
+    background: linear-gradient(45deg, transparent, transparent 1.5em, transparent 1.5em, black 6em, black 6em, black);\n\
+    border-radius: 5em 5em 0 0;\n\
+}\n\
+.spinner-17::after {\n\
+    animation-delay: -.5s;\n\
+    width: 7em;\n\
+    height: 3.5em;\n\
+    left: 1.5em;\n\
+    top: 1.5em;\n\
+    background-color: white;\n\
+    border-radius: 3.5em 3.5em 0 0;\n\
+}\n\
+@keyframes spinner-17 {\n\
+    0% {\n\
+        transform: rotate(0deg);\n\
+    }\n\
+    100% {\n\
+        transform: rotate(360deg);\n\
+    }\n\
+}'
+    },
     'spinner-heart': {
         title: 'heart beating',
         source:
@@ -1066,7 +1106,7 @@ $(document).ready(function() {
     $('main > .content').append([
         'spinner-1', 'spinner-2', 'spinner-3', 'spinner-4', 'spinner-5',
         'spinner-6', 'spinner-7', 'spinner-8', 'spinner-9', 'spinner-11',
-        'spinner-12', 'spinner-13', 'spinner-14', 'spinner-15', 'spinner-16',
+        'spinner-12', 'spinner-17', 'spinner-13', 'spinner-14', 'spinner-16',
         'spinner-wi-fi', 'spinner-heart', 'spinner-hydrogen',
         'spinner-yin-yang', 'spinner-clock', 'spinner-counter',
         'spinner-zebra', 'spinner-collisions', 'spinner-glider'
