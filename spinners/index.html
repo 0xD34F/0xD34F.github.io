@@ -324,14 +324,32 @@ var spinners = {
         source:
 '.spinner-10 {\n\
     font-size: 8px;\n\
-    border: 1.5em solid transparent;\n\
+    border: 1.5em solid black;\n\
     border-radius: 50%;\n\
-    border-right-color: black;\n\
-    border-left-color: black;\n\
+    border-top-color: transparent;\n\
     box-sizing: border-box;\n\
     width: 10em;\n\
     height: 10em;\n\
+    position: relative;\n\
     animation: spinner-10 1s infinite linear;\n\
+}\n\
+.spinner-10::before,\n\
+.spinner-10::after {\n\
+    content: "";\n\
+    position: absolute;\n\
+    border-radius: 50%;\n\
+    background-color: black;\n\
+    width: 1.5em;\n\
+    height: 1.5em;\n\
+    left: 2.75em;\n\
+    top: -1.5em;\n\
+    transform-origin: .75em 5em;\n\
+}\n\
+.spinner-10::before {\n\
+    transform: rotate(-45deg);\n\
+}\n\
+.spinner-10::after {\n\
+    transform: rotate(45deg);\n\
 }\n\
 @keyframes spinner-10 {\n\
     0% {\n\
