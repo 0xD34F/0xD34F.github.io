@@ -1147,8 +1147,8 @@ $(document).ready(function() {
 
         $('.overlay').removeClass('hidden');
         $('.source').removeClass('hidden')
-            .find('.source-html').val($('.' + spinnerName)[0].outerHTML).end()
-            .find('.source-css').val(spinnerData.source).scrollTop(0);
+            .find('.source-html').text($('.' + spinnerName)[0].outerHTML).end()
+            .find('.source-css').html('<pre>' + spinnerData.source + '</pre>').scrollTop(0);
     });
 
     $('.overlay').click(function() {
@@ -1168,8 +1168,8 @@ $(document).ready(function() {
         <div class="content"></div>
         <div class="overlay hidden"></div>
         <div class="source hidden">
-            <textarea readonly="readonly" class="source-html"></textarea>
-            <textarea readonly="readonly" class="source-css"></textarea>
+            <div class="source-html"></div>
+            <div class="source-css"></div>
         </div>
     </main>
 </body>

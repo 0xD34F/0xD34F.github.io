@@ -80,37 +80,37 @@ table {
     top: 15%;
     left: 15%;
 }
-.source textarea {
+.source div {
     width: 100%;
     resize: none;
     padding: 1em;
     font-family: monospace;
     box-sizing: border-box;
     display: block;
+    overflow: auto;
     outline: 0;
     border: 0;
 }
-.source textarea.source-html {
+.source div.source-html {
     height: 50px;
     border-bottom: 1px solid #DDD;
 }
-.source textarea.source-css {
+.source div.source-css {
     height: calc(100% - 50px);
 }
-.source::before,
-.source::after {
+.source div::before {
     position: absolute;
+    top: 10px;
     right: 20px;
     background-color: #DDD;
     color: #FFF;
     padding: 3px;
     font-family: sans-serif;
 }
-.source::before {
+.source div.source-html::before {
     content: "HTML";
-    top: 10px;
 }
-.source::after {
+.source div.source-css::before {
     content: "CSS";
     top: 60px;
 }
