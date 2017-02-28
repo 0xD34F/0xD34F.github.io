@@ -1,16 +1,21 @@
-function getRandomInt(max, min) {
+﻿function getRandomInt(max, min) {
     min = min || 0;
 
     return Math.floor(Math.random() * (max - min)) + min;
 }
 
 var puzzle = {
+/*
+ *  плитки хранятся в одномерном массиве, координаты на плоскости определяются следующим образом:
+ *      номер столбца = позиция плитки в массиве % 4
+ *      номер строки = floor(позиция плитки в массиве / 4)
+ */
     tiles: [],
     gameStarted: false,
     gamePane: null,
-    setTileCoord: function(t, x, y) {
-        t.style.left = 100 * x + 'px';
-        t.style.top = 100 * y + 'px';
+    setTileCoord: function(t, tileIndex) {
+        t.style.left = 100 * (tileIndex % 4) + 'px';
+        t.style.top = 100 * Math.floor(tileIndex / 4) + 'px';
     },
     initGamePane: function() {
         for (var i = 0; i < 15; i++) {
@@ -18,7 +23,7 @@ var puzzle = {
             t.classList.add('tile');
             t.innerHTML = '' + (i + 1);
             t.tileData = (i + 1);
-            puzzle.setTileCoord(t, i % 4, Math.floor(i / 4));
+            puzzle.setTileCoord(t, i);
 
             puzzle.gamePane.appendChild(t);
             puzzle.tiles.push(t);
@@ -51,6 +56,7 @@ var puzzle = {
             tileIndexesRandom.push(tileIndexesSorted.splice(getRandomInt(tileIndexesSorted.length), 1)[0]);
         }
 
+        // чтобы нерешаемую расстановку превратить в решаемую, необходимо поменять местами любые две соседних панели
         if (!puzzle.solution.exists(tileIndexesRandom)) {
             var empty01 = tileIndexesRandom[0] === null || tileIndexesRandom[1] === null,
                 p = empty01 ? 14 : 0,
@@ -59,7 +65,6 @@ var puzzle = {
 
             tileIndexesRandom[p] = tileIndexesRandom[q];
             tileIndexesRandom[q] = t;
-        } else {
         }
 
         var data = [];
@@ -162,7 +167,7 @@ nextSolution:
             if (n.tile === null) {
                 puzzle.emptyCoord = n.coord;
             } else {
-                puzzle.setTileCoord(n.tile, n.coord % 4, Math.floor(n.coord / 4));
+                puzzle.setTileCoord(n.tile, n.coord);
             }
         });
     },
@@ -226,10 +231,10 @@ window.onkeydown = function(e) {
         var coord = puzzle.emptyCoord;
 
         switch (e.which) {
-            case 37: coord += 1; break;
-            case 38: coord += 4; break;
-            case 39: coord -= 1; break;
-            case 40: coord -= 4; break;
+            case 37: coord += 1; break; // RIGHT
+            case 38: coord += 4; break; // DOWN
+            case 39: coord -= 1; break; // LEFT
+            case 40: coord -= 4; break; // UP
 
             default: return;
         }
