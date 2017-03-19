@@ -54,7 +54,7 @@ a {
 header {
     background-color: #BBF;
     padding: 2em 0;
-    border-bottom: 5px solid #88F;
+    border-bottom: 3px solid #88F;
 }
 
 .content {
@@ -62,20 +62,19 @@ header {
     width: 100%;
 }
 
-.content > a.title {
-    font-family: "Lucida Console", monospace;
-    font-size: 2em;
+.content > .title {
+    font-family: sans-serif;
+    font-size: 32px;
     padding-left: .5em;
 }
-
-@media (min-width: 900px) {
-    .content {
-        width: 900px;
-    }
+.content > .title > img {
+    vertical-align: bottom;
+    padding-right: 4px;
 }
 
 .projects {
     margin: 3em auto;
+    width: 100%;
     font-family: sans-serif;
 }
 
@@ -100,4 +99,15 @@ header {
 .project-subtitle {
     font-size: .9em;
     display: block;
+}
+
+@media (min-width: 900px) {
+    .content {
+        width: 900px;
+    }
+}
+@media (min-width: 500px) {
+    .projects {
+        width: calc(100% - 2em);
+    }
 }
