@@ -63,8 +63,8 @@ header {
 }
 
 .content > a.title {
-    font-family: monospace;
-    font-size: 3em;
+    font-family: "Lucida Console", monospace;
+    font-size: 2em;
     padding-left: .5em;
 }
 
