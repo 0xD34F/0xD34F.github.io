@@ -158,7 +158,7 @@
             nv.utils.windowResize(updateCharts);
 
             for (var i in sortTest.sorts) {
-                sorts.innerHTML += '<div class="sort-checkbox"><span>' + i + '</span><input sort-name="' + i + '" type="checkbox" checked></div>';
+                sorts.innerHTML += '<label class="sort-checkbox">' + i + '<input sort-name="' + i + '" type="checkbox" checked></label>';
             }
         },
         run: function(testParams) {
