@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Color names</title>
+    <link rel="stylesheet" type="text/css" media="screen" href="../links.css">
+    <link rel="stylesheet" type="text/css" media="screen" href="main.css">
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+    <script src="color-names.js"></script>
+    <script src="main.js"></script>
+</head>
+<body>
+    <a class="link projects" href="../index.html">More projects</a>
+    <div class="content">
+        <div class="title">Color names</div>
+        <div class="color-editor">
+            <input type="range" class="color-intensity" min="0" max="255" color-part="2"><div class="color-marker"></div>
+            <input type="range" class="color-intensity" min="0" max="255" color-part="1"><div class="color-marker"></div>
+            <input type="range" class="color-intensity" min="0" max="255" color-part="0"><div class="color-marker"></div>
+        </div>
+        <div class="color-sample-wrapper">
+            <div class="color-sample-label"></div>
+            <div class="color-sample" id="original"></div>
+        </div>
+        <div class="color-sample-wrapper">
+            <div class="color-sample-label"></div>
+            <div class="color-sample" id="detected"></div>
+        </div>
+    </div>
+</body>
+</html>
