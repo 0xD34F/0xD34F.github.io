@@ -95,6 +95,13 @@ body {
 #controls {
     height: 100px;
 }
+#endGameMessage {
+    width: 230px;
+    left: 75px;
+    top: 150px;
+    position: absolute;
+    z-index: 1000;
+}
 
 .tile {
     margin: 5px;
@@ -114,6 +121,7 @@ body {
     background-color: sienna;
     border-radius: 10px;
     box-sizing: content-box;
+    z-index: 100;
 }
 
 #gamePane {
@@ -140,6 +148,10 @@ body {
     to {
         color: orange;
     }	
+}
+
+.hidden {
+    display: none;
 }
 
 .link {

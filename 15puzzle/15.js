@@ -76,29 +76,9 @@ var puzzle = {
         }
         puzzle.moveTiles(data, true);
     },
-    endGameMessage: (function() {
-        var t = document.createElement('div');
-        t.classList.add('tile', 'control');
-        t.style.width = '230px';
-        t.style.left = '75px';
-        t.style.top = '150px';
-        t.style.position = 'absolute';
-        t.innerHTML = 'DONE!';
-
-        return function(show) {
-            if (show) {
-                puzzle.gamePane.appendChild(t);
-            } else {
-                var c = puzzle.gamePane.childNodes;
-                for (var i = 0; i < c.length; i++) {
-                    if (c[i] === t) {
-                        puzzle.gamePane.removeChild(t);
-                        break;
-                    }
-                }
-            }
-        };
-    })(),
+    endGameMessage: function(show) {
+        document.getElementById('endGameMessage').classList[show ? 'remove' : 'add']('hidden');
+    },
     endGame: function() {
         puzzle.gameStarted = false;
         puzzle.endGameMessage(true);
