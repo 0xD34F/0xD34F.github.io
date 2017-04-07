@@ -147,6 +147,9 @@ html {
     }
 }
 @media (max-width: 550px) {
+    .title {
+        padding-left: 10px;
+    }
     .content  {
         width: 100%;
     }
