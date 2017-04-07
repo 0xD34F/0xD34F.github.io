@@ -1,0 +1,38 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Сумма прописью</title>
+    <link rel="stylesheet" type="text/css" media="screen" href="../links.css">
+    <link rel="stylesheet" type="text/css" media="screen" href="main.css">
+
+    <script src="amount-in-words.js"></script>
+    <script>
+window.onload = function() {
+    var valueElem = document.getElementById('value');
+
+    valueElem.onchange = valueElem.onkeyup = function() {
+        setTimeout(function() {
+            document.getElementById('text').value = amountInWords(valueElem.value) || 'null';
+        }, 0);
+    };
+
+    valueElem.value = (Math.random() * 100000).toFixed(2);
+    valueElem.onchange();
+};
+    </script>
+</head>
+<body>
+    <a class="link projects" href="../index.html">More projects</a>
+    <a class="link github" href="https://github.com/0xD34F/amount-in-words">View on Github</a>
+    <div class="content">
+        <div class="flexible">
+            <div class="range-limit">0&nbsp;&lt;=</div>
+            <input id="value">
+            <div class="range-limit">&lt;&nbsp;10<span class="sup">15</span></div>
+        </div>
+        <div>
+            <textarea id="text"></textarea>
+        </div>
+    </div>
+</body>
+</html>
