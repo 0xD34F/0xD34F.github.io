@@ -1,0 +1,44 @@
+﻿window.onload = function() {
+    var textElem = document.getElementById('text'),
+        frequencyElem = document.getElementById('frequency'),
+        speedElem = document.getElementById('speed'),
+        playElem = document.getElementById('play');
+
+    textElem.value = 'Hello, world!';
+    frequencyElem.value = 800;
+    speedElem.value = 12;
+
+    frequencyElem.onchange = function() {
+        Morse.frequency = this.value;
+        document.getElementById('frequencyValue').innerHTML = this.value;
+    };
+    frequencyElem.onchange();
+
+    speedElem.onchange = function() {
+        Morse.timeUnit = 1200 / this.value;
+        document.getElementById('speedValue').innerHTML = this.value;
+    };
+    speedElem.onchange();
+
+    textElem.onchange = textElem.onkeyup = function() {
+        setTimeout(function() {
+            document.getElementById('value').value = Morse.encode(textElem.value);
+        }, 0);
+    };
+    textElem.onchange();
+
+    playElem.onclick = function() {
+        if (Morse.isPlaying()) {
+            Morse.stop();
+        } else {
+            Morse.play(textElem.value);
+        }
+    };
+
+    document.addEventListener('morse-signal-on', function() {
+        playElem.innerHTML = 'Stop';
+    });
+    document.addEventListener('morse-signal-off', function() {
+        playElem.innerHTML = 'Play';
+    });
+};

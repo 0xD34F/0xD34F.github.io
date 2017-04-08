@@ -1,0 +1,38 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Morse</title>
+    <link rel="stylesheet" type="text/css" media="screen" href="../links.css">
+    <link rel="stylesheet" type="text/css" media="screen" href="main.css">
+
+    <script src="morse.js"></script>
+    <script src="main.js"></script>
+</head>
+<body>
+    <a class="link projects" href="../index.html">More projects</a>
+    <a class="link github" href="https://github.com/0xD34F/morse">View on Github</a>
+    <div class="content">
+        <div>
+            <input id="text">
+        </div>
+        <div>
+            <button id="play">Play</button>
+            <div class="property">
+                <span class="property-title">Frequency:</span>
+                <input class="property-range" type="range" id="frequency" min="100" max="2000" step="10">
+                <span class="property-value" id="frequencyValue"></span>
+                <span class="property-unit">Hz</span>
+            </div>
+            <div class="property">
+                <span class="property-title">Speed:</span>
+                <input class="property-range" type="range" id="speed" min="2" max="30" step="1">
+                <span class="property-value" id="speedValue"></span>
+                <span class="property-unit">wpm</span>
+            </div>
+        </div>
+        <div>
+            <textarea id="value" readonly="readonly"></textarea>
+        </div>
+    </div>
+</body>
+</html>
