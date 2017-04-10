@@ -76,6 +76,11 @@ html, body, .content {
     width: 100%;
 }
 
+.content.error {
+    font-size: 20px;
+    color: red;
+}
+
 #play {
     font-size: 16px;
 }
