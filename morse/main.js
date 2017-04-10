@@ -22,7 +22,7 @@
     frequencyElem.onchange();
 
     speedElem.onchange = function() {
-        Morse.timeUnit = 1200 / this.value;
+        Morse.WPM = this.value;
         document.getElementById('speedValue').innerHTML = this.value;
     };
     speedElem.onchange();
