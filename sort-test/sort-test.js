@@ -173,7 +173,7 @@
                 };
 
                 worker.postMessage(test);
-                document.dispatchEvent(new CustomEvent('sort-test-started', {
+                window.dispatchEvent(new CustomEvent('sort-test-started', {
                     detail: test
                 }));
             }
@@ -182,7 +182,7 @@
             if (currentTest) {
                 worker.terminate();
                 worker = null;
-                document.dispatchEvent(new CustomEvent('sort-test-ended', {
+                window.dispatchEvent(new CustomEvent('sort-test-ended', {
                     detail: {
                         id: currentTest
                     }
@@ -292,7 +292,7 @@ window.onload = function() {
         }
     };
 
-    document.addEventListener('sort-test-started', function() {
+    window.addEventListener('sort-test-started', function() {
         var errors = document.getElementById('errors');
         errors.classList.add('hidden');
         errors.innerHTML = '';
@@ -300,7 +300,7 @@ window.onload = function() {
         document.getElementById('runTest').innerHTML = 'Stop test';
     });
 
-    document.addEventListener('sort-test-ended', function() {
+    window.addEventListener('sort-test-ended', function() {
         document.getElementById('runTest').innerHTML = 'Run test';
     });
 };
