@@ -56,7 +56,7 @@ input::-ms-clear {
 
 html, body, .content {
     height: 100%;
-    min-height: 600px;
+    min-height: 400px;
 }
 
 .content {
@@ -95,11 +95,13 @@ html, body, .content {
 
 #text {
     text-align: center;
+    margin-top: 40px;
 }
 
 #value {
-    height: 300px;
+    flex-grow: 1;
     resize: none;
+    margin-bottom: 10px;
 }
 
 .property {

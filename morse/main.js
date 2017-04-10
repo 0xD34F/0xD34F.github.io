@@ -11,7 +11,7 @@
         speedElem = document.getElementById('speed'),
         playElem = document.getElementById('play');
 
-    textElem.value = 'Hello, world!';
+    textElem.value = 'Morse code';
     frequencyElem.value = 800;
     speedElem.value = 12;
 
