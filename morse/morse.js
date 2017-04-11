@@ -191,7 +191,7 @@
 
         var a = document.createElement('a');
         a.href = audioData;
-        a.download = o.filename || (o.message + '.wav');
+        a.download = (o.fileName || o.message) + '.wav';
         document.body.appendChild(a);
         a.click();
         setTimeout(function() {
