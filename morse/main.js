@@ -9,7 +9,8 @@
     var textElem = document.getElementById('text'),
         frequencyElem = document.getElementById('frequency'),
         speedElem = document.getElementById('speed'),
-        playElem = document.getElementById('play');
+        playElem = document.getElementById('play'),
+        downloadElem = document.getElementById('download');
 
     textElem.value = 'Morse code';
     frequencyElem.value = Morse.frequency;
@@ -41,6 +42,12 @@
             Morse.play(textElem.value);
         }
     };
+
+    downloadElem.onclick = function() {
+        Morse.download({
+            message: textElem.value
+        });
+    }
 
     document.addEventListener('morse-signal-on', function() {
         playElem.innerHTML = 'Stop';
