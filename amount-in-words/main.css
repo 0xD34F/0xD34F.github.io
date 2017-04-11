@@ -111,7 +111,7 @@ html, body, .content {
     margin-bottom: 10px;
 }
 
-@media (max-width: 400px) {
+@media (max-width: 600px) {
     .flexible {
         display: block;
     }
@@ -127,7 +127,6 @@ html, body, .content {
 
     .range-limit:nth-of-type(1) {
         float: left;
-        margin-top: 30px;
     }
     .range-limit:nth-of-type(2) {
         float: right;

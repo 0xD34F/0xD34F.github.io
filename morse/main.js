@@ -12,8 +12,8 @@
         playElem = document.getElementById('play');
 
     textElem.value = 'Morse code';
-    frequencyElem.value = 800;
-    speedElem.value = 12;
+    frequencyElem.value = Morse.frequency;
+    speedElem.value = Morse.WPM;
 
     frequencyElem.onchange = function() {
         Morse.frequency = this.value;
