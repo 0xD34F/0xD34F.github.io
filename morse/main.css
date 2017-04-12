@@ -112,9 +112,7 @@ button {
 
 .property {
     display: flex;
-    padding: 10px 0;
-    vertical-align: middle;
-    line-height: 2;
+    padding: 15px 0 10px 0;
 }
 
 .property-range {
