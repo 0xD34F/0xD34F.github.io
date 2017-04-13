@@ -8,13 +8,15 @@
 
     var textElem = document.getElementById('text'),
         frequencyElem = document.getElementById('frequency'),
-        speedElem = document.getElementById('speed'),
+        speedWPMElem = document.getElementById('speedWPM'),
+        speedTimeUnitElem = document.getElementById('speedTimeUnit'),
         playElem = document.getElementById('play'),
         downloadElem = document.getElementById('download');
 
     textElem.value = 'Morse code';
     frequencyElem.value = Morse.frequency;
-    speedElem.value = Morse.WPM;
+    speedWPMElem.value = Morse.WPM;
+    speedTimeUnitElem.value = Morse.timeUnit;
 
     frequencyElem.onchange = function() {
         Morse.frequency = this.value;
@@ -22,11 +24,27 @@
     };
     frequencyElem.onchange();
 
-    speedElem.onchange = function() {
+    speedWPMElem.onchange = function(e) {
         Morse.WPM = this.value;
-        document.getElementById('speedValue').innerHTML = this.value;
+        document.getElementById('speedWPMValue').innerHTML = this.value;
+
+        if (Morse.timeUnit != speedTimeUnitElem.value && e) {
+            speedTimeUnitElem.value = Morse.timeUnit;
+            speedTimeUnitElem.onchange();
+        }
     };
-    speedElem.onchange();
+    speedWPMElem.onchange();
+
+    speedTimeUnitElem.onchange = function(e) {
+        Morse.timeUnit = this.value;
+        document.getElementById('speedTimeUnitValue').innerHTML = this.value;
+
+        if (Morse.WPM != speedWPMElem.value && e) {
+            speedWPMElem.value = Morse.WPM;
+            speedWPMElem.onchange();
+        }
+    };
+    speedTimeUnitElem.onchange();
 
     textElem.onchange = textElem.onkeyup = function() {
         setTimeout(function() {
