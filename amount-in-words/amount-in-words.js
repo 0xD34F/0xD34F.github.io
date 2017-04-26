@@ -1,6 +1,6 @@
 ﻿var amountInWords = (function() {
-    // квадриллионы и дальше - не обрабатываем
-    var MAX_AMOUNT = Math.pow(10, 15);
+    // секстиллион и дальше - не обрабатываем
+    var INTEGER_PART_MAX_LENGTH = 20;
 
     var zero = 'ноль';
 
@@ -18,6 +18,8 @@
         [ 'миллион',  'миллиона',  'миллионов' ],
         [ 'миллиард', 'миллиарда', 'миллиардов' ],
         [ 'триллион', 'триллиона', 'триллионов' ],
+        [ 'квадриллион', 'квадриллиона', 'квадриллионов' ],
+        [ 'квинтиллион', 'квинтиллиона', 'квинтиллионов' ]
     ];
     var defaultWordFix = {
         1: true
@@ -31,14 +33,14 @@
     var numberToWords = function(value, wordFix) {
         wordFix = wordFix || defaultWordFix;
 
-        if (value === 0) {
+        if (+value === 0) {
             return zero;
         }
 
         var words = [];
 
-        for (var i = 0; value; i++, value = Math.floor(value / 1000)) {
-            var t = value % 1000,
+        for (var i = 0; value; i++, value = value.slice(0, -3)) {
+            var t = +value.slice(-3),
                 s = [];
 
             if (t === 0) {
@@ -70,7 +72,7 @@
     };
 
     var detectDeclension = function(value) {
-        value = value % 100;
+        value = +value.slice(-2);
 
         // 1, 21, 31, ...
         if (value !== 11 && value % 10 === 1) {
@@ -86,15 +88,28 @@
     };
 
     return function(amount) {
-        amount = +(+amount).toFixed(2);
-
-        if (isNaN(amount) || amount < 0 || amount >= MAX_AMOUNT) {
+        var t = ('' + amount);
+        if (!/^\d*\.?\d+$/.test(t)) {
             return null;
         }
 
-        var integerPart = Math.floor(amount),
-            fractionalPart = Math.round(100 * (amount - integerPart)),
-            integerPartInWords = numberToWords(integerPart),
+        t = t.split('.');
+        if (t[0].length > INTEGER_PART_MAX_LENGTH) {
+            return null;
+        } else if (t.length === 1) {
+            t.push('00');
+        }
+
+        var integerPart = t[0],
+            fractionalPart = t[1];
+
+        if (fractionalPart.length > 2) {
+            fractionalPart = '' + Math.round(+fractionalPart.slice(0, 3) / 10);
+        } else if (fractionalPart.length === 1) {
+            fractionalPart = fractionalPart + '0';
+        }
+
+        var integerPartInWords = numberToWords(integerPart),
             fractionalPartInWords = numberToWords(fractionalPart, { 0: true });
 
         return [
