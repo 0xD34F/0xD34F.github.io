@@ -1,6 +1,6 @@
 ﻿var amountInWords = (function() {
     // секстиллион и дальше - не обрабатываем
-    var INTEGER_PART_MAX_LENGTH = 20;
+    var INTEGER_PART_MAX_LENGTH = 21;
 
     var zero = 'ноль';
 
