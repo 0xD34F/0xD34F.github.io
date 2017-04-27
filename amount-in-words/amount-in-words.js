@@ -1,7 +1,4 @@
 ﻿var amountInWords = (function() {
-    // секстиллион и дальше - не обрабатываем
-    var INTEGER_PART_MAX_LENGTH = 21;
-
     var zero = 'ноль';
 
     var from0to9 = [
@@ -29,6 +26,9 @@
         [ 'копейка', 'копейки', 'копеек' ],
         [ 'рубль',   'рубля',   'рублей' ]
     ];
+
+    // обрабатываются только числа, для которых заданы наименования
+    var INTEGER_PART_MAX_LENGTH = 3 * powers.length;
 
     var numberToWords = function(value, wordFix) {
         wordFix = wordFix || defaultWordFix;
@@ -104,7 +104,7 @@
             fractionalPart = t[1];
 
         if (fractionalPart.length > 2) {
-            fractionalPart = '' + Math.round(+fractionalPart.slice(0, 3) / 10);
+            fractionalPart = fractionalPart.slice(0, 2);
         } else if (fractionalPart.length === 1) {
             fractionalPart = fractionalPart + '0';
         }
