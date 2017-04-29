@@ -88,6 +88,9 @@
             comb: {
                 color: '#1fef2b'
             },
+            counting: {
+                color: '#f81cff'
+            },
             heap: {
                 color: '#f33c2e'
             },
@@ -173,7 +176,7 @@
                 };
 
                 worker.postMessage(test);
-                window.dispatchEvent(new CustomEvent('sort-test-started', {
+                document.dispatchEvent(new CustomEvent('sort-test-started', {
                     detail: test
                 }));
             }
@@ -182,7 +185,7 @@
             if (currentTest) {
                 worker.terminate();
                 worker = null;
-                window.dispatchEvent(new CustomEvent('sort-test-ended', {
+                document.dispatchEvent(new CustomEvent('sort-test-ended', {
                     detail: {
                         id: currentTest
                     }
@@ -292,7 +295,7 @@ window.onload = function() {
         }
     };
 
-    window.addEventListener('sort-test-started', function() {
+    document.addEventListener('sort-test-started', function() {
         var errors = document.getElementById('errors');
         errors.classList.add('hidden');
         errors.innerHTML = '';
@@ -300,7 +303,7 @@ window.onload = function() {
         document.getElementById('runTest').innerHTML = 'Stop test';
     });
 
-    window.addEventListener('sort-test-ended', function() {
+    document.addEventListener('sort-test-ended', function() {
         document.getElementById('runTest').innerHTML = 'Run test';
     });
 };
