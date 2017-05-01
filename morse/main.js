@@ -1,17 +1,15 @@
 ﻿window.onload = function() {
-    if (!window.AudioContext) {
-        var t = document.getElementsByClassName('content')[0];
-        t.classList.add('error');
-        t.innerHTML = 'AudioContext not supported';
-        return;
-    }
-
     var textElem = document.getElementById('text'),
         frequencyElem = document.getElementById('frequency'),
         speedWPMElem = document.getElementById('speedWPM'),
         speedTimeUnitElem = document.getElementById('speedTimeUnit'),
         playElem = document.getElementById('play'),
         downloadElem = document.getElementById('download');
+
+    if (!Morse.hasOwnProperty('play')) {
+        playElem.disabled = true;
+        playElem.setAttribute('title', 'AudioContext is not supported');
+    }
 
     textElem.value = 'Morse code';
     frequencyElem.value = Morse.frequency;
