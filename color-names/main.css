@@ -67,6 +67,7 @@ html {
     width: calc(100% - 75px);
     height: 24px;
     margin: 0;
+    padding: 0;
 }
 .color-marker {
     width: 45px;
