@@ -1004,6 +1004,7 @@ var spinners = {
     width: 11em;\n\
     height: 11em;\n\
     border: .5em solid black;\n\
+    background-color: white;\n\
     position: relative;\n\
     overflow: hidden;\n\
 }\n\
@@ -1013,16 +1014,16 @@ var spinners = {
     position: absolute;\n\
 }\n\
 .spinner-glider::before {\n\
-    width: 14em;\n\
-    height: 14em;\n\
-    background: repeating-linear-gradient(0deg, black, black 1px, transparent 1px, transparent 2em), repeating-linear-gradient(90deg, black, black 1px, white 1px, white 2em);\n\
-    animation: spinner-glider-grid .4s infinite linear;\n\
-}\n\
-.spinner-glider::after {\n\
     width: 2em;\n\
     height: 2em;\n\
     background-color: transparent;\n\
     animation: spinner-glider-cells .4s infinite linear, spinner-glider-prime-cell .4s infinite linear;\n\
+}\n\
+.spinner-glider::after {\n\
+    width: 14em;\n\
+    height: 14em;\n\
+    background: repeating-linear-gradient(0deg, #666, #666 1px, transparent 1px, transparent 2em), repeating-linear-gradient(90deg, #666, #666 1px, transparent 1px, transparent 2em);\n\
+    animation: spinner-glider-grid .4s infinite linear;\n\
 }\n\
 @keyframes spinner-glider-grid {\n\
     0% {\n\
