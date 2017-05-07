@@ -6,7 +6,6 @@
     <link rel="stylesheet" type="text/css" media="screen" href="../links.css">
     <link rel="stylesheet" type="text/css" media="screen" href="main.css">
     <link rel="stylesheet" type="text/css" media="screen" href="spinners.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
     <script>
 var spinners = {
     'spinner-1': {
@@ -1122,8 +1121,12 @@ var spinners = {
     }
 };
 
-$(document).ready(function() {
-    $('main > .content').append([
+window.onload = function() {
+    var content = document.querySelector('main > .content'),
+        overlay = document.querySelector('.overlay'),
+        source = document.querySelector('.source');
+
+    content.innerHTML = [
         'spinner-1', 'spinner-2', 'spinner-3', 'spinner-4', 'spinner-5',
         'spinner-6', 'spinner-7', 'spinner-8', 'spinner-9', 'spinner-11',
         'spinner-12', 'spinner-17', 'spinner-13', 'spinner-14', 'spinner-16',
@@ -1132,31 +1135,38 @@ $(document).ready(function() {
         'spinner-zebra', 'spinner-collisions', 'spinner-glider'
      ].map(function(name) {
         var data = spinners[name] || {},
-            $container = $('<div class="spinner-container" data-spinner="' + name + '"><div class="'+ name + '"></div></div>');
+            html = '<div class="' + name + '"></div>';
 
         if (data.title) {
-            $container.prepend($('<div class="spinner-title">' + data.title + '</div>'));
+            html += '<div class="spinner-title">' + data.title + '</div>';
         }
 
         if (data.source) {
-            $container.append($('<div class="spinner-source"></div>'));
+            html += '<div class="spinner-source"></div>';
         }
 
-        return $container;
-    })).on('click', '.spinner-source', function() {
-        var spinnerName = $(this).closest('.spinner-container').attr('data-spinner'),
-            spinnerData = spinners[spinnerName];
+        return '<div class="spinner-container" data-spinner="' + name + '">' + html + '</div>';
+    }).join('');
 
-        $('.overlay').removeClass('hidden');
-        $('.source').removeClass('hidden')
-            .find('.source-html').text($('.' + spinnerName)[0].outerHTML).end()
-            .find('.source-css').html('<pre>' + spinnerData.source + '</pre>').scrollTop(0);
-    });
+    content.onclick = function(e) {
+        if (e.target.classList.contains('spinner-source')) {
+            var spinnerName = e.target.parentNode.getAttribute('data-spinner'),
+                spinnerData = spinners[spinnerName];
 
-    $('.overlay').click(function() {
-        $('.overlay, .source').addClass('hidden');
-    });
-});
+            overlay.classList.remove('hidden');
+            source.classList.remove('hidden');
+            source.querySelector('.source-html').innerText = document.querySelector('.' + spinnerName).outerHTML;
+            source.querySelector('.source-css').innerHTML = '<pre>' + spinnerData.source + '</pre>';
+            source.querySelector('.source-css').scrollLeft = 0;
+            source.querySelector('.source-css').scrollTop = 0;
+        }
+    };
+
+    overlay.onclick = function() {
+        overlay.classList.add('hidden');
+        source.classList.add('hidden');
+    };
+};
     </script>
 </head>
 <body>
