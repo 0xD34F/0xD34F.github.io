@@ -456,12 +456,15 @@ var spinners = {
     background-color: black;\n\
     left: 0em;\n\
     top: 0em;\n\
+    animation-duration: 1s;\n\
+    animation-timing-function: linear;\n\
+    animation-iteration-count: infinite;\n\
 }\n\
 .spinner-13::before {\n\
-    animation: spinner-13-before 1s infinite linear;\n\
+    animation-name: spinner-13-before;\n\
 }\n\
 .spinner-13::after {\n\
-    animation: spinner-13-after 1s infinite linear;\n\
+    animation-name: spinner-13-after;\n\
 }\n\
 @keyframes spinner-13-before {\n\
     0%, 100% {\n\
@@ -1011,18 +1014,21 @@ var spinners = {
 .spinner-glider::after {\n\
     content: "";\n\
     position: absolute;\n\
+    animation-duration: .4s;\n\
+    animation-timing-function: linear;\n\
+    animation-iteration-count: infinite;\n\
 }\n\
 .spinner-glider::before {\n\
     width: 2em;\n\
     height: 2em;\n\
     background-color: transparent;\n\
-    animation: spinner-glider-cells .4s infinite linear, spinner-glider-prime-cell .4s infinite linear;\n\
+    animation-name: spinner-glider-cells, spinner-glider-prime-cell;\n\
 }\n\
 .spinner-glider::after {\n\
     width: 14em;\n\
     height: 14em;\n\
     background: repeating-linear-gradient(0deg, #666, #666 1px, transparent 1px, transparent 2em), repeating-linear-gradient(90deg, #666, #666 1px, transparent 1px, transparent 2em);\n\
-    animation: spinner-glider-grid .4s infinite linear;\n\
+    animation-name: spinner-glider-grid;\n\
 }\n\
 @keyframes spinner-glider-grid {\n\
     0% {\n\
