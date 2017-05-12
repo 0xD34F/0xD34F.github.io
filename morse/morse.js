@@ -238,6 +238,11 @@
             return frequency;
         },
         set frequency(value) {
+            value = +value;
+            if (isNaN(value)) {
+                throw new TypeError("Failed to set 'frequency' property on 'Morse': Invalid value.");
+            }
+
             frequency = value;
             if (oscillator) {
                 oscillator.frequency.value = value;
