@@ -99,6 +99,7 @@ header {
 .project-subtitle {
     font-size: .9em;
     display: block;
+    color: #555;
 }
 
 @media (min-width: 900px) {
