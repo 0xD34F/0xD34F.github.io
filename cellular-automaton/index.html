@@ -1,0 +1,76 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>CA</title>
+    <link rel="stylesheet" type="text/css" media="screen" href="lib/jquery-ui/jquery-ui.min.css">
+    <link rel="stylesheet" type="text/css" media="screen" href="lib/toastr/toastr.min.css">
+    <link rel="stylesheet" type="text/css" media="screen" href="main.css">
+    <link rel="stylesheet" type="text/css" media="screen" href="../links.css">
+
+    <script src="lib/jquery/jquery-3.2.1.min.js"></script>
+    <script src="lib/jquery-ui/jquery-ui.min.js"></script>
+    <script src="lib/toastr/toastr.min.js"></script>
+    <script src="lib/jscolor/jscolor.min.js"></script>
+    <script src="lib/mustache/mustache.min.js"></script>
+    <script src="cellular-automaton.js"></script>
+    <script src="rules.js"></script>
+    <script src="main.js"></script>
+</head>
+<body class="hidden">
+    <div class="links">
+        <a class="link projects" href="../index.html">More projects</a>
+        <a class="link github" href="https://github.com/0xD34F/cellular-automaton">View on Github</a>
+    </div>
+
+    <div class="content">
+        <div class="controls">
+            <button id="start" class="ca-start-hide"><span class="ui-icon ui-icon-play"></span></button>
+            <button id="stop" class="ca-start-show"><span class="ui-icon ui-icon-pause"></span></button>
+            <div id="skip" class="ca-start-disable ui-controlgroup ui-corner-all ui-widget ui-widget-content" title="Skip generations"><input class="ui-spinner-input" maxlength="5"><button><span class="ui-icon ui-icon-seek-next"></span></button></div>
+            <button id="field" data-dialog="ca-field" class="ca-start-disable" title="Cells field settings">Field...</button>
+            <div id="cell-field-mode">
+                <input id="mode-edit" type="radio" name="mode" value="edit"><label for="mode-edit" class="ca-start-disable" title="Edit"><span class="ui-icon ui-icon-pencil"></span></label>
+                <input id="mode-shift" type="radio" name="mode" value="shift"><label for="mode-shift" class="ca-start-disable" title="Shift"><span class="ui-icon ui-icon-arrow-4"></span></label>
+            </div>
+            <button id="brush" data-dialog="ca-brush">Brush...</button>
+            <button id="colors" data-dialog="ca-colors">Colors...</button>
+            <div id="cell-field-data">
+                <button id="fill" data-dialog="ca-filling" class="ca-start-disable" title="Cells field filling">Fill...</button>
+                <button id="clear" class="ca-start-disable" title="Cells field clear">Clear</button>
+            </div>
+            <button id="speed" data-dialog="ca-speed">Speed...</button>
+            <button id="rule" data-dialog="ca-rule" class="ca-start-disable">Rule...</button>
+        </div>
+        <div id="cells-wrapper" class="cells-field-wrapper"></div>
+    </div>
+
+    <div id="ca-rule" title="Rule">
+        <div class="controls">
+            <input id="ca-rule-name" placeholder="enter rule name...">
+            <button id="ca-rule-save" title="Save rule into localStorage"><span class="ui-icon ui-icon-disk"></span></button>
+            <button id="ca-rule-delete" title="Delete rule from localStorage"><span class="ui-icon ui-icon-trash"></span></button>
+        </div>
+        <textarea id="ca-rule-code"></textarea>
+    </div>
+    <div id="ca-brush" title="Brush">
+        <div class="cells-field-wrapper"></div>
+        <div class="ca-state-select"></div>
+    </div>
+    <div id="ca-colors" title="Colors"></div>
+    <div id="ca-filling" title="Cells field filling"></div>
+    <div id="ca-speed" title="Speed">
+        <table class="ca-options-table">
+            <tr><td>Steps per stroke</td><td><input id="steps-per-stroke" type="text" maxlength="3"></td></tr>
+            <tr><td>Stroke duration, ms</td><td><input id="stroke-duration" type="text" maxlength="4"></td></tr>
+        </table>
+    </div>
+    <div id="ca-field" title="Cells field settings">
+        <table class="ca-options-table">
+            <tr><td>Field width</td><td><input id="ca-field-x-size" type="text" maxlength="3"></td></tr>
+            <tr><td>Field height</td><td><input id="ca-field-y-size" type="text" maxlength="3"></td></tr>
+            <tr><td>Cell side</td><td><input id="ca-field-cell-side" type="text" maxlength="2"></td></tr>
+            <tr><td>Cell border width</td><td><input id="ca-field-cell-border" type="text" maxlength="1"></td></tr>
+        </table>
+    </div>
+</body>
+</html>
