@@ -1022,15 +1022,15 @@ var spinners = {
     width: 2em;\n\
     height: 2em;\n\
     background-color: transparent;\n\
-    animation-name: spinner-glider-cells, spinner-glider-prime-cell;\n\
+    animation-name: spinner-glider-shift, spinner-glider-cells;\n\
 }\n\
 .spinner-glider::after {\n\
     width: 14em;\n\
     height: 14em;\n\
     background: repeating-linear-gradient(0deg, #666, #666 1px, transparent 1px, transparent 2em), repeating-linear-gradient(90deg, #666, #666 1px, transparent 1px, transparent 2em);\n\
-    animation-name: spinner-glider-grid;\n\
+    animation-name: spinner-glider-shift;\n\
 }\n\
-@keyframes spinner-glider-grid {\n\
+@keyframes spinner-glider-shift {\n\
     0% {\n\
         left: -1em;\n\
         top: 0em;\n\
@@ -1040,31 +1040,21 @@ var spinners = {
         top: -2em;\n\
     }\n\
 }\n\
-@keyframes spinner-glider-prime-cell {\n\
-    0% {\n\
-        left: 3em;\n\
-        top: 2em;\n\
-    }\n\
-    100% {\n\
-        left: 1em;\n\
-        top: 0em;\n\
-    }\n\
-}\n\
 @keyframes spinner-glider-cells {\n\
     0%, 24% {\n\
-        box-shadow: 2em 0em, 0em 2em transparent, 2em 2em transparent, 4em 2em, 0em 4em, 2em 4em, 4em 4em, 6em 4em transparent, 2em 6em transparent, 4em 6em transparent, 6em 6em transparent;\n\
+        box-shadow: 6em 2em, 4em 4em transparent, 6em 4em transparent, 8em 4em, 4em 6em, 6em 6em, 8em 6em, 10em 6em transparent, 6em 8em transparent, 8em 8em transparent, 10em 8em transparent;\n\
     }\n\
     25%, 49% {\n\
-        box-shadow: 2em 0em transparent, 0em 2em, 2em 2em transparent, 4em 2em, 0em 4em transparent, 2em 4em, 4em 4em, 6em 4em transparent, 2em 6em, 4em 6em transparent, 6em 6em transparent;\n\
+        box-shadow: 6em 2em transparent, 4em 4em, 6em 4em transparent, 8em 4em, 4em 6em transparent, 6em 6em, 8em 6em, 10em 6em transparent, 6em 8em, 8em 8em transparent, 10em 8em transparent;\n\
     }\n\
     50%, 74% {\n\
-        box-shadow: 2em 0em transparent, 0em 2em transparent, 2em 2em transparent, 4em 2em, 0em 4em, 2em 4em transparent, 4em 4em, 6em 4em transparent, 2em 6em, 4em 6em, 6em 6em transparent;\n\
+        box-shadow: 6em 2em transparent, 4em 4em transparent, 6em 4em transparent, 8em 4em, 4em 6em, 6em 6em transparent, 8em 6em, 10em 6em transparent, 6em 8em, 8em 8em, 10em 8em transparent;\n\
     }\n\
     75%, 99% {\n\
-        box-shadow: 2em 0em transparent, 0em 2em transparent, 2em 2em, 4em 2em transparent, 0em 4em transparent, 2em 4em transparent, 4em 4em, 6em 4em, 2em 6em, 4em 6em, 6em 6em transparent;\n\
+        box-shadow: 6em 2em transparent, 4em 4em transparent, 6em 4em, 8em 4em transparent, 4em 6em transparent, 6em 6em transparent, 8em 6em, 10em 6em, 6em 8em, 8em 8em, 10em 8em transparent;\n\
     }\n\
     100% {\n\
-        box-shadow: 2em 0em transparent, 0em 2em transparent, 2em 2em transparent, 4em 2em, 0em 4em transparent, 2em 4em transparent, 4em 4em transparent, 6em 4em, 2em 6em, 4em 6em, 6em 6em;\n\
+        box-shadow: 6em 2em transparent, 4em 4em transparent, 6em 4em transparent, 8em 4em, 4em 6em transparent, 6em 6em transparent, 8em 6em transparent, 10em 6em, 6em 8em, 8em 8em, 10em 8em;\n\
     }\n\
 }'
     },
