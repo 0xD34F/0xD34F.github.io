@@ -49,6 +49,7 @@ function CellField(x, y, viewOptions) {
 
     o._mode = 'edit';
     o.view = viewOptions instanceof Object ? viewOptions : {};
+    o.view.showPlanes = o.view.hasOwnProperty('showPlanes') ? o.view.showPlanes : 3;
 
     if (o.view.wrapper instanceof HTMLElement) {
         o.view.cellSide = o.view.cellSide << 0;
@@ -107,6 +108,7 @@ function CellField(x, y, viewOptions) {
 
     return o;
 }
+CellField.prototype.numPlanes = 2;
 CellField.prototype.userActions = {
     edit: function(e, x, y, prevX, prevY) {
         if (x >= this.xSize || y >= this.ySize || x < 0 || y < 0) {
@@ -243,11 +245,12 @@ CellField.prototype.draw = function(_x, _y, _xSize, _ySize, prevStates) {
     _xSize = _xSize || this.xSize;
     _ySize = _ySize || this.ySize;
 
-    var numStates = 4,
+    var numStates = Math.pow(2, this.numPlanes),
         border = this.view.border,
         side = this.view.cellSide,
         sideFull = side + border,
-        c = this.view.context;
+        c = this.view.context,
+        m = this.view.showPlanes;
 
     var g = [];
     for (var i = 0; i < numStates; i++) {
@@ -265,8 +268,8 @@ CellField.prototype.draw = function(_x, _y, _xSize, _ySize, prevStates) {
                 y = 0;
             }
 
-            var t = d[x][y];
-            if (!(prevStates && prevStates[x][y] === t)) {
+            var t = d[x][y] & m;
+            if (!(prevStates && (prevStates[x][y] & m) === t)) {
                 g[t].push(x, y);
             }
         }
@@ -333,16 +336,16 @@ var CellularAutomaton = function(xSize, ySize, viewOptions) {
     var neighborhoodSize = {};
 
     var newGenerationCode = {
-        tableProcBegin: '(function(table, main) {\
+        tableProc: '(function(table, calcNewState) {\
 for (var i = 0; i < table.length; i++) {\
     var shift = 0;\
     var n = {};\
-    n.center = (i & (3 << (neighborhoodSize.main + neighborhoodSize.extra))) >> (neighborhoodSize.main + neighborhoodSize.extra);',
-        tableProcEnd: '\
-    table[i] = main(n) & 3;\
+    n.center = (i & (3 << (neighborhoodSize.main + neighborhoodSize.extra))) >> (neighborhoodSize.main + neighborhoodSize.extra);\
+    {{.}}\
+    table[i] = calcNewState(n) & 3;\
 }\
     })',
-        indexProcBegin: '(function(d, newD, xSize, ySize) {\
+        indexProc: '(function(d, newD, xSize, ySize) {\
 for (var x = 0; x < xSize; x++) {\
     for (var y = 0; y < ySize; y++) {\
         var xPrev = x === 0 ? xSize - 1 : x - 1,\
@@ -350,8 +353,8 @@ for (var x = 0; x < xSize; x++) {\
             yPrev = y === 0 ? ySize - 1 : y - 1,\
             yNext = y === ySize - 1 ? 0 : y + 1,\
             index = d[x][y] & 3;\
-',
-        indexProcEnd: '\
+\
+        {{.}}\
         newD[x][y] = newStatesTable[index];\
     }\
 }\
@@ -532,18 +535,14 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
             neighborhoodSize.extra += t.size;
         }
 
-        newStateTableInner = eval(
-            newGenerationCode.tableProcBegin +
+        newStateTableInner = eval(newGenerationCode.tableProc.replace('{{.}}',
             newGenerationCode.main[o.main].tableCode +
-            newStateTableProcCode +
-            newGenerationCode.tableProcEnd
-        );
-        newGenerationInner = eval(
-            newGenerationCode.indexProcBegin +
+            newStateTableProcCode
+        ));
+        newGenerationInner = eval(newGenerationCode.indexProc.replace('{{.}}',
             newGenerationCode.main[o.main].indexCode +
-            newGenerationProcCode +
-            newGenerationCode.indexProcEnd
-        );
+            newGenerationProcCode
+        ));
     }
 
 
