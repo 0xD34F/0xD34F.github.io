@@ -32,6 +32,19 @@ $.extend($.ui.autocomplete.prototype.options, {
     }
 });
 
+function closeDialog(f) {
+    return function() {
+        var $this = $(this),
+            run = f instanceof Function ? f.apply($this, arguments) : true;
+
+        $.when(run).always(function(result) {
+            if (result !== false) {
+                $this.dialog('close');
+            }
+        });
+    };
+}
+
 var templates = {
     fieldFilling:
 '<table class="ca-options-table">\
@@ -126,13 +139,10 @@ $(document).ready(function() {
             }))).find('[ca-state="' + caBrush.brush.data[0][0] + '"]').addClass('ui-state-active');
         },
         buttons: {
-            'OK': function() {
+            'OK': closeDialog(function() {
                 ca.cells.brush.copy(caBrush);
-                $(this).dialog('close');
-            },
-            'Cancel': function() {
-                $(this).dialog('close');
-            }
+            }),
+            'Cancel': closeDialog()
         }
     });
 
@@ -165,9 +175,8 @@ $(document).ready(function() {
             }).end().find('.ca-filling-fill').checkboxradio().attr('checked', 'checked').change();
         },
         buttons: {
-            'OK': function() {
-                var $this = $(this),
-                    $options = $this.closest('.ui-dialog').find('.ca-options-table');
+            'OK': closeDialog(function() {
+                var $options = this.closest('.ui-dialog').find('.ca-options-table');
 
                 var fillRandom = {},
                     fillCopy = {};
@@ -193,12 +202,8 @@ $(document).ready(function() {
                 }
 
                 ca.cells.draw();
-
-                $this.dialog('close');
-            },
-            'Cancel': function() {
-                $(this).dialog('close');
-            }
+            }),
+            'Cancel': closeDialog()
         }
     });
 
@@ -222,6 +227,7 @@ $(document).ready(function() {
                     step: 1
                 });
             }).bind($this));
+            $this.find('#ca-field-x-size, #ca-field-y-size').parent().addClass('ca-start-disable');
 
 
             $this.find('#ca-view-colors').append(Mustache.render(templates.colorSetting, $.map(CellField.prototype.colors, function(n, i) {
@@ -248,29 +254,24 @@ $(document).ready(function() {
                 });
         },
         buttons: {
-            'OK': function() {
-                var $this = $(this),
-                    xSize = limitation($this.find('#ca-field-x-size').val(), X_SIZE_MIN, X_SIZE_MAX),
-                    ySize = limitation($this.find('#ca-field-y-size').val(), Y_SIZE_MIN, Y_SIZE_MAX),
-                    cellSide = limitation($this.find('#ca-field-cell-side').val(), CELL_SIDE_MIN, CELL_SIDE_MAX),
-                    border = limitation($this.find('#ca-field-cell-border').val(), CELL_BORDER_MIN, CELL_BORDER_MAX);
+            'OK': closeDialog(function() {
+                var xSize = limitation(this.find('#ca-field-x-size').val(), X_SIZE_MIN, X_SIZE_MAX),
+                    ySize = limitation(this.find('#ca-field-y-size').val(), Y_SIZE_MIN, Y_SIZE_MAX),
+                    cellSide = limitation(this.find('#ca-field-cell-side').val(), CELL_SIDE_MIN, CELL_SIDE_MAX),
+                    border = limitation(this.find('#ca-field-cell-border').val(), CELL_BORDER_MIN, CELL_BORDER_MAX);
 
                 if (ca.cells.xSize !== xSize || ca.cells.ySize !== ySize) {
                     ca.cells.resize(xSize, ySize);
                 }
 
-                $(this).find('.jscolor').each(function() {
+                this.find('.jscolor').each(function() {
                     var $this = $(this);
                     CellField.prototype.colors[$this.attr('color-name')] = $this.val();
                 });
 
                 ca.cells.resizeView(cellSide, border);
-
-                $this.dialog('close');
-            },
-            'Cancel': function() {
-                $(this).dialog('close');
-            }
+            }),
+            'Cancel': closeDialog()
         }
     });
 
@@ -278,7 +279,13 @@ $(document).ready(function() {
     $('#ca-rule').dialog({
         width: '80%',
         create: function() {
-            $(this).find('#ca-rule-name').autocomplete({
+            var $this = $(this);
+
+            $this.find('#ca-rule-name-clear').click(function() {
+                $(this).parent().find('input').val('');
+            });
+
+            $this.find('#ca-rule-name').width(200).autocomplete({
                 source: function(request, response) {
                     var term = request.term.toLowerCase();
 
@@ -308,7 +315,7 @@ $(document).ready(function() {
                 return $('<li></li>').data('item.autocomplete', item).append($item).appendTo(ul);
             };
 
-            $(this).find('#ca-rule-save').button().click(function() {
+            $this.find('#ca-rule-save').button().click(function() {
                 var ruleName = $('#ca-rule-name').val(),
                     ruleCode = $('#ca-rule-code').val();
 
@@ -351,7 +358,7 @@ $(document).ready(function() {
                 }
             });
 
-            $(this).find('#ca-rule-code').keydown(function(e) {
+            $this.find('#ca-rule-code').keydown(function(e) {
                 if (e.keyCode === 9) {
                     var start = this.selectionStart,
                         end = this.selectionEnd,
@@ -371,17 +378,15 @@ $(document).ready(function() {
             $('#ca-rule-code').val(ca.rule);
         },
         buttons: {
-            'OK': function() {
+            'OK': closeDialog(function() {
                 try {
                     ca.rule = $('#ca-rule-code').val();
-                    $(this).dialog('close');
                 } catch (e) {
                     toastr.error(e.message);
+                    return false;
                 }
-            },
-            'Cancel': function() {
-                $(this).dialog('close');
-            }
+            }),
+            'Cancel': closeDialog()
         }
     });
 
@@ -405,17 +410,11 @@ $(document).ready(function() {
                 .find('#stroke-duration').val(ca.strokeDuration);
         },
         buttons: {
-            'OK': function() {
-                var $this = $(this);
-
-                ca.stepsPerStroke = $this.find('#steps-per-stroke').val();
-                ca.strokeDuration = $this.find('#stroke-duration').val();
-
-                $this.dialog('close');
-            },
-            'Cancel': function() {
-                $(this).dialog('close');
-            }
+            'OK': closeDialog(function() {
+                ca.stepsPerStroke = this.find('#steps-per-stroke').val();
+                ca.strokeDuration = this.find('#stroke-duration').val();
+            }),
+            'Cancel': closeDialog()
         }
     });
 
@@ -466,7 +465,7 @@ $(document).ready(function() {
         ca.stop();
     });
 
-    $('#skip').find('button').click(function() {
+    $('#skip').click(function() {
         var $steps = $(this).parent().find('input'),
             steps = $steps.val() >> 0;
 
@@ -477,7 +476,7 @@ $(document).ready(function() {
 
         ca.newGeneration(steps);
         ca.cells.refresh();
-    }).end().find('input').val('1');
+    }).parent().find('input').width(50).val('1');
 
     $(ca.cells.view.canvas).parent().on('mousewheel', function(e) {
         var oldCellSide = ca.cells.view.cellSide,
