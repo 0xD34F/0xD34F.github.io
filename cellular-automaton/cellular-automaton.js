@@ -49,7 +49,7 @@ function CellField(x, y, viewOptions) {
 
     o._mode = 'edit';
     o.view = viewOptions instanceof Object ? viewOptions : {};
-    o.view.showPlanes = o.view.hasOwnProperty('showPlanes') ? o.view.showPlanes : 3;
+    o.view.showBitPlanes = isNaN(+o.view.showBitPlanes) ? 3 : +o.view.showPlanes;
 
     if (o.view.wrapper instanceof HTMLElement) {
         o.view.cellSide = o.view.cellSide << 0;
@@ -108,7 +108,15 @@ function CellField(x, y, viewOptions) {
 
     return o;
 }
-CellField.prototype.numPlanes = 2;
+CellField.prototype.numBitPlanes = 2;
+CellField.prototype.getBitPlanes = function() {
+    var planes = [];
+    for (var i = 0; i < this.numBitPlanes; i++) {
+        planes.push(i);
+    }
+
+    return planes;
+};
 CellField.prototype.userActions = {
     edit: function(e, x, y, prevX, prevY) {
         if (x >= this.xSize || y >= this.ySize || x < 0 || y < 0) {
@@ -162,7 +170,7 @@ Object.defineProperty(CellField.prototype, 'mode', {
 CellField.prototype.fill = function(f) {
     for (var x = 0; x < this.xSize; x++) {
         for (var y = 0; y < this.ySize; y++) {
-            this.data[x][y] = f(x, y, this.data[x][y]);
+            this.data[x][y] = f.call(this, x, y, this.data[x][y]);
         }
     }
 
@@ -215,13 +223,14 @@ CellField.prototype.copyBitPlane = function(o) {
         return newVal;
     });
 };
+CellField.prototype.randomFillDensityDescritization = 1000;
 // o - объект вида { <номер битовой плоскости>: <плотность заполнения>, ... }
 CellField.prototype.fillRandom = function(o) {
     return this.fill(function(x, y, value) {
         for (var i in o) {
             var mask = (1 << i);
 
-            if (random(1000) < o[i]) {
+            if (random(this.randomFillDensityDescritization) < o[i]) {
                 value |= mask;
             } else {
                 value &= ~mask;
@@ -245,12 +254,12 @@ CellField.prototype.draw = function(_x, _y, _xSize, _ySize, prevStates) {
     _xSize = _xSize || this.xSize;
     _ySize = _ySize || this.ySize;
 
-    var numStates = Math.pow(2, this.numPlanes),
+    var numStates = Math.pow(2, this.numBitPlanes),
         border = this.view.border,
         side = this.view.cellSide,
         sideFull = side + border,
         c = this.view.context,
-        m = this.view.showPlanes;
+        m = this.view.showBitPlanes;
 
     var g = [];
     for (var i = 0; i < numStates; i++) {
@@ -427,7 +436,7 @@ index <<= 2; index |= time & 3;'
             hv: {
                 size: 2,
                 tableCode: '\
-n.horz = (i & (1 <<  shift))      >>  shift,\
+n.horz = (i & (1 <<  shift))      >>  shift;\
 n.vert = (i & (1 << (shift + 1))) >> (shift + 1);',
                 indexCode: '\
 index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
@@ -440,7 +449,7 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
 
     var cells = CellField(xSize, ySize, viewOptions),
         newCells = CellField(xSize, ySize),
-        rule = rules.get('Conway\'s Life') || 'function(n) { return n.center; }',
+        rule = 'function main(n) { return n.center; }',
         newStatesTable = getNewStatesTable(rule),
         time = 0;
 

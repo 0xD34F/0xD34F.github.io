@@ -47,23 +47,25 @@ function closeDialog(f) {
 
 var templates = {
     fieldFilling:
-'<table class="ca-options-table">\
-    <tr><th>Bit plane</th><th>Method</th><th></th><th>Fill</th></tr>\
+'<table class="ca-options-table" style="table-layout: fixed;">\
+    <tr><th width="65px">Bit plane</th><th width="100px">Method</th><th width="185px"></th><th width="35px">Fill</th></tr>\
     {{#.}}\
-    <tr>\
-        <td class="ca-filling-plane">{{.}}</td>\
+    <tr data-bit-plane="{{.}}">\
+        <td class="ca-bit-plane">{{.}}</td>\
         <td>\
             <select class="ca-filling-method" dir="rtl">\
                 <option value="random">Random</option>\
                 <option value="copy">Copy</option>\
+                <option value="all1">All 1</option>\
+                <option value="all0">All 0</option>\
             </select>\
         </td>\
         <td class="ca-filling-options">\
             <div class="ca-filling-random"><span class="ca-filling-options-note">density, ‰</span><input type="text"></div>\
             <div class="ca-filling-copy"><span class="ca-filling-options-note">from plane</span><input type="text" readonly="readonly"></div>\
         </td>\
-        <td>\
-            <input type="checkbox" id="ca-filling-fill-plane-{{.}}" class="ca-filling-fill"><label for="ca-filling-fill-plane-{{.}}"></label>\
+        <td class="ca-bit-plane">\
+            <input type="checkbox" id="ca-filling-fill-plane-{{.}}" class="ca-bit-plane-cb"><label for="ca-filling-fill-plane-{{.}}"></label>\
         </td>\
     </tr>\
     {{/.}}\
@@ -72,6 +74,16 @@ var templates = {
 '<table class="ca-options-table">\
     {{#.}}\
     <tr><td>{{username}}</td><td><input type="text" class="jscolor" color-name="{{sysname}}" readonly="readonly"></td></tr>\
+    {{/.}}\
+</table>',
+    bitPlanesShow:
+'<table class="ca-options-table">\
+    <tr><th>Bit plane</th><th>Show</th></tr>\
+    {{#.}}\
+    <tr>\
+        <td class="ca-bit-plane">{{.}}</td>\
+        <td class="ca-bit-plane"><input type="checkbox" id="ca-show-plane-{{.}}" class="ca-bit-plane-cb"><label for="ca-show-plane-{{.}}"></label></td>\
+    </tr>\
     {{/.}}\
 </table>',
     brushColorSelect:
@@ -148,15 +160,16 @@ $(document).ready(function() {
 
 
     $('#ca-filling').dialog({
-        width: 500,
+        width: 480,
         create: function() {
-            var planesList = $.map(new Array(ca.cells.numPlanes), function(n, i) { return '' + i; }),
+            var planesList = ca.cells.getBitPlanes(),
                 planesHTML = Mustache.render(templates.fieldFilling, planesList);
 
+            var max = ca.cells.randomFillDensityDescritization;
             $(this).append(planesHTML).find('.ca-filling-random > input').each(function() {
-                $(this).val(500).spinner({
+                $(this).val(max / 2).spinner({
                     min: 0,
-                    max: 1000,
+                    max: max,
                     step: 1,
                     numberFormat: 'n'
                 });
@@ -166,30 +179,38 @@ $(document).ready(function() {
                 $(this).closest('tr').find('.ca-filling-options').find('>').hide().end().find('.ca-filling-' + (ui ? ui.item.value : this.value)).show();
             }).trigger('selectmenuchange').end().find('.ca-filling-copy > input').autocomplete({
                 source: function(request, response) {
-                    var ownPlane = this.element.closest('tr').find('.ca-filling-plane').text();
+                    var ownPlane = +this.element.closest('tr').attr('data-bit-plane');
 
                     response(planesList.filter(function(n) {
                         return n !== ownPlane;
+                    }).map(function(n) {
+                        return {
+                            label: n,
+                            value: n
+                        };
                     }));
                 }
-            }).end().find('.ca-filling-fill').checkboxradio().attr('checked', 'checked').change();
+            }).end().find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
+
+            // временно, пока используется только две битовые плоскости
+            [ 1, 0 ].forEach((function(n, i) {
+                this.find('[data-bit-plane="' + n + '"] .ca-filling-copy input').addClass('ui-state-disabled').val(i);
+            }).bind($(this)));
         },
         buttons: {
             'OK': closeDialog(function() {
-                var $options = this.closest('.ui-dialog').find('.ca-options-table');
-
                 var fillRandom = {},
                     fillCopy = {};
 
-                $options.find('.ca-filling-fill').each(function(i) {
+                this.find('.ca-bit-plane-cb').each(function(i) {
                     if (this.checked) {
-                        var $tr = $(this).closest('tr'),
-                            method = $tr.find('.ca-filling-method').val();
+                        var $tr = $(this).closest('tr');
 
-                        if (method === 'random') {
-                            fillRandom[i] = $tr.find('.ca-filling-random input').val();
-                        } else if (method === 'copy') {
-                            fillCopy[i] = $tr.find('.ca-filling-copy input').val();
+                        switch ($tr.find('.ca-filling-method').val()) {
+                            case   'all1': fillRandom[i] = ca.cells.randomFillDensityDescritization; break;
+                            case   'all0': fillRandom[i] = 0; break;
+                            case 'random': fillRandom[i] = $tr.find('.ca-filling-random input').val(); break;
+                            case   'copy': fillCopy[i] = $tr.find('.ca-filling-copy input').val(); break;
                         }
                     }
                 });
@@ -210,8 +231,8 @@ $(document).ready(function() {
     $('#ca-view-settings').tabs();
 
     $('#ca-view').dialog({
-        width: 350,
-        height: 430,
+        width: 320,
+        height: 420,
         create: function() {
             var $this = $(this);
 
@@ -240,6 +261,11 @@ $(document).ready(function() {
                     hash: true
                 });
             });
+
+
+            $this
+                .find('#ca-view-planes').append(Mustache.render(templates.bitPlanesShow, ca.cells.getBitPlanes()))
+                .find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
         },
         open: function() {
             $(this)
@@ -251,6 +277,10 @@ $(document).ready(function() {
                     var $this = $(this);
                     $this.val(CellField.prototype.colors[$this.attr('color-name')]);
                     this.jscolor.importColor();
+                }).end()
+                .find('.ca-bit-plane-cb').each(function(i) {
+                    this.checked = !!(ca.cells.view.showBitPlanes & (1 << i));
+                    $(this).change();
                 });
         },
         buttons: {
@@ -268,6 +298,12 @@ $(document).ready(function() {
                     var $this = $(this);
                     CellField.prototype.colors[$this.attr('color-name')] = $this.val();
                 });
+
+                var t = 0;
+                this.find('.ca-bit-plane-cb').each(function(i) {
+                    t |= this.checked ? (1 << i) : 0;
+                });
+                ca.cells.view.showBitPlanes = t;
 
                 ca.cells.resizeView(cellSide, border);
             }),
@@ -483,13 +519,26 @@ $(document).ready(function() {
             newCellSide = limitation(oldCellSide + (e.originalEvent.deltaY > 0 ? -1 : 1), CELL_SIDE_MIN, CELL_SIDE_MAX);
 
         if (oldCellSide !== newCellSide) {
+            var oldScrollX = this.scrollLeft,
+                oldScrollY = this.scrollTop,
+                border = ca.cells.view.border,
+                cellX = e.originalEvent.offsetX / (oldCellSide + border),
+                cellY = e.originalEvent.offsetY / (oldCellSide + border);
+
             ca.cells.resizeView(newCellSide);
+
+            this.scrollLeft = cellX * (newCellSide - oldCellSide) + oldScrollX;
+            this.scrollTop  = cellY * (newCellSide - oldCellSide) + oldScrollY;
         }
 
         return false;
     });
 
     ca.cells.mode = 'edit';
+
+    var defaultRule = 'Conway\'s Life';
+    ca.rule = rules.get(defaultRule);
+    $('#ca-rule-name').val(defaultRule);
 
     $('body').removeClass('hidden');
 });
