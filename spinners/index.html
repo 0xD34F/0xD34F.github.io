@@ -1118,11 +1118,11 @@ var spinners = {
 };
 
 window.onload = function() {
-    var content = document.querySelector('main > .content'),
+    var content = document.querySelector('.content'),
         overlay = document.querySelector('.overlay'),
         source = document.querySelector('.source');
 
-    content.innerHTML = [
+    content.innerHTML += [
         'spinner-1', 'spinner-2', 'spinner-3', 'spinner-4', 'spinner-5',
         'spinner-6', 'spinner-7', 'spinner-8', 'spinner-9', 'spinner-11',
         'spinner-12', 'spinner-17', 'spinner-13', 'spinner-14', 'spinner-16',
@@ -1166,20 +1166,16 @@ window.onload = function() {
     </script>
 </head>
 <body>
-    <header>
-        <div class="content">
-            <div class="title">Single element CSS spinners</div>
-            <a class="link projects" href="../index.html">More projects</a>
-            <a class="link github" href="https://github.com/0xD34F/spinners">View on Github</a>
-        </div>
-    </header>
-    <main>
-        <div class="content"></div>
-        <div class="overlay hidden"></div>
-        <div class="source hidden">
-            <div class="source-html"></div>
-            <div class="source-css"></div>
-        </div>
-    </main>
+    <a class="link projects" href="../index.html">More projects</a>
+    <a class="link github" href="https://github.com/0xD34F/spinners">View on Github</a>
+
+    <div class="content">
+        <div class="title">Single element CSS spinners</div>
+    </div>
+    <div class="overlay hidden"></div>
+    <div class="source hidden">
+        <div class="source-html"></div>
+        <div class="source-css"></div>
+    </div>
 </body>
 </html>
