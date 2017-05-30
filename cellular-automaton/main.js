@@ -102,37 +102,28 @@ $(document).ready(function() {
         CELL_SIDE_MIN = 1,
         CELL_SIDE_MAX = 20,
         CELL_BORDER_MIN = 0,
-        CELL_BORDER_MAX = 4;
+        CELL_BORDER_MAX = 4,
+        BRUSH_SIZE = 11;
 
-    var X_SIZE = 256,
-        Y_SIZE = 256;
-
-    var ca = window.ca = CellularAutomaton(X_SIZE, Y_SIZE, {
-        wrapper: $('#cells-wrapper')[0],
+    var ca = window.ca = CellularAutomaton(X_SIZE_MAX, Y_SIZE_MAX, {
+        wrapper: '#cells-wrapper',
         cellSide: 2,
         border: 1
     });
 
-    var BRUSH_SIZE = 11;
-
     ca.cells.brush = CellField(BRUSH_SIZE, BRUSH_SIZE);
     ca.cells.brush.data[Math.floor(BRUSH_SIZE / 2)][Math.floor(BRUSH_SIZE / 2)] = 1;
 
-    var caBrush = null;
+    var caBrush = CellField(BRUSH_SIZE, BRUSH_SIZE, {
+        wrapper: '#brush-wrapper',
+        cellSide: 12,
+        border: 1
+    });
+    caBrush.brush = CellField(1, 1);
+    caBrush.brush.data[0][0] = 1;
 
     $('#ca-brush').dialog({
         create: function() {
-            var side = 12,
-                border = 1;
-
-            caBrush = CellField(BRUSH_SIZE, BRUSH_SIZE, {
-                wrapper: $(this).find('.cells-field-wrapper')[0],
-                cellSide: side,
-                border: border
-            });
-            caBrush.brush = CellField(1, 1);
-            caBrush.brush.data[0][0] = 1;
-
             $(this).find('.ca-state-select').on('click', '.ca-state', function() {
                 var $this = $(this);
                 $this.parent().find('.ui-state-active').removeClass('ui-state-active');
@@ -285,15 +276,6 @@ $(document).ready(function() {
         },
         buttons: {
             'OK': closeDialog(function() {
-                var xSize = limitation(this.find('#ca-field-x-size').val(), X_SIZE_MIN, X_SIZE_MAX),
-                    ySize = limitation(this.find('#ca-field-y-size').val(), Y_SIZE_MIN, Y_SIZE_MAX),
-                    cellSide = limitation(this.find('#ca-field-cell-side').val(), CELL_SIDE_MIN, CELL_SIDE_MAX),
-                    border = limitation(this.find('#ca-field-cell-border').val(), CELL_BORDER_MIN, CELL_BORDER_MAX);
-
-                if (ca.cells.xSize !== xSize || ca.cells.ySize !== ySize) {
-                    ca.cells.resize(xSize, ySize);
-                }
-
                 this.find('.jscolor').each(function() {
                     var $this = $(this);
                     CellField.prototype.colors[$this.attr('color-name')] = $this.val();
@@ -305,7 +287,12 @@ $(document).ready(function() {
                 });
                 ca.cells.view.showBitPlanes = t;
 
-                ca.cells.resizeView(cellSide, border);
+                ca.resize({
+                    xSize: limitation(this.find('#ca-field-x-size').val(), X_SIZE_MIN, X_SIZE_MAX),
+                    ySize: limitation(this.find('#ca-field-y-size').val(), Y_SIZE_MIN, Y_SIZE_MAX),
+                    cellSide: limitation(this.find('#ca-field-cell-side').val(), CELL_SIDE_MIN, CELL_SIDE_MAX),
+                    cellBorder: limitation(this.find('#ca-field-cell-border').val(), CELL_BORDER_MIN, CELL_BORDER_MAX)
+                });
             }),
             'Cancel': closeDialog()
         }
@@ -352,46 +339,11 @@ $(document).ready(function() {
             };
 
             $this.find('#ca-rule-save').button().click(function() {
-                var ruleName = $('#ca-rule-name').val(),
-                    ruleCode = $('#ca-rule-code').val();
-
-                if (!ruleName || !ruleCode) {
-                    var errMess = [];
-                    if (!ruleName) {
-                        errMess.push('no rule name');
-                    }
-                    if (!ruleCode) {
-                        errMess.push('no rule code');
-                    }
-                    toastr.error(errMess.join('<br>'));
-                    return;
-                }
-
-                if (rules.add(ruleName, ruleCode)) {
-                    toastr.success('rule "' + ruleName + '" saved');
-                } else {
-                    toastr.error('rule "' + ruleName + '" can not be rewrited');
-                }
+                var result = rules.save($('#ca-rule-name').val(), $('#ca-rule-code').val());
+                toastr[result.status ? 'success' : 'error'](result.message);
             }).end().find('#ca-rule-delete').button().click(function() {
-                var ruleName = $('#ca-rule-name').val();
-                if (!ruleName) {
-                    toastr.error('no rule name');
-                    return;
-                }
-
-                var predefined = rules.predefined();
-                for (var i = 0; i < predefined.length; i++) {
-                    if (predefined[i].name === ruleName) {
-                        toastr.error('rule "' + ruleName + '" can not be deleted');
-                        return;
-                    }
-                }
-
-                if (rules.del(ruleName)) {
-                    toastr.success('rule "' + ruleName + '" deleted');
-                } else {
-                    toastr.error('rule "' + ruleName + '" is not exists');
-                }
+                var result = rules.del($('#ca-rule-name').val());
+                toastr[result.status ? 'success' : 'error'](result.message);
             });
 
             $this.find('#ca-rule-code').keydown(function(e) {
