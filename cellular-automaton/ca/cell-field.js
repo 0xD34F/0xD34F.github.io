@@ -1,53 +1,8 @@
-﻿(function() {
-    if (typeof window.CustomEvent === 'function') {
-        return;
-    }
-
-    function CustomEvent (event, params) {
-        params = params || {
-            bubbles: false,
-            cancelable: false,
-            detail: undefined
-        };
-
-        var e = document.createEvent('CustomEvent');
-        e.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
-        return e;
-    }
-    CustomEvent.prototype = window.Event.prototype;
-
-    window.CustomEvent = CustomEvent;
-})();
-
-function shiftArray(array, shift) {
-    var from = 0,
-        val = array[from];
-        group = 1;
-
-    for (var i = 0; i < array.length; i++) {
-        var to = ((from + shift) + array.length) % array.length;
-        if (to === from) {
-            break;
-        }
-
-        var t = array[to];
-        array[to] = val;
-        from = to;
-        val = t;
-
-        if (from < group) {
-            from = group++;
-            val = array[from];
-        }
-    }
-}
-
-function CellField(x, y, viewOptions) {
+﻿function CellField(x, y, viewOptions) {
     var o = Object.create(CellField.prototype);
 
     o.resize(x, y);
 
-    o._mode = 'edit';
     o.view = viewOptions instanceof Object ? viewOptions : {};
     o.view.showBitPlanes = isNaN(+o.view.showBitPlanes) ? 3 : +o.view.showPlanes;
 
@@ -76,27 +31,24 @@ function CellField(x, y, viewOptions) {
     if (o.view.canvas) {
         var that = o;
 
-        var lastCoord = [];
+        var lastCoord = {};
         o.view.canvas.onmouseup = function() {
-            lastCoord = [];
+            lastCoord = {};
         };
         o.view.canvas.onmousedown = o.view.canvas.onmousemove = function(e) {
             if (e.buttons !== 1 && e.buttons !== 2) {
                 return;
             }
 
-            var _b = that.view.border,
-                _t = Math.round(_b / 2),
-                x = Math.floor((e.offsetX - _t) / (that.view.cellSide + _b)),
-                y = Math.floor((e.offsetY - _t) / (that.view.cellSide + _b));
+            var coord = that.detectEventCoord(e);
 
-            if (lastCoord[0] === x && lastCoord[1] === y) {
+            if (lastCoord.x === coord.x && lastCoord.y === coord.y) {
                 return;
             }
 
             if (that.mode in that.userActions) {
-                if (that.userActions[that.mode].call(that, e, x, y, lastCoord[0], lastCoord[1]) !== false) {
-                    lastCoord = [ x, y ];
+                if (that.userActions[that.mode].call(that, e, coord.x, coord.y, lastCoord.x, lastCoord.y) !== false) {
+                    lastCoord = coord;
                 }
             }
         };
@@ -108,6 +60,8 @@ function CellField(x, y, viewOptions) {
     if (!isNaN(o.view.cellSide)) {
         o.resizeView(o.view.cellSide);
     }
+
+    o.mode = 'edit';
 
     return o;
 }
@@ -148,6 +102,15 @@ CellField.prototype.userActions = {
         this.shift(x - prevX, y - prevY).draw();
     }
 };
+CellField.prototype.detectEventCoord = function(e) {
+    var b = this.view.border,
+        t = Math.round(b / 2);
+
+    return {
+        x: Math.floor((e.offsetX - t) / (this.view.cellSide + b)),
+        y: Math.floor((e.offsetY - t) / (this.view.cellSide + b))
+    };
+};
 CellField.prototype.dispatchEvent = function(eventName, data) {
     data = data instanceof Object ? data : {};
     data.cellField = this;
@@ -168,6 +131,10 @@ Object.defineProperty(CellField.prototype, 'mode', {
         this.dispatchEvent('ca-mode', {
             mode: value
         });
+
+        if (this.view.canvas) {
+            this.view.canvas.setAttribute('data-mode', value);
+        }
     }
 });
 CellField.prototype.fill = function(f) {
@@ -243,6 +210,11 @@ CellField.prototype.fillRandom = function(o) {
         return value;
     });
 };
+CellField.prototype.clear = function() {
+    return this.fill(function() {
+        return 0;
+    });
+};
 CellField.prototype.refresh = function() {
     var c = this.view.context;
 
@@ -306,9 +278,7 @@ CellField.prototype.resize = function(x, y) {
         this.data[i] = new Array(y);
     }
 
-    return this.fill(function() {
-        return 0;
-    }).dispatchEvent('ca-resize');
+    return this.clear().dispatchEvent('ca-resize');
 };
 CellField.prototype.resizeView = function(cellSide, border) {
     if (!this.view.canvas || isNaN(cellSide) || cellSide < 1) {

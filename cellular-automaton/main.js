@@ -1,4 +1,48 @@
-﻿function random(max, min) {
+﻿(function() {
+    if (typeof window.CustomEvent === 'function') {
+        return;
+    }
+
+    function CustomEvent (event, params) {
+        params = params || {
+            bubbles: false,
+            cancelable: false,
+            detail: undefined
+        };
+
+        var e = document.createEvent('CustomEvent');
+        e.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
+        return e;
+    }
+    CustomEvent.prototype = window.Event.prototype;
+
+    window.CustomEvent = CustomEvent;
+})();
+
+function shiftArray(array, shift) {
+    var from = 0,
+        val = array[from];
+        group = 1;
+
+    for (var i = 0; i < array.length; i++) {
+        var to = ((from + shift) + array.length) % array.length;
+        if (to === from) {
+            break;
+        }
+
+        var t = array[to];
+        array[to] = val;
+        from = to;
+        val = t;
+
+        if (from < group) {
+            from = group++;
+            val = array[from];
+        }
+    }
+}
+
+function random(max, min) {
     min = min || 0;
     return Math.floor(Math.random() * (max - min)) + min;
 }
@@ -414,7 +458,7 @@ $(document).ready(function() {
         if (mode && ca.cells.mode !== mode) {
             ca.cells.mode = mode;
         }
-    });
+    }).find('[for="mode-' + ca.cells.mode + '"]').click();
 
 
     $('.content > .controls')
@@ -424,9 +468,7 @@ $(document).ready(function() {
         });
 
     $('#cell-field-data').buttonset().find('#clear').click(function() {
-        ca.cells.fill(function() {
-            return 0;
-        }).draw();
+        ca.cells.clear().draw();
     });
 
     $(document).on({
@@ -473,20 +515,16 @@ $(document).ready(function() {
         if (oldCellSide !== newCellSide) {
             var oldScrollX = this.scrollLeft,
                 oldScrollY = this.scrollTop,
-                border = ca.cells.view.border,
-                cellX = e.originalEvent.offsetX / (oldCellSide + border),
-                cellY = e.originalEvent.offsetY / (oldCellSide + border);
+                coord = ca.cells.detectEventCoord(e);
 
             ca.cells.resizeView(newCellSide);
 
-            this.scrollLeft = cellX * (newCellSide - oldCellSide) + oldScrollX;
-            this.scrollTop  = cellY * (newCellSide - oldCellSide) + oldScrollY;
+            this.scrollLeft = coord.x * (newCellSide - oldCellSide) + oldScrollX;
+            this.scrollTop  = coord.y * (newCellSide - oldCellSide) + oldScrollY;
         }
 
         return false;
     });
-
-    ca.cells.mode = 'edit';
 
     var defaultRule = 'Conway\'s Life';
     ca.rule = rules.get(defaultRule);
