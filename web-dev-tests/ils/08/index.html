@@ -1,0 +1,76 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <script src="jquery/jquery-3.2.1.min.js"></script>
+    <script src="jquery-ui/jquery-ui.min.js"></script>
+    <script src="splitter/jquery.splitter.js"></script>
+    <link rel="stylesheet" type="text/css" media="screen" href="jquery-ui/jquery-ui.min.css" />
+    <link rel="stylesheet" href="splitter/jquery.splitter.css" />
+    <style>
+* {
+    box-sizing: border-box;
+}
+
+html, body, #main, #left, #right, #tabs {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+.ui-tabs .ui-tabs-nav {
+    padding: 0;
+    height: 40px;
+}
+
+.ui-tabs .ui-tabs-panel {
+    height: calc(100% - 40px);
+}
+
+textarea {
+    width: 100%;
+    height: 100%;
+    resize: none;
+}
+    </style>
+    <script>
+$(document).ready(function() {
+    $('#main').split({
+        orientation: 'vertical',
+        position: '30%'
+    });
+
+    $('#right').split({
+        orientation: 'horizontal',
+        position: '50%'
+    });
+
+    $('#tabs').tabs().on('keyup', 'textarea', function() {
+        var $this = $(this);
+        $('#' + $this.attr('data-change')).html($this.val());
+    });
+});
+    </script>
+  </head>
+  <body>
+    <div id="main">
+      <div id="left"></div>
+      <div id="right">
+        <div id="right-up"></div>
+        <div id="right-down">
+          <div id="tabs">
+            <ul>
+              <li><a href="#tab-one">один</a></li>
+              <li><a href="#tab-two">два</a></li>
+            </ul>
+            <div id="tab-one">
+              <textarea data-change="left"></textarea>
+            </div>
+            <div id="tab-two">
+              <textarea data-change="right-up"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

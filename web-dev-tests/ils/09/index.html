@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css"
+        integrity="sha512-07I2e+7D8p6he1SIM+1twR5TIrhUQn9+I6yjqD53JQjFiMf8EtC93ty0/5vJTZGF8aAocvHYNEDJajGdNx1IsQ=="
+        crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"
+        integrity="sha512-A7vV8IFfih/D732iSSKi20u/ooOfj/AGehOKq0f4vLT1Zr2Y+RX7C+w8A1gaSasGtRUZpF/NZgzSAu4/Gc41Lg=="
+        crossorigin=""></script>
+
+    <script src="zone.js"></script>
+
+    <style>
+html, body, #map {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+.area {
+    background-color: #fff;
+    padding: 10px;
+}
+    </style>
+  </head>
+  <body>
+    <div id="map"></map>
+    <script>
+var map = L.map('map', {
+    center: new L.LatLng(55.751, 37.617),
+    zoom: 13
+});
+
+var osm = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'); 
+map.baseLayer = osm;
+map.addLayer(osm);
+
+var zone = Zone(map);
+zone.polygon.set([
+    [ 37.58628845214844,  55.73822538556643  ],
+    [ 37.58319854736328,  55.75899767604707  ],
+    [ 37.596073150634766, 55.76971764625502  ],
+    [ 37.613582611083984, 55.773290314719496 ],
+    [ 37.632293701171875, 55.772710985321105 ],
+    [ 37.64963150024414,  55.76846230662442  ],
+    [ 37.65684127807617,  55.7635371223091   ],
+    [ 37.65495300292969,  55.741511042163125 ],
+    [ 37.63813018798828,  55.73116995298137  ],
+    [ 37.61495590209961,  55.72943006127542  ]
+]);
+    </script>
+  </body>
+</html>
