@@ -136,7 +136,7 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
 
             timer.intervalID = setInterval(function() {
                 newGeneration(steps);
-                cells.draw(null, null, null, null, steps === 1 ? newCells.data : null);
+                cells.drawFast(steps === 1 ? newCells.data : null);
             }, timer.delay);
 
             return true;
@@ -242,6 +242,7 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
     }
 
     CellField.prototype.draw = runTimeLog(CellField.prototype.draw, 'CellField display');
+    CellField.prototype.drawFast = runTimeLog(CellField.prototype.drawFast, 'CellField display fast');
     getNewStatesTable = runTimeLog(getNewStatesTable, 'new states table built');
     newGeneration = runTimeLog(newGeneration, 'new generation got'); // */
 

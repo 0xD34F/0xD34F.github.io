@@ -11,13 +11,13 @@
     }
     if (o.view.wrapper instanceof HTMLElement) {
         o.view.cellSide = o.view.cellSide << 0;
-        o.view.border = o.view.border << 0;
+        o.view.cellBorder = o.view.cellBorder << 0;
 
         if (!o.view.width) {
-            o.view.width = x * (o.view.cellSide + o.view.border) + o.view.border;
+            o.view.width = x * (o.view.cellSide + o.view.cellBorder) + o.view.cellBorder;
         }
         if (!o.view.height) {
-            o.view.height = y * (o.view.cellSide + o.view.border) + o.view.border;
+            o.view.height = y * (o.view.cellSide + o.view.cellBorder) + o.view.cellBorder;
         }
 
         o.view.wrapper.style.width = o.view.width + 'px';
@@ -29,31 +29,15 @@
     }
 
     if (o.view.canvas) {
-        var that = o;
+        o.view.oldEventCoord = {};
 
-        var oldCoord = {};
-        o.view.canvas.onmouseup = function() {
-            oldCoord = {};
-        };
-        o.view.canvas.onmousedown = o.view.canvas.onmousemove = function(e) {
-            if (e.buttons !== 1 && e.buttons !== 2) {
-                return;
+        for (var i = 0; i < o.eventHandlers.length; i++) {
+            var eh = o.eventHandlers[i];
+            for (var j = 0; j < eh.events.length; j++) {
+                var elem = eh.wrapper ? o.view.canvas.parentNode : o.view.canvas;
+                elem['on' + eh.events[j]] = eh.handler.bind(o);
             }
-
-            var newCoord = that.detectEventCoord(e);
-            if (newCoord.x === oldCoord.x && newCoord.y === oldCoord.y) {
-                return;
-            }
-
-            if (that.mode in that.userActions) {
-                if (that.userActions[that.mode].call(that, e, newCoord, oldCoord) !== false) {
-                    oldCoord = newCoord;
-                }
-            }
-        };
-        o.view.canvas.oncontextmenu = function() {
-            return false;
-        };
+        }
     }
 
     if (!isNaN(o.view.cellSide)) {
@@ -64,6 +48,7 @@
 
     return o;
 }
+
 CellField.prototype.numBitPlanes = 2;
 CellField.prototype.getBitPlanes = function() {
     var planes = [];
@@ -73,46 +58,100 @@ CellField.prototype.getBitPlanes = function() {
 
     return planes;
 };
-CellField.prototype.userActions = {
-    edit: function(e, newCoord, oldCoord) {
-        var x = newCoord.x,
-            y = newCoord.y;
 
-        if (x >= this.xSize || y >= this.ySize || x < 0 || y < 0) {
-            return false;
-        }
-
-        if (this.brush instanceof CellField) {
-            x = (x - Math.floor(this.brush.xSize / 2) + this.xSize) % this.xSize;
-            y = (y - Math.floor(this.brush.ySize / 2) + this.ySize) % this.ySize;
-
-            this.copy(this.brush, x, y, {
-                skipZeros: true,
-                setZeros: e.buttons === 2
-            }).draw(x, y, this.brush.xSize, this.brush.ySize);
-        } else {
-            if (e.buttons === 1) {
-                this.data[x][y] = (this.data[x][y] + 1) & 3;
-            } else if (e.buttons === 2) {
-                this.data[x][y] = (this.data[x][y] - 1) & 3;
-            }
-
-            this.draw(x, y, 1, 1);
-        }
-    },
-    shift: function(e, newCoord, oldCoord) {
-        this.shift(newCoord.x - oldCoord.x, newCoord.y - oldCoord.y).draw();
-    },
-    scale: function(e, newCoord, oldCoord) {
-        if (e.type !== 'mousedown') {
+CellField.prototype.eventHandlers = [ {
+    events: [ 'contextmenu' ],
+    handler: function(e) {
+        return false;
+    }
+}, {
+    events: [ 'mouseup', 'mouseleave' ],
+    handler: function(e) {
+        this.view.oldEventCoord = {};
+        this.dispatchEvent('cell-field-' + this.mode + '-ended');
+    }
+}, {
+    events: [ 'mousedown', 'mousemove' ],
+    handler: function(e) {
+        if (e.buttons !== 1 && e.buttons !== 2) {
             return;
         }
 
-        this.changeScale(e.button === 2 ? -1 : 1, e);
+        var oldCoord = this.view.oldEventCoord,
+            newCoord = this.detectEventCoord(e);
+
+        if (newCoord.x === oldCoord.x && newCoord.y === oldCoord.y) {
+            return;
+        }
+
+        var action = this.userActions[this.mode] || {};
+        if (action.events.indexOf(e.type) !== -1 &&
+            action.handler instanceof Function &&
+            action.handler.call(this, e, newCoord, oldCoord) !== false) {
+
+            this.view.oldEventCoord = newCoord;
+        }
+    }
+}, {
+    wrapper: true,
+    events: [ 'scroll' ],
+    handler: function(e) {
+        var s = this.view.cellSide + this.view.cellBorder,
+            p = this.view.canvas.parentNode;
+
+        p.scrollLeft = Math.round(p.scrollLeft / s) * s;
+        p.scrollTop  = Math.round(p.scrollTop  / s) * s;
+
+        setTimeout(this.drawFast.bind(this));
+    }
+} ];
+
+CellField.prototype.userActions = {
+    edit: {
+        events: [ 'mousedown', 'mousemove' ],
+        handler: function(e, newCoord, oldCoord) {
+            var x = newCoord.x,
+                y = newCoord.y;
+
+            if (x >= this.xSize || y >= this.ySize || x < 0 || y < 0) {
+                return false;
+            }
+
+            if (this.brush instanceof CellField) {
+                x = (x - Math.floor(this.brush.xSize / 2) + this.xSize) % this.xSize;
+                y = (y - Math.floor(this.brush.ySize / 2) + this.ySize) % this.ySize;
+
+                this.copy(this.brush, x, y, {
+                    skipZeros: true,
+                    setZeros: e.buttons === 2
+                }).draw({ x: x, y: y, xSize: this.brush.xSize, ySize: this.brush.ySize });
+            } else {
+                if (e.buttons === 1) {
+                    this.data[x][y] = (this.data[x][y] + 1) & 3;
+                } else if (e.buttons === 2) {
+                    this.data[x][y] = (this.data[x][y] - 1) & 3;
+                }
+
+                this.draw({ x: x, y: y, xSize: 1, ySize: 1 });
+            }
+        }
+    },
+    shift: {
+        events: [ 'mousemove' ],
+        handler: function(e, newCoord, oldCoord) {
+            this.shift(newCoord.x - oldCoord.x, newCoord.y - oldCoord.y).drawFast();
+        }
+    },
+    scale: {
+        events: [ 'mousedown' ],
+        handler: function(e, newCoord, oldCoord) {
+            this.changeScale(e.button === 2 ? -1 : 1, e);
+        }
     }
 };
+
 CellField.prototype.detectEventCoord = function(e) {
-    var b = this.view.border,
+    var b = this.view.cellBorder,
         t = Math.round(b / 2);
 
     return {
@@ -120,6 +159,7 @@ CellField.prototype.detectEventCoord = function(e) {
         y: Math.floor((e.offsetY - t) / (this.view.cellSide + b))
     };
 };
+
 CellField.prototype.dispatchEvent = function(eventName, data) {
     data = data instanceof Object ? data : {};
     data.cellField = this;
@@ -130,6 +170,7 @@ CellField.prototype.dispatchEvent = function(eventName, data) {
 
     return this;
 };
+
 Object.defineProperty(CellField.prototype, 'mode', {
     get: function() {
         return this._mode;
@@ -137,15 +178,14 @@ Object.defineProperty(CellField.prototype, 'mode', {
     set: function(value) {
         this._mode = value;
 
-        this.dispatchEvent('ca-mode', {
-            mode: value
-        });
+        this.dispatchEvent('cell-field-mode');
 
         if (this.view.canvas) {
             this.view.canvas.setAttribute('data-mode', value);
         }
     }
 });
+
 CellField.prototype.fill = function(f) {
     for (var x = 0; x < this.xSize; x++) {
         for (var y = 0; y < this.ySize; y++) {
@@ -153,8 +193,11 @@ CellField.prototype.fill = function(f) {
         }
     }
 
-    return this;
+    return this.dispatchEvent('cell-field-fill', {
+        filled: f
+    });
 };
+
 CellField.prototype.shift = function(_x, _y) {
     _x = _x || 0;
     _y = _y || 0;
@@ -164,8 +207,18 @@ CellField.prototype.shift = function(_x, _y) {
         shiftArray(this.data[i], _y);
     }
 
-    return this;
+    return this.dispatchEvent('cell-field-shift', {
+        shifted: {
+            x: _x,
+            y: _y
+        }
+    });
 };
+
+CellField.prototype.clone = function() {
+    return CellField(this.xSize, this.ySize).copy(this);
+};
+
 CellField.prototype.copy = function(cells, _x, _y, options) {
     _x = _x || 0;
     _y = _y || 0;
@@ -190,6 +243,7 @@ CellField.prototype.copy = function(cells, _x, _y, options) {
 
     return this;
 };
+
 // o - объект вида { <номер заполняемой битовой плоскости>: <номер копируемой битовой плоскости> }
 CellField.prototype.copyBitPlane = function(o) {
     return this.fill(function(x, y, val) {
@@ -202,6 +256,7 @@ CellField.prototype.copyBitPlane = function(o) {
         return newVal;
     });
 };
+
 CellField.prototype.randomFillDensityDescritization = 1000;
 // o - объект вида { <номер битовой плоскости>: <плотность заполнения>, ... }
 CellField.prototype.fillRandom = function(o) {
@@ -219,27 +274,23 @@ CellField.prototype.fillRandom = function(o) {
         return value;
     });
 };
+
 CellField.prototype.clear = function() {
     return this.fill(function() {
         return 0;
     });
 };
-CellField.prototype.refresh = function() {
-    var c = this.view.context;
 
-    c.fillStyle = this.colors.background;
-    c.fillRect(0, 0, c.width, c.height);
-
-    return this.draw();
-};
-CellField.prototype.draw = function(_x, _y, _xSize, _ySize, prevStates) {
-    _x = _x || 0;
-    _y = _y || 0;
-    _xSize = _xSize || this.xSize;
-    _ySize = _ySize || this.ySize;
+CellField.prototype.draw = function(coord, prevStates) {
+    coord = coord === true ? {
+        x: 0,
+        y: 0,
+        xSize: this.xSize,
+        ySize: this.ySize
+    } : coord || this.detectViewCoord();
 
     var numStates = Math.pow(2, this.numBitPlanes),
-        border = this.view.border,
+        border = this.view.cellBorder,
         side = this.view.cellSide,
         sideFull = side + border,
         c = this.view.context,
@@ -251,12 +302,12 @@ CellField.prototype.draw = function(_x, _y, _xSize, _ySize, prevStates) {
     }
 
     var d = this.data;
-    for (var i = 0, x = _x; i < _xSize; i++, x++) {
+    for (var i = 0, x = coord.x; i < coord.xSize; i++, x++) {
         if (x === this.xSize) {
             x = 0;
         }
 
-        for (var j = 0, y = _y; j < _ySize; j++, y++) {
+        for (var j = 0, y = coord.y; j < coord.ySize; j++, y++) {
             if (y === this.ySize) {
                 y = 0;
             }
@@ -271,13 +322,64 @@ CellField.prototype.draw = function(_x, _y, _xSize, _ySize, prevStates) {
     for (var state = 0; state < numStates; state++) {
         c.fillStyle = this.colors[state];
 
-        for (var n = g[state], i = 0; i < n.length; i += 2) {
-            c.fillRect(n[i] * sideFull + border, n[i + 1] * sideFull + border, side, side);
+        for (var n = g[state], p = 0; p < n.length; p += 2) {
+            c.fillRect(n[p] * sideFull + border, n[p + 1] * sideFull + border, side, side);
         }
     }
 
     return this;
 };
+
+CellField.prototype.drawFast = function(prevStates) {
+    var coord = this.detectViewCoord();
+
+    var numStates = Math.pow(2, this.numBitPlanes),
+        border = this.view.cellBorder,
+        side = this.view.cellSide,
+        sideFull = side + border,
+        parent = this.view.canvas.parentNode,
+        c = this.view.context,
+        m = this.view.showBitPlanes;
+
+    var g = [];
+    for (var i = 0; i < numStates; i++) {
+        g.push([]);
+    }
+
+    var d = this.data,
+        maxX = limitation(coord.x + coord.xSize, 0, this.xSize),
+        maxY = limitation(coord.y + coord.ySize, 0, this.ySize);
+
+    for (var i = 0, x = coord.x; x < maxX; x++, i++) {
+        for (var j = 0, y = coord.y; y < maxY; y++, j++) {
+            var t = d[x][y] & m;
+            if (!(prevStates && (prevStates[x][y] & m) === t)) {
+                g[t].push(i, j);
+            }
+        }
+    }
+
+    var t = this.view.data,
+        w = this.view.imageData.width;
+
+    for (var state = 0; state < numStates; state++) {
+        var color = parseInt(this.colors[state].slice(1), 16) | (255 << 24);
+
+        for (var n = g[state], p = 0; p < n.length; p += 2) {
+            for (x = n[p] * sideFull + border, i = 0; i < side; i++, x++) {
+                for (y = n[p + 1] * sideFull + border, j = 0; j < side; j++, y++) {
+                    t[x + y * w] = color;
+                }
+            }
+        }
+    }
+
+    this.view.imageData.data.set(this.view.buf8);
+    c.putImageData(this.view.imageData, coord.x * sideFull, coord.y * sideFull);
+
+    return this;
+};
+
 CellField.prototype.resize = function(x, y) {
     this.xSize = x;
     this.ySize = y;
@@ -287,9 +389,10 @@ CellField.prototype.resize = function(x, y) {
         this.data[i] = new Array(y);
     }
 
-    return this.clear().dispatchEvent('ca-resize');
+    return this.clear().dispatchEvent('cell-field-resize');
 };
-CellField.prototype.resizeView = function(cellSide, border) {
+
+CellField.prototype.resizeView = function(cellSide, cellBorder) {
     if (!this.view.canvas || isNaN(cellSide) || cellSide < 1) {
         return;
     }
@@ -297,7 +400,7 @@ CellField.prototype.resizeView = function(cellSide, border) {
     var c = this.view.context = this.view.canvas.getContext('2d');
 
     var s = this.view.cellSide = cellSide,
-        b = this.view.border = (arguments.length === 1 ? this.view.border : border) || 0;
+        b = this.view.cellBorder = (arguments.length === 1 ? this.view.cellBorder : cellBorder) || 0;
 
     this.view.canvas.width  = c.width  = this.xSize * (s + b) + b;
     this.view.canvas.height = c.height = this.ySize * (s + b) + b;
@@ -313,8 +416,26 @@ CellField.prototype.resizeView = function(cellSide, border) {
     c.fillStyle = this.colors.background;
     c.fillRect(0, 0, c.width, c.height);
 
-    return this.draw().dispatchEvent('ca-resize-view');
+    if (this.view.drawFast) {
+        var w = Math.ceil(parseInt(parent.style.width,  10) / (s + b)) * (s + b),
+            h = Math.ceil(parseInt(parent.style.height, 10) / (s + b)) * (s + b);
+
+        this.view.imageData = c.createImageData(w, h);
+        var buf = new ArrayBuffer(this.view.imageData.data.length);
+        this.view.buf8 = new Uint8ClampedArray(buf);
+        var d = this.view.data = new Uint32Array(buf),
+            color = parseInt(this.colors.background.slice(1), 16) | (255 << 24);
+        for (var i = 0; i < d.length; i++) {
+            d[i] = color;
+        }
+        this.drawFast();
+    } else {
+        this.draw(true);
+    }
+
+    return this.dispatchEvent('cell-field-resize-view');
 };
+
 CellField.prototype.changeScale = function(change, coord) {
     var c = this.view.canvas;
     if (!c) {
@@ -345,10 +466,25 @@ CellField.prototype.changeScale = function(change, coord) {
 
     return this;
 };
+
+CellField.prototype.detectViewCoord = function() {
+    var v = this.view,
+        p = v.canvas.parentNode,
+        t = p.classList.contains('scrollable'),
+        s = v.cellSide + v.cellBorder;
+
+    return {
+        x: t ? Math.floor(p.scrollLeft / s) : 0,
+        y: t ? Math.floor(p.scrollTop  / s) : 0,
+        xSize: t ? Math.ceil(p.clientWidth  / s) : this.xSize,
+        ySize: t ? Math.ceil(p.clientHeight / s) : this.ySize,
+    };
+};
+
 CellField.prototype.colors = {
-    background: '#888888',
+    background: '#505050',
     0: '#000000',
     1: '#FFFFFF',
-    2: '#444444',
-    3: '#CCCCCC'
+    2: '#666666',
+    3: '#A8A8A8'
 };

@@ -154,7 +154,8 @@ $(document).ready(function() {
         cellSideMin: CELL_SIDE_MIN,
         cellSideMax: CELL_SIDE_MAX,
         cellSide: 2,
-        border: 1
+        cellBorder: 1,
+        drawFast: true
     });
 
     ca.cells.brush = CellField(BRUSH_SIZE, BRUSH_SIZE);
@@ -163,7 +164,7 @@ $(document).ready(function() {
     var caBrush = CellField(BRUSH_SIZE, BRUSH_SIZE, {
         wrapper: '#brush-wrapper',
         cellSide: 12,
-        border: 1
+        cellBorder: 1
     });
     caBrush.brush = CellField(1, 1);
     caBrush.brush.data[0][0] = 1;
@@ -178,7 +179,7 @@ $(document).ready(function() {
             }).height(caBrush.view.canvas.height);
         },
         open: function() {
-            caBrush.copy(ca.cells.brush).refresh();
+            caBrush.copy(ca.cells.brush).draw();
 
             $(this).find('.ca-state-select').html(Mustache.render(templates.brushColorSelect, $.map(CellField.prototype.colors, function(n, i) {
                 return isNaN(i) ? null : {
@@ -259,7 +260,7 @@ $(document).ready(function() {
                     ca.cells.copyBitPlane(fillCopy);
                 }
 
-                ca.cells.draw();
+                ca.cells.draw(true);
             }),
             'Cancel': closeDialog()
         }
@@ -309,7 +310,7 @@ $(document).ready(function() {
                 .find('#ca-field-x-size').val(ca.cells.xSize).end()
                 .find('#ca-field-y-size').val(ca.cells.ySize).end()
                 .find('#ca-field-cell-side').val(ca.cells.view.cellSide).end()
-                .find('#ca-field-cell-border').val(ca.cells.view.border).end()
+                .find('#ca-field-cell-border').val(ca.cells.view.cellBorder).end()
                 .find('.jscolor').each(function() {
                     var $this = $(this);
                     $this.val(CellField.prototype.colors[$this.attr('color-name')]);
@@ -470,7 +471,7 @@ $(document).ready(function() {
         });
 
     $('#cell-field-data').buttonset().find('#clear').click(function() {
-        ca.cells.clear().draw();
+        ca.cells.clear().draw(true);
     });
 
     $(document).on({
@@ -490,9 +491,10 @@ $(document).ready(function() {
 
             ca.cells.mode = 'edit';
         },
-        'ca-mode': function(e) {
-            if (e.originalEvent.detail.cellField === ca.cells) {
-                $('#cell-field-mode').find('[for="mode-' + e.detail.mode + '"]').click();
+        'cell-field-mode': function(e) {
+            var cf = e.originalEvent.detail.cellField;
+            if (cf === ca.cells) {
+                $('#cell-field-mode').find('[for="mode-' + cf.mode + '"]').click();
             }
         }
     }).trigger('ca-stop');
@@ -515,7 +517,7 @@ $(document).ready(function() {
         $steps.val(steps);
 
         ca.newGeneration(steps);
-        ca.cells.refresh();
+        ca.cells.draw(true);
     }).parent().find('input').width(50).val('1');
 
     $(ca.cells.view.canvas).parent().on('mousewheel', function(e) {
