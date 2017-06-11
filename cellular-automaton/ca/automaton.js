@@ -136,7 +136,7 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
 
             timer.intervalID = setInterval(function() {
                 newGeneration(steps);
-                cells.drawFast(steps === 1 ? newCells.data : null);
+                cells.render(steps === 1 ? newCells.data : null);
             }, timer.delay);
 
             return true;
@@ -205,6 +205,19 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
         ));
     }
 
+    function setColors(colors) {
+        for (var i in colors) {
+            var color = colors[i];
+            if (color[0] !== '#') {
+                color = '#' + color;
+            }
+
+            CellField.prototype.colors[i] = color;
+        }
+
+        cells.render();
+    }
+
 
     function newGeneration(n) {
         if (isNaN(n) || n < 1) {
@@ -241,8 +254,8 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
         };
     }
 
-    CellField.prototype.draw = runTimeLog(CellField.prototype.draw, 'CellField display');
-    CellField.prototype.drawFast = runTimeLog(CellField.prototype.drawFast, 'CellField display fast');
+    CellField.prototype.render = runTimeLog(CellField.prototype.render, 'CellField render');
+    CellField.prototype.renderPartial = runTimeLog(CellField.prototype.renderPartial, 'CellField renderPartial');
     getNewStatesTable = runTimeLog(getNewStatesTable, 'new states table built');
     newGeneration = runTimeLog(newGeneration, 'new generation got'); // */
 
