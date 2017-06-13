@@ -136,7 +136,7 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
 
             timer.intervalID = setInterval(function() {
                 newGeneration(steps);
-                cells.render(steps === 1 ? newCells.data : null);
+                cells.render();
             }, timer.delay);
 
             return true;
@@ -206,15 +206,19 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
     }
 
     function setColors(colors) {
-        for (var i in colors) {
-            var color = colors[i];
+        var oldColors = cells.colors,
+            newColors = {};
+
+        for (var i in oldColors) {
+            var color = colors[i] || oldColors[i];
             if (color[0] !== '#') {
                 color = '#' + color;
             }
 
-            CellField.prototype.colors[i] = color;
+            newColors[i] = color;
         }
 
+        cells.colors = newColors;
         cells.render();
     }
 
