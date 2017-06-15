@@ -11,7 +11,10 @@ for (var i = 0; i < table.length; i++) {\
     table[i] = calcNewState(n) & 3;\
 }\
     })',
-        indexProc: '(function(d, newD, xSize, ySize) {\
+        indexProc: '(function(d, newD) {\
+var xSize = d.length,\
+    ySize = d[0].length;\
+\
 for (var x = 0; x < xSize; x++) {\
     for (var y = 0; y < ySize; y++) {\
         var xPrev = x === 0 ? xSize - 1 : x - 1,\
@@ -104,11 +107,14 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
     var newStateTableInner = function() {},
         newGenerationInner = function() {};
 
-    var cells = CellField(xSize, ySize, viewOptions),
-        newCells = CellField(xSize, ySize),
+    var cells = CellField(xSize, ySize),
+        newCells = cells.clone(),
+        initialCells = null,
         rule = 'function main(n) { return n.center; }',
         newStatesTable = getNewStatesTable(rule),
         time = 0;
+
+    var cellsView = CellFieldView(cells, viewOptions);
 
     var MIN_STEPS = 1,
         MAX_STEPS = 100,
@@ -136,7 +142,7 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
 
             timer.intervalID = setInterval(function() {
                 newGeneration(steps);
-                cells.render();
+                cellsView.render();
             }, timer.delay);
 
             return true;
@@ -206,7 +212,9 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
     }
 
     function setColors(colors) {
-        var oldColors = cells.colors,
+        colors = colors instanceof Object ? colors : CellFieldView.prototype.colors;
+
+        var oldColors = cellsView.colors,
             newColors = {};
 
         for (var i in oldColors) {
@@ -218,8 +226,8 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
             newColors[i] = color;
         }
 
-        cells.colors = newColors;
-        cells.render();
+        cellsView.colors = newColors;
+        cellsView.render();
     }
 
 
@@ -228,14 +236,8 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
             n = 1;
         }
 
-        var xSize = cells.xSize,
-            ySize = cells.ySize;
-
         for (var i = 0; i < n; i++) {
-            var d = cells.data,
-                newD = newCells.data;
-
-            newGenerationInner(d, newD, xSize, ySize);
+            newGenerationInner(cells.data, newCells.data);
 
             var t = newCells.data;
             newCells.data = cells.data;
@@ -258,14 +260,15 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
         };
     }
 
-    CellField.prototype.render = runTimeLog(CellField.prototype.render, 'CellField render');
-    CellField.prototype.renderPartial = runTimeLog(CellField.prototype.renderPartial, 'CellField renderPartial');
+    CellFieldView.prototype.render = runTimeLog(CellFieldView.prototype.render, 'CellField render');
+    CellFieldView.prototype.renderPartial = runTimeLog(CellFieldView.prototype.renderPartial, 'CellField renderPartial');
     getNewStatesTable = runTimeLog(getNewStatesTable, 'new states table built');
     newGeneration = runTimeLog(newGeneration, 'new generation got'); // */
 
 
     return {
         cells: cells,
+        view: cellsView,
         resize: function(o) {
             o = o instanceof Object ? o : {};
 
@@ -276,9 +279,14 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
                 }
             }
 
-            cells.resizeView(o.cellSide, o.cellBorder);
+            cellsView.resize(o.cellSide, o.cellBorder);
         },
-        newGeneration: newGeneration,
+        newGeneration: function(n) {
+            if (!this.isStarted()) {
+                initialCells = cells.clone();
+                newGeneration(n);
+            }
+        },
         get stepsPerStroke() {
             return steps;
         },
@@ -305,6 +313,7 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
             var result = timer.start();
             if (result) {
                 document.dispatchEvent(new CustomEvent('ca-start'));
+                initialCells = cells.clone();
             }
 
             return result;
@@ -316,6 +325,13 @@ index <<= 2; index |= (x & 1) | ((y & 1) << 1);'
             }
 
             return result;
+        },
+        back: function() {
+            if (initialCells) {
+                this.stop();
+                cells.copy(initialCells);
+                cellsView.render();
+            }
         }
     };
 };
