@@ -5,6 +5,7 @@
     margin: 10px 5px;
     position: absolute;
     font-size: 15px;
+    text-decoration: underline;
 }
 .link.github {
     right: 5px;
