@@ -78,18 +78,23 @@ var h = x & 1,\
             }
         },
         extra: {
-            phase: [
-                { name: 'phase', size: 2, code: 'time' }
-            ],
-            hv: [
-                { name: 'horz', size: 1, code: 'x' },
-                { name: 'vert', size: 1, code: 'y' },
-            ]
+            phase: {
+                neighbors: [
+                    { name: 'phase', size: 2, code: 'time' }
+                ]
+            },
+            hv: {
+                neighbors: [
+                    { name: 'horz', size: 1, code: 'x' },
+                    { name: 'vert', size: 1, code: 'y' }
+                ]
+            }
         }
     };
 
-    var newStateTableInner = function() {},
-        newGenerationInner = function() {};
+    var newStateTableInner = null,
+        newGenerationInner = null,
+        beforeNewGeneration = null;
 
     var cells = CellField(xSize, ySize),
         newCells = cells.clone(),
@@ -98,7 +103,7 @@ var h = x & 1,\
         newStatesTable = getNewStatesTable(rule),
         time = 0;
 
-    var cellsView = CellFieldView(cells, viewOptions);
+    var view = CellFieldView(cells, viewOptions);
 
     var MIN_STEPS = 1,
         MAX_STEPS = 100,
@@ -126,7 +131,6 @@ var h = x & 1,\
 
             timer.intervalID = setInterval(function() {
                 newGeneration(steps);
-                cellsView.render();
             }, timer.delay);
 
             return true;
@@ -146,6 +150,7 @@ var h = x & 1,\
 
     function getNewStatesTable(code) {
         time = 0;
+        beforeNewGeneration = null;
 
         setNeighborhoods({
             main: 'Moore-thin',
@@ -188,25 +193,6 @@ var h = x & 1,\
         newGenerationInner = eval(newGenerationCode.indexProc.replace('{{.}}', indexProcCode));
     }
 
-    function setColors(colors) {
-        colors = colors instanceof Object ? colors : CellFieldView.prototype.colors;
-
-        var oldColors = cellsView.colors,
-            newColors = {};
-
-        for (var i in oldColors) {
-            var color = colors[i] || oldColors[i];
-            if (color[0] !== '#') {
-                color = '#' + color;
-            }
-
-            newColors[i] = color;
-        }
-
-        cellsView.colors = newColors;
-        cellsView.render();
-    }
-
 
     function newGeneration(n) {
         if (isNaN(n) || n < 1) {
@@ -214,6 +200,10 @@ var h = x & 1,\
         }
 
         for (var i = 0; i < n; i++) {
+            if (beforeNewGeneration instanceof Function) {
+                beforeNewGeneration();
+            }
+
             newGenerationInner(cells.data, newCells.data);
 
             var t = newCells.data;
@@ -222,6 +212,8 @@ var h = x & 1,\
 
             time++;
         }
+
+        view.render();
     }
 
     function saveConfiguration() {
@@ -256,7 +248,7 @@ var h = x & 1,\
 
     return {
         cells: cells,
-        view: cellsView,
+        view: view,
         resize: function(o) {
             o = o instanceof Object ? o : {};
 
@@ -267,7 +259,11 @@ var h = x & 1,\
                 }
             }
 
-            cellsView.resize(o.cellSide, o.cellBorder);
+            view.resize(o.cellSide, o.cellBorder);
+        },
+        clear: function() {
+            cells.clear();
+            view.render();
         },
         newGeneration: function(n) {
             if (!this.isStarted()) {
@@ -318,7 +314,7 @@ var h = x & 1,\
             if (previousConfiguration) {
                 this.stop();
                 restoreConfiguration();
-                cellsView.render();
+                view.render();
             }
         }
     };
