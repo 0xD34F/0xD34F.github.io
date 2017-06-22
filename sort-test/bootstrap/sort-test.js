@@ -165,7 +165,7 @@
             nv.utils.windowResize(updateCharts);
 
             for (var i in sortTest.sorts) {
-                $sorts.append('<li><a href="#"><input sort-name="' + i + '" type="checkbox" checked>' + i + '</a></li>');
+                $sorts.append('<li><a href="#"><div class="checkbox"><label><input sort-name="' + i + '" type="checkbox" checked>' + i + '</label></div></a></li>');
             }
         },
         isTesting: function() {
