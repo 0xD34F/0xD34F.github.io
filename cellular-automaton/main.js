@@ -115,11 +115,11 @@ var templates = {
     {{/.}}\
 </table>',
     colorSetting:
-'<table class="ca-options-table">\
+'<div class="ca-state-select row">\
     {{#.}}\
-    <tr><td>{{username}}</td><td><input type="text" class="jscolor" color-name="{{sysname}}" readonly="readonly"></td></tr>\
+    <div class="ca-state"><span class="ca-state-name">{{label}}</span><input type="text" class="jscolor" color-name="{{color}}" readonly="readonly"></div>\
     {{/.}}\
-</table>',
+</div>',
     bitPlanesShow:
 '<table class="ca-options-table">\
     <tr><th>Bit plane</th><th>Show</th></tr>\
@@ -132,7 +132,7 @@ var templates = {
 </table>',
     brushColorSelect:
 '{{#.}}\
-<div class="ca-state" ca-state="{{state}}"><span class="ca-state-name">state {{state}}</span><span class="ca-state-color" style="background-color: {{color}}"></span></div>\
+<div class="ca-state" ca-state="{{state}}"><span class="ca-state-name">{{label}}</span><span class="ca-state-color" style="background-color: {{color}}"></span></div>\
 {{/.}}'
 };
 
@@ -169,6 +169,7 @@ $(document).ready(function() {
     ca.cells.brush = caBrush.field.clone();
 
     $('#ca-brush').dialog({
+        width: 370,
         create: function() {
             $(this).find('.ca-state-select').on('click', '.ca-state', function() {
                 var $this = $(this);
@@ -184,6 +185,7 @@ $(document).ready(function() {
 
             $(this).find('.ca-state-select').html(Mustache.render(templates.brushColorSelect, $.map(colors, function(n, i) {
                 return isNaN(i) ? null : {
+                    label: (+i).toString(16).toUpperCase(),
                     state: i,
                     color: n
                 };
@@ -230,11 +232,6 @@ $(document).ready(function() {
                     }));
                 }
             }).end().find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
-
-            // временно, пока используется только две битовые плоскости
-            [ 1, 0 ].forEach((function(n, i) {
-                this.find('[data-bit-plane="' + n + '"] .ca-filling-copy input').addClass('ui-state-disabled').val(i);
-            }).bind($(this)));
         },
         buttons: {
             'OK': closeDialog(function() {
@@ -271,7 +268,7 @@ $(document).ready(function() {
 
     $('#ca-view').dialog({
         width: 320,
-        height: 420,
+        height: 460,
         create: function() {
             var $this = $(this);
 
@@ -292,8 +289,8 @@ $(document).ready(function() {
 
             $this.find('#ca-view-colors').append(Mustache.render(templates.colorSetting, $.map(ca.view.colors, function(n, i) {
                 return {
-                    sysname: i,
-                    username: isNaN(i) ? i : ('state ' + i)
+                    color: i,
+                    label: isNaN(i) ? i : (+i).toString(16).toUpperCase()
                 };
             }))).find('.jscolor').each(function() {
                 this.jscolor = new jscolor(this, {
