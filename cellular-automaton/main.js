@@ -42,11 +42,6 @@ function shiftArray(array, shift) {
     }
 }
 
-function random(max, min) {
-    min = min || 0;
-    return Math.floor(Math.random() * (max - min)) + min;
-}
-
 function limitation(val, min, max) {
     val = val >> 0;
 
@@ -152,6 +147,7 @@ $(document).ready(function() {
 
     var ca = window.ca = CellularAutomaton(X_SIZE_MAX, Y_SIZE_MAX, {
         wrapper: '#cells-wrapper',
+        scalable: true,
         cellSideMin: CELL_SIDE_MIN,
         cellSideMax: CELL_SIDE_MAX,
         cellSide: 2,
@@ -208,14 +204,11 @@ $(document).ready(function() {
                 planesHTML = Mustache.render(templates.fieldFilling, planesList);
 
             var max = ca.cells.randomFillDensityDescritization;
-            $(this).append(planesHTML).find('.ca-filling-random > input').each(function() {
-                $(this).val(max / 2).spinner({
-                    min: 0,
-                    max: max,
-                    step: 1,
-                    numberFormat: 'n'
-                });
-            }).end().find('select').selectmenu({
+            $(this).append(planesHTML).find('.ca-filling-random > input').spinner({
+                min: 0,
+                max: max,
+                step: 1
+            }).val(max / 2).end().find('select').selectmenu({
                 width: 100
             }).on('selectmenuchange', function(e, ui) {
                 $(this).closest('tr').find('.ca-filling-options').find('>').hide().end().find('.ca-filling-' + (ui ? ui.item.value : this.value)).show();
@@ -254,20 +247,14 @@ $(document).ready(function() {
                     }
                 });
 
+                if (fillInvert.length) {
+                    ca.cells.invertBitPlane(fillInvert);
+                }
                 if (Object.keys(fillRandom).length) {
                     ca.cells.fillRandom(fillRandom);
                 }
                 if (Object.keys(fillCopy).length) {
                     ca.cells.copyBitPlane(fillCopy);
-                }
-                if (fillInvert.length) {
-                    ca.cells.fill(function(x, y, value) {
-                        for (var i = 0; i < fillInvert.length; i++) {
-                            value ^= 1 << fillInvert[i];
-                        }
-
-                        return value;
-                    })
                 }
 
                 ca.view.render();
@@ -328,8 +315,7 @@ $(document).ready(function() {
                 }).end()
                 .find('.ca-bit-plane-cb').each(function(i) {
                     this.checked = !!(ca.view.showBitPlanes & (1 << i));
-                    $(this).change();
-                });
+                }).change();
         },
         buttons: {
             'OK': closeDialog(function() {
@@ -340,11 +326,9 @@ $(document).ready(function() {
                 });
                 ca.view.colors = newColors;
 
-                var t = 0;
-                this.find('.ca-bit-plane-cb').each(function(i) {
-                    t |= this.checked ? (1 << i) : 0;
-                });
-                ca.view.showBitPlanes = t;
+                ca.view.showBitPlanes = this.find('.ca-bit-plane-cb').toArray().reduce(function(prev, curr, i) {
+                    return prev | (+curr.checked << i);
+                }, 0);
 
                 ca.resize({
                     xSize: limitation(this.find('#ca-field-x-size').val(), X_SIZE_MIN, X_SIZE_MAX),
@@ -521,11 +505,6 @@ $(document).ready(function() {
 
         ca.newGeneration(steps);
     }).parent().find('input').width(50).val('1');
-
-    $(ca.view.canvas).parent().on('mousewheel', function(e) {
-        ca.view.changeScale(e.originalEvent.deltaY > 0 ? -1 : 1, e.originalEvent);
-        return false;
-    });
 
     var defaultRule = 'Conway\'s Life';
     ca.rule = rules.get(defaultRule);

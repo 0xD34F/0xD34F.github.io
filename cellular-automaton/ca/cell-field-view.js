@@ -248,7 +248,7 @@
             x: t ? Math.floor(p.scrollLeft / s) : 0,
             y: t ? Math.floor(p.scrollTop  / s) : 0,
             xSize: t ? Math.ceil(p.clientWidth  / s) : view.field.xSize,
-            ySize: t ? Math.ceil(p.clientHeight / s) : view.field.ySize,
+            ySize: t ? Math.ceil(p.clientHeight / s) : view.field.ySize
         };
     };
 
@@ -322,6 +322,19 @@
             p.scrollTop  = Math.round(p.scrollTop  / s) * s;
 
             setTimeout(this.render.bind(this));
+        }
+    }, {
+        wrapper: true,
+        events: [ 'mousewheel' ],
+        handler: function(e) {
+            if (!this.scalable) {
+                return;
+            }
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            this.changeScale(e.deltaY > 0 ? -1 : 1, e);
         }
     } ];
 
