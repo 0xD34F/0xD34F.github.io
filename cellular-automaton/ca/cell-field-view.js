@@ -11,7 +11,7 @@
         o.wrapper = o.wrapper instanceof HTMLElement ? o.wrapper : document.querySelector(o.wrapper);
         o.cellSide = o.cellSide << 0;
         o.cellBorder = o.cellBorder << 0;
-        o.showBitPlanes = isNaN(o.showBitPlanes) ? (Math.pow(2, o.field.numBitPlanes) - 1) : +o.showBitPlanes;
+        o.showBitPlanes = isNaN(o.showBitPlanes) ? bitMask(o.field.numBitPlanes) : +o.showBitPlanes;
 
         if (!o.width) {
             o.width = field.xSize * (o.cellSide + o.cellBorder) + o.cellBorder;
@@ -47,7 +47,11 @@
         },
         set: function(value) {
             this._mode = value;
-            this.field.dispatchEvent('cell-field-mode');
+            document.dispatchEvent(new CustomEvent('cell-field-mode', {
+                detail: {
+                    cellField: this.field
+                }
+            }));
             this.canvas.setAttribute('data-mode', value);
         }
     });
@@ -167,7 +171,6 @@
             d[i + 3] = 255;
         }
 
-        this.field.dispatchEvent('cell-field-resize-view');
         this.render();
     };
 
@@ -288,7 +291,6 @@
         events: [ 'mouseup', 'mouseleave' ],
         handler: function(e) {
             this.oldEventCoord = {};
-            this.field.dispatchEvent('cell-field-' + this.mode + '-ended');
         }
     }, {
         events: [ 'mousedown', 'mousemove' ],
@@ -362,7 +364,7 @@
                     });
                     this.renderPartial({ x: x, y: y, xSize: f.brush.xSize, ySize: f.brush.ySize });
                 } else {
-                    f.data[x][y] = (f.data[x][y] + getMouseChange(e)) & (Math.pow(2, f.numBitPlanes) - 1);
+                    f.data[x][y] = (f.data[x][y] + getMouseChange(e)) & bitMask(f.numBitPlanes);
                     this.renderPartial({ x: x, y: y, xSize: 1, ySize: 1 });
                 }
             }
