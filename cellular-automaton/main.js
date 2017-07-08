@@ -1,24 +1,6 @@
-﻿function shiftArray(array, shift) {
-    var from = 0,
-        val = array[from],
-        group = 1;
-
-    for (var i = 0; i < array.length; i++) {
-        var to = ((from + shift) + array.length) % array.length;
-        if (to === from) {
-            break;
-        }
-
-        var t = array[to];
-        array[to] = val;
-        from = to;
-        val = t;
-
-        if (from < group) {
-            from = group++;
-            val = array[from];
-        }
-    }
+﻿function rotateArray(array, rotate) {
+    rotate -= array.length * Math.floor(rotate / array.length);
+    array.push(...array.splice(0, rotate));
 }
 
 function limitation(val, min, max) {
@@ -97,7 +79,7 @@ ${bitPlanes.map(n => `
     colorSetting: colors => `
 <div class="ca-state-select row">
 ${colors.map(n => `
-    <div class="ca-state"><span class="ca-state-name">${n.label}</span><input type="text" class="jscolor" color-name="${n.color}" readonly="readonly"></div>
+    <div class="ca-state"><div><span class="ca-state-name">${n.label}</span><input type="text" class="jscolor" color-name="${n.color}" readonly="readonly"></div></div>
 `).join('')}
 </div>`,
 
@@ -113,7 +95,7 @@ ${bitPlanes.map(n => `
 </table>`,
 
     brushColorSelect: colors => colors.map(n => `
-        <div class="ca-state" ca-state="${n.state}"><span class="ca-state-name">${n.label}</span><span class="ca-state-color" style="background-color: ${n.color}"></span></div>
+<div class="ca-state" ca-state="${n.state}"><div><span class="ca-state-name">${n.label}</span><span class="ca-state-color" style="background-color: ${n.color}"></span></div></div>
     `).join('')
 };
 
@@ -132,33 +114,34 @@ $(document).ready(function() {
 
     var ca = window.ca = CellularAutomaton(X_SIZE_MAX, Y_SIZE_MAX, {
         wrapper: '#cells-wrapper',
-        scalable: true,
-        cellSideMin: CELL_SIDE_MIN,
-        cellSideMax: CELL_SIDE_MAX,
+        scaling: {
+            min: CELL_SIDE_MIN,
+            max: CELL_SIDE_MAX
+        },
         cellSide: 2,
         cellBorder: 1
     });
 
-    var caBrush = CellFieldView(CellField(BRUSH_SIZE, BRUSH_SIZE), {
+    var caBrush = CellFieldView(CellField(BRUSH_SIZE), {
         wrapper: '#brush-wrapper',
         cellSide: 12,
         cellBorder: 1
     });
     caBrush.field.data[Math.floor(BRUSH_SIZE / 2)][Math.floor(BRUSH_SIZE / 2)] = 1;
-    caBrush.field.brush = CellField(1, 1);
+    caBrush.field.brush = CellField(1);
     caBrush.field.brush.data[0][0] = 1;
 
     ca.cells.brush = caBrush.field.clone();
 
     $('#ca-brush').dialog({
-        width: 370,
+        width: 380,
         create: function() {
             $(this).find('.ca-state-select').on('click', '.ca-state', function() {
                 var $this = $(this);
                 $this.parent().find('.ui-state-active').removeClass('ui-state-active');
                 $this.addClass('ui-state-active');
                 caBrush.field.brush.data[0][0] = $this.attr('ca-state');
-            }).height(caBrush.canvas.height);
+            });
         },
         open: function() {
             var colors = caBrush.colors = ca.view.colors;
@@ -201,10 +184,7 @@ $(document).ready(function() {
                 source: function(request, response) {
                     var ownPlane = +this.element.closest('tr').attr('data-bit-plane');
 
-                    response(planesList.filter(n => n !== ownPlane).map(n => ({
-                        label: n,
-                        value: n
-                    })));
+                    response(planesList.filter(n => n !== ownPlane).map(n => n.toString()));
                 }
             }).end().find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
         },
@@ -214,17 +194,16 @@ $(document).ready(function() {
                     fillCopy = {},
                     fillInvert = [];
 
-                this.find('.ca-bit-plane-cb').each(function(i) {
-                    if (this.checked) {
-                        var $tr = $(this).closest('tr');
+                this.find('.ca-bit-plane-cb:checked').each(function() {
+                    var $tr = $(this).closest('tr'),
+                        plane = $tr.attr('data-bit-plane');
 
-                        switch ($tr.find('.ca-filling-method').val()) {
-                            case 'invert': fillInvert.push(i); break;
-                            case   'all1': fillRandom[i] = ca.cells.randomFillDensityDescritization; break;
-                            case   'all0': fillRandom[i] = 0; break;
-                            case 'random': fillRandom[i] = $tr.find('.ca-filling-random input').val(); break;
-                            case   'copy': fillCopy[i] = $tr.find('.ca-filling-copy input').val(); break;
-                        }
+                    switch ($tr.find('.ca-filling-method').val()) {
+                        case 'invert': fillInvert.push(plane); break;
+                        case   'all1': fillRandom[plane] = ca.cells.randomFillDensityDescritization; break;
+                        case   'all0': fillRandom[plane] = 0; break;
+                        case 'random': fillRandom[plane] = $tr.find('.ca-filling-random input').val(); break;
+                        case   'copy': fillCopy[plane] = $tr.find('.ca-filling-copy input').val(); break;
                     }
                 });
 
@@ -257,14 +236,13 @@ $(document).ready(function() {
                 [ '#ca-field-y-size',      Y_SIZE_MIN,      Y_SIZE_MAX ],
                 [ '#ca-field-cell-side',   CELL_SIDE_MIN,   CELL_SIDE_MAX ],
                 [ '#ca-field-cell-border', CELL_BORDER_MIN, CELL_BORDER_MAX ]
-            ].forEach((function(n) {
-                this.find(n[0]).spinner({
+            ].forEach(function(n) {
+                $this.find(n[0]).spinner({
                     min: n[1],
                     max: n[2],
                     step: 1
                 }).attr('maxlength', n[2].toString().length);
-            }).bind($this));
-            $this.find('#ca-field-x-size, #ca-field-y-size').parent().addClass('ca-start-disable');
+            });
 
 
             $this.find('#ca-view-colors').append(templates.colorSetting($.map(ca.view.colors, (n, i) => ({
@@ -325,10 +303,10 @@ $(document).ready(function() {
             var $this = $(this);
 
             $this.find('#ca-rule-name-clear').click(function() {
-                $(this).parent().find('input').val('');
+                $('#ca-rule-name').val('');
             });
 
-            $this.find('#ca-rule-name').width(200).autocomplete({
+            $this.find('#ca-rule-name').autocomplete({
                 source: function(request, response) {
                     var term = request.term.toLowerCase();
 
@@ -483,5 +461,5 @@ $(document).ready(function() {
     ca.rule = rules.get(defaultRule);
     $('#ca-rule-name').val(defaultRule);
 
-    $('body').removeClass('hidden');
+    $('body').removeClass('ui-helper-hidden');
 });

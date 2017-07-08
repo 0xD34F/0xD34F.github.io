@@ -1,11 +1,7 @@
 ﻿var CellFieldView = (function() {
 
     function self(field, options) {
-        var o = Object.create(self.prototype);
-
-        for (var i in options) {
-            o[i] = options[i];
-        }
+        var o = Object.assign(Object.create(self.prototype), options);
 
         o.field = field;
         o.wrapper = o.wrapper instanceof HTMLElement ? o.wrapper : document.querySelector(o.wrapper);
@@ -58,7 +54,7 @@
 
     self.prototype.renderPartial = function(coord) {
         var m = this.showBitPlanes,
-            rg = getRenderGroups(this.field),
+            rg = getRenderGroups(this),
             cells = this.field.data,
             maxX = this.field.xSize,
             maxY = this.field.ySize;
@@ -94,7 +90,7 @@
     self.prototype.render = function() {
         var coord = detectViewCoord(this),
             m = this.showBitPlanes,
-            rg = getRenderGroups(this.field),
+            rg = getRenderGroups(this),
             cells = this.field.data,
             maxX = limitation(coord.x + coord.xSize, 0, this.field.xSize),
             maxY = limitation(coord.y + coord.ySize, 0, this.field.ySize);
@@ -112,9 +108,7 @@
             w = this.imageData.width;
 
         for (var state = 0; state < rg.length; state++) {
-            var r = parseInt(this.colors[state].slice(1, 3), 16),
-                g = parseInt(this.colors[state].slice(3, 5), 16),
-                b = parseInt(this.colors[state].slice(5, 7), 16);
+            var [ r, g, b ] = [...getColorComponents(this.colors[state])];
 
             for (var n = rg[state], p = 0; p < n.length; p += 2) {
                 for (x = n[p] * sideFull + border, i = 0; i < side; i++, x++) {
@@ -132,7 +126,7 @@
         this.context.putImageData(this.imageData, coord.x * sideFull, coord.y * sideFull);
     };
 
-    self.prototype.resize = function(cellSide, cellBorder) {
+    self.prototype.resize = function(cellSide, cellBorder = this.cellBorder || 0) {
         if (isNaN(cellSide) || cellSide < 1) {
             return;
         }
@@ -140,7 +134,7 @@
         var c = this.context = this.canvas.getContext('2d');
 
         var s = this.cellSide = cellSide,
-            b = this.cellBorder = (arguments.length === 1 ? this.cellBorder : cellBorder) || 0,
+            b = this.cellBorder = cellBorder,
             sb = s + b;
 
         this.canvas.width  = c.width  = this.field.xSize * sb + b;
@@ -160,9 +154,7 @@
         this.imageData = c.createImageData(Math.ceil(w / sb) * sb, Math.ceil(h / sb) * sb);
 
         var d = this.imageData.data,
-            _r = parseInt(this.colors.background.slice(1, 3), 16),
-            _g = parseInt(this.colors.background.slice(3, 5), 16),
-            _b = parseInt(this.colors.background.slice(5, 7), 16);
+            [ _r, _g, _b ] = [...getColorComponents(this.colors.background)];
 
         for (var i = 0; i < d.length; i += 4) {
             d[i + 0] = _r;
@@ -171,32 +163,8 @@
             d[i + 3] = 255;
         }
 
+        scrollFix(this);
         this.render();
-    };
-
-    self.prototype.changeScale = function(change, coord) {
-        var oldCellSide = this.cellSide,
-            newCellSide = limitation(oldCellSide + change, this.cellSideMin, this.cellSideMax);
-
-        if (oldCellSide !== newCellSide) {
-            if (!coord) {
-                coord = {
-                    x: 0,
-                    y: 0
-                };
-            } else if (coord instanceof MouseEvent) {
-                coord = detectEventCoord(this, coord);
-            }
-
-            var p = this.canvas.parentNode,
-                oldScrollX = p.scrollLeft,
-                oldScrollY = p.scrollTop;
-
-            this.resize(newCellSide);
-
-            p.scrollLeft = coord.x * (newCellSide - oldCellSide) + oldScrollX;
-            p.scrollTop  = coord.y * (newCellSide - oldCellSide) + oldScrollY;
-        }
     };
 
     self.prototype.setColors = function(colors, render) {
@@ -220,16 +188,35 @@
         }
     };
 
+    function changeScale(view, change, coord) {
+        var oldCellSide = view.cellSide,
+            newCellSide = limitation(oldCellSide + change, view.scaling.min, view.scaling.max);
 
-    function getRenderGroups(cellField) {
-        var numStates = Math.pow(2, cellField.numBitPlanes),
-            groups = [];
+        if (oldCellSide !== newCellSide) {
+            var p = view.canvas.parentNode,
+                oldScrollX = p.scrollLeft,
+                oldScrollY = p.scrollTop;
 
-        for (var i = 0; i < numStates; i++) {
-            groups.push([]);
+            view.resize(newCellSide);
+
+            p.scrollLeft = coord.x * (newCellSide - oldCellSide) + oldScrollX;
+            p.scrollTop  = coord.y * (newCellSide - oldCellSide) + oldScrollY;
         }
+    };
 
-        return groups;
+    function scrollFix(view) {
+        var s = view.cellSide + view.cellBorder,
+            p = view.canvas.parentNode;
+
+        p.scrollLeft = Math.round(p.scrollLeft / s) * s;
+        p.scrollTop  = Math.round(p.scrollTop  / s) * s;
+    };
+
+
+    function getRenderGroups(view) {
+        var numStates = Math.pow(2, view.field.numBitPlanes);
+
+        return [...Array(numStates)].map(() => []);
     }
 
     function detectEventCoord(view, e) {
@@ -260,6 +247,41 @@
             1:  1,
             2: -1
         })[e.buttons] || 0);
+    }
+
+    function getColorComponents(color) {
+        return [ 1, 3, 5 ].map(n => parseInt(color.slice(n, n + 2), 16));
+    }
+
+    function getLineCoords(p0, p1) {
+        var x = p0.x,
+            y = p0.y,
+            dx = Math.abs(x - p1.x),
+            dy = Math.abs(y - p1.y),
+            sx = (x < p1.x) ? 1 : -1,
+            sy = (y < p1.y) ? 1 : -1,
+            error = dx - dy,
+            coords = [];
+
+        while (true) {
+            coords.push({ x, y });
+
+            if ((x === p1.x) && (y === p1.y)) {
+                break;
+            }
+
+            var e2 = error * 2;
+            if (e2 > -dy) {
+                error -= dy;
+                x += sx;
+            }
+            if (e2 < dx) {
+                error += dx;
+                y += sy;
+            }
+        }
+
+        return coords;
     }
 
     var defaultColors = {
@@ -317,26 +339,21 @@
         wrapper: true,
         events: [ 'scroll' ],
         handler: function(e) {
-            var s = this.cellSide + this.cellBorder,
-                p = this.canvas.parentNode;
-
-            p.scrollLeft = Math.round(p.scrollLeft / s) * s;
-            p.scrollTop  = Math.round(p.scrollTop  / s) * s;
-
-            setTimeout(this.render.bind(this));
+            scrollFix(this);
+            this.render();
         }
     }, {
         wrapper: true,
         events: [ 'mousewheel' ],
         handler: function(e) {
-            if (!this.scalable) {
+            if (!this.scaling) {
                 return;
             }
 
             e.preventDefault();
             e.stopPropagation();
 
-            this.changeScale(e.deltaY > 0 ? -1 : 1, e);
+            changeScale(this, e.deltaY > 0 ? -1 : 1, detectEventCoord(this, e));
         }
     } ];
 
@@ -352,20 +369,26 @@
                     return false;
                 }
 
-                if (f.brush instanceof CellField) {
-                    x = (x - Math.floor(f.brush.xSize / 2) + f.xSize) % f.xSize;
-                    y = (y - Math.floor(f.brush.ySize / 2) + f.ySize) % f.ySize;
+                var coords = getLineCoords(newCoord, Object.assign({}, newCoord, oldCoord));
+                for (var i = 0; i < coords.length; i++) {
+                    x = coords[i].x;
+                    y = coords[i].y;
 
-                    f.copy(f.brush, {
-                        x: x,
-                        y: y,
-                        skipZeros: true,
-                        setZeros: e.buttons === 2
-                    });
-                    this.renderPartial({ x: x, y: y, xSize: f.brush.xSize, ySize: f.brush.ySize });
-                } else {
-                    f.data[x][y] = (f.data[x][y] + getMouseChange(e)) & bitMask(f.numBitPlanes);
-                    this.renderPartial({ x: x, y: y, xSize: 1, ySize: 1 });
+                    if (f.brush instanceof CellField) {
+                        x = (x - Math.floor(f.brush.xSize / 2) + f.xSize) % f.xSize;
+                        y = (y - Math.floor(f.brush.ySize / 2) + f.ySize) % f.ySize;
+
+                        f.copy(f.brush, {
+                            x: x,
+                            y: y,
+                            skipZeros: true,
+                            setZeros: e.buttons === 2
+                        });
+                        this.renderPartial({ x: x, y: y, xSize: f.brush.xSize, ySize: f.brush.ySize });
+                    } else {
+                        f.data[x][y] = (f.data[x][y] + getMouseChange(e)) & bitMask(f.numBitPlanes);
+                        this.renderPartial({ x: x, y: y, xSize: 1, ySize: 1 });
+                    }
                 }
             }
         },
@@ -379,7 +402,7 @@
         scale: {
             events: [ 'mousedown' ],
             handler: function(e, newCoord, oldCoord) {
-                this.changeScale(getMouseChange(e), e);
+                changeScale(this, getMouseChange(e), newCoord);
             }
         }
     };

@@ -11,7 +11,7 @@ CellField.prototype.getBitPlanes = function() {
     return [...Array(this.numBitPlanes)].map((n, i) => i);
 };
 
-CellField.prototype.resize = function(x, y) {
+CellField.prototype.resize = function(x, y = x) {
     this.xSize = x;
     this.ySize = y;
     this.data = [...Array(x)].map(() => Array(y).fill(0));
@@ -30,12 +30,9 @@ CellField.prototype.fill = function(f) {
 };
 
 CellField.prototype.shift = function(x, y) {
-    x = x || 0;
-    y = y || 0;
-
-    shiftArray(this.data, x);
+    rotateArray(this.data, -x);
     for (var i = 0; i < this.xSize; i++) {
-        shiftArray(this.data[i], y);
+        rotateArray(this.data[i], -y);
     }
 
     return this;
@@ -96,7 +93,11 @@ CellField.prototype.copyBitPlane = function(o) {
     });
 };
 
-CellField.prototype.randomFillDensityDescritization = 1000;
+Object.defineProperty(CellField.prototype, 'randomFillDensityDescritization', {
+    get: function() {
+        return 1000;
+    }
+});
 // o - объект вида { <номер битовой плоскости>: <плотность заполнения>, ... }
 CellField.prototype.fillRandom = function(o) {
     return this.fill(function(x, y, value) {

@@ -19,7 +19,7 @@
     <script src="ca/rules.js"></script>
     <script src="main.js"></script>
 </head>
-<body class="hidden">
+<body class="ui-helper-hidden">
     <div class="links">
         <a class="link projects" href="../index.html">More projects</a>
         <a class="link github" href="https://github.com/0xD34F/cellular-automaton">View on Github</a>
@@ -64,7 +64,7 @@
     </div>
     <div id="ca-brush" title="Brush">
         <div id="brush-wrapper" class="cells-field-wrapper"></div>
-        <div class="ca-state-select column"></div>
+        <div class="ca-state-select grid"></div>
     </div>
     <div id="ca-colors" title="Colors"></div>
     <div id="ca-filling" title="Cells field filling"></div>
@@ -83,8 +83,8 @@
             </ul>
             <div id="ca-view-field">
                 <table class="ca-options-table">
-                    <tr><td>Field width</td><td><input id="ca-field-x-size" type="text"></td></tr>
-                    <tr><td>Field height</td><td><input id="ca-field-y-size" type="text"></td></tr>
+                    <tr><td>Field width</td><td><input id="ca-field-x-size" type="text" class="ca-start-disable"></td></tr>
+                    <tr><td>Field height</td><td><input id="ca-field-y-size" type="text" class="ca-start-disable"></td></tr>
                     <tr><td>Cell side</td><td><input id="ca-field-cell-side" type="text"></td></tr>
                     <tr><td>Cell border</td><td><input id="ca-field-cell-border" type="text"></td></tr>
                 </table>
