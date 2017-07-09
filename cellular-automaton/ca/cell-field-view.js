@@ -189,6 +189,10 @@
     };
 
     function changeScale(view, change, coord) {
+        if (!view.scaling) {
+            return;
+        }
+
         var oldCellSide = view.cellSide,
             newCellSide = limitation(oldCellSide + change, view.scaling.min, view.scaling.max);
 
@@ -242,18 +246,11 @@
         };
     };
 
-    function getMouseChange(e) {
-        return (({
-            1:  1,
-            2: -1
-        })[e.buttons] || 0);
-    }
-
     function getColorComponents(color) {
         return [ 1, 3, 5 ].map(n => parseInt(color.slice(n, n + 2), 16));
     }
 
-    function getLineCoords(p0, p1) {
+    function getLineCoord(p0, p1) {
         var x = p0.x,
             y = p0.y,
             dx = Math.abs(x - p1.x),
@@ -261,10 +258,10 @@
             sx = (x < p1.x) ? 1 : -1,
             sy = (y < p1.y) ? 1 : -1,
             error = dx - dy,
-            coords = [];
+            coord = [];
 
         while (true) {
-            coords.push({ x, y });
+            coord.push({ x, y });
 
             if ((x === p1.x) && (y === p1.y)) {
                 break;
@@ -281,7 +278,7 @@
             }
         }
 
-        return coords;
+        return coord;
     }
 
     var defaultColors = {
@@ -344,12 +341,8 @@
         }
     }, {
         wrapper: true,
-        events: [ 'mousewheel' ],
+        events: [ 'wheel' ],
         handler: function(e) {
-            if (!this.scaling) {
-                return;
-            }
-
             e.preventDefault();
             e.stopPropagation();
 
@@ -363,32 +356,25 @@
             handler: function(e, newCoord, oldCoord) {
                 var x = newCoord.x,
                     y = newCoord.y,
-                    f = this.field;
+                    f = this.field,
+                    b = this.brush;
 
-                if (x >= f.xSize || y >= f.ySize || x < 0 || y < 0) {
+                if (x >= f.xSize || y >= f.ySize || x < 0 || y < 0 || !b) {
                     return false;
                 }
 
-                var coords = getLineCoords(newCoord, Object.assign({}, newCoord, oldCoord));
-                for (var i = 0; i < coords.length; i++) {
-                    x = coords[i].x;
-                    y = coords[i].y;
+                var coord = getLineCoord(newCoord, Object.assign({}, newCoord, oldCoord));
+                for (var i = 0; i < coord.length; i++) {
+                    x = (coord[i].x - Math.floor(b.xSize / 2) + f.xSize) % f.xSize;
+                    y = (coord[i].y - Math.floor(b.ySize / 2) + f.ySize) % f.ySize;
 
-                    if (f.brush instanceof CellField) {
-                        x = (x - Math.floor(f.brush.xSize / 2) + f.xSize) % f.xSize;
-                        y = (y - Math.floor(f.brush.ySize / 2) + f.ySize) % f.ySize;
-
-                        f.copy(f.brush, {
-                            x: x,
-                            y: y,
-                            skipZeros: true,
-                            setZeros: e.buttons === 2
-                        });
-                        this.renderPartial({ x: x, y: y, xSize: f.brush.xSize, ySize: f.brush.ySize });
-                    } else {
-                        f.data[x][y] = (f.data[x][y] + getMouseChange(e)) & bitMask(f.numBitPlanes);
-                        this.renderPartial({ x: x, y: y, xSize: 1, ySize: 1 });
-                    }
+                    f.copy(b, {
+                        x: x,
+                        y: y,
+                        skipZeros: true,
+                        setZeros: e.buttons === 2
+                    });
+                    this.renderPartial({ x: x, y: y, xSize: b.xSize, ySize: b.ySize });
                 }
             }
         },
@@ -402,7 +388,10 @@
         scale: {
             events: [ 'mousedown' ],
             handler: function(e, newCoord, oldCoord) {
-                changeScale(this, getMouseChange(e), newCoord);
+                changeScale(this, ({
+                    1:  1,
+                    2: -1
+                })[e.buttons] || 0, newCoord);
             }
         }
     };
