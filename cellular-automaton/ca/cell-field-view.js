@@ -43,11 +43,7 @@
         },
         set: function(value) {
             this._mode = value;
-            document.dispatchEvent(new CustomEvent('cell-field-mode', {
-                detail: {
-                    cellField: this.field
-                }
-            }));
+            this.canvas.dispatchEvent(new CustomEvent('cell-field-mode'));
             this.canvas.setAttribute('data-mode', value);
         }
     });
@@ -168,7 +164,7 @@
     };
 
     self.prototype.setColors = function(colors, render) {
-        colors = colors instanceof Object ? colors : defaultColors;
+        colors = Object.assign({}, defaultColors, colors);
 
         var oldColors = this.colors,
             newColors = {};
@@ -325,6 +321,11 @@
                 return;
             }
 
+            var selection = window.getSelection();
+            if (selection.rangeCount) {
+                selection.empty();
+            }
+
             var action = userActions[this.mode];
             if (action.events.indexOf(e.type) !== -1 &&
                 action.handler.call(this, e, newCoord, oldCoord) !== false) {
@@ -381,7 +382,7 @@
         shift: {
             events: [ 'mousemove' ],
             handler: function(e, newCoord, oldCoord) {
-                this.field.shift(newCoord.x - oldCoord.x, newCoord.y - oldCoord.y);
+                this.field.shift(oldCoord.x - newCoord.x, oldCoord.y - newCoord.y);
                 this.render();
             }
         },
