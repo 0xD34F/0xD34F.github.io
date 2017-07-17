@@ -242,9 +242,9 @@ $(document).ready(function() {
         }
     });
 
-    $('#ca-view-settings').tabs();
+    $('#ca-field-settings').tabs();
 
-    $('#ca-view').dialog({
+    $('#ca-field').dialog({
         width: 320,
         height: 460,
         create: function() {
@@ -262,7 +262,7 @@ $(document).ready(function() {
             }));
 
 
-            $this.find('#ca-view-colors').append(templates.colorSetting($.map(ca.view.colors, (n, i) => ({
+            $this.find('#ca-field-colors').append(templates.colorSetting($.map(ca.view.colors, (n, i) => ({
                 color: i,
                 label: isNaN(i) ? i : (+i).toString(16).toUpperCase()
             })))).find('.jscolor').each(function() {
@@ -273,7 +273,7 @@ $(document).ready(function() {
 
 
             $this
-                .find('#ca-view-planes').append(templates.bitPlanesShow(ca.cells.getBitPlanes()))
+                .find('#ca-field-planes').append(templates.bitPlanesShow(ca.cells.getBitPlanes()))
                 .find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
         },
         open: function() {
@@ -393,11 +393,11 @@ $(document).ready(function() {
     $('#ca-speed').dialog({
         width: 320,
         create: function() {
-            $(this).find('#steps-per-stroke').spinner({
+            $(this).find('#generations-per-step').spinner({
                 min: 1,
                 max: 100,
                 step: 1
-            }).end().find('#stroke-duration').spinner({
+            }).end().find('#step-duration').spinner({
                 min: 10,
                 max: 5000,
                 step: 10
@@ -405,13 +405,13 @@ $(document).ready(function() {
         },
         open: function() {
             $(this)
-                .find('#steps-per-stroke').val(ca.stepsPerStroke).end()
-                .find('#stroke-duration').val(ca.strokeDuration);
+                .find('#generations-per-step').val(ca.generationsPerStep).end()
+                .find('#step-duration').val(ca.stepDuration);
         },
         buttons: {
             'OK': function() {
-                ca.stepsPerStroke = this.find('#steps-per-stroke').val();
-                ca.strokeDuration = this.find('#stroke-duration').val();
+                ca.generationsPerStep = this.find('#generations-per-step').val();
+                ca.stepDuration = this.find('#step-duration').val();
             },
             'Cancel': null
         }
