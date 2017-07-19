@@ -29,7 +29,7 @@
             });
         });
 
-        o.setColors();
+        o.setColors(null);
         o.resize(o.cellSide);
 
         o.mode = 'edit';
@@ -164,10 +164,10 @@
     };
 
     self.prototype.setColors = function(colors, render) {
-        colors = Object.assign({}, defaultColors, colors);
-
-        var oldColors = this.colors,
+        var oldColors = this.colors || defaultColors,
             newColors = {};
+
+        colors = Object.assign({}, oldColors, colors === null ? defaultColors : colors);
 
         for (var i in defaultColors) {
             var color = colors[i] || oldColors[i];
@@ -183,6 +183,17 @@
             this.render();
         }
     };
+
+    self.prototype.gradient = function(from, to, items = this.field.numCellStates) {
+        var componentsFrom = getColorComponents(from),
+            componentsTo = getColorComponents(to),
+            componentsItems = componentsFrom.map((n, i) => (n - componentsTo[i]) / (items - 1));
+
+        return [...Array(items)].map((n, i) => {
+            return componentsFrom.map((m, j) => ((m - i * componentsItems[j]) | 0).toString(16).padStart(2, '0')).join('');
+        });
+    };
+
 
     function changeScale(view, change, coord) {
         if (!view.scaling) {
@@ -214,9 +225,7 @@
 
 
     function getRenderGroups(view) {
-        var numStates = Math.pow(2, view.field.numBitPlanes);
-
-        return [...Array(numStates)].map(() => []);
+        return [...Array(view.field.numCellStates)].map(() => []);
     }
 
     function detectEventCoord(view, e) {
@@ -237,8 +246,8 @@
         return {
             x: t ? Math.floor(p.scrollLeft / s) : 0,
             y: t ? Math.floor(p.scrollTop  / s) : 0,
-            xSize: t ? Math.ceil(p.clientWidth  / s) : view.field.xSize,
-            ySize: t ? Math.ceil(p.clientHeight / s) : view.field.ySize
+            xSize: t ? Math.ceil(view.width  / s) : view.field.xSize,
+            ySize: t ? Math.ceil(view.height / s) : view.field.ySize
         };
     };
 
@@ -323,7 +332,7 @@
 
             var selection = window.getSelection();
             if (selection.rangeCount) {
-                selection.empty();
+                selection.removeAllRanges();
             }
 
             var action = userActions[this.mode];

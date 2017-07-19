@@ -77,8 +77,13 @@ makeTable(function(n) {
     }, {
         name: 'Parity',
         code:
-`makeTable(function(n) {
-    return n.north ^ n.south ^ n.west ^ n.east ^ (n.center & 1);
+`
+setNeighborhoods({
+    main: 'Neumann'
+});
+
+makeTable(function(n) {
+    return n.north ^ n.south ^ n.west ^ n.east ^ n.center;
 });`
     }, {
         name: '1 out of 8',
@@ -111,7 +116,7 @@ makeTable(function(n) {
 view.setColors([ '000000', 'FF0000', '00FF00', 'FFFF00' ], true);
 
 function sum(n, p) {
-    return rules.sum(p, n.center, n.north, n.south, n.west, n.east, s.n_west, n.n_east, n.s_west, n.s_east);
+    return rules.sum(p, n.center, n.north, n.south, n.west, n.east, n.n_west, n.n_east, n.s_west, n.s_east);
 }
 
 makeTable(function(n) {
@@ -266,9 +271,11 @@ makeTable(function(n) {
     }, {
         name: 'Cyclic',
         code:
-`function main(n) {
+`view.setColors(view.gradient('#FF0000', '#FFFF00'), true);
+
+function main(n) {
     var t = (n.center + 1) & 15,
-        s = (n.north === t) + (n.south === t) + (n.west === t) + (n.east === t);
+        s = (n.north === t) + (n.south === t) + (n.west === t) + (n.east === t) + (n.n_west === t) + (n.n_east === t) + (n.s_west === t) + (n.s_east === t);
 
     return s ? t : n.center;
 }`
