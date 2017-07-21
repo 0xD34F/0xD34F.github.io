@@ -472,6 +472,12 @@ $(document).ready(function() {
         ca.newGeneration(steps);
     }).parent().find('input').width(50).val('1');
 
+
+    $('#save-as-image').click(function() {
+        ca.view.download();
+    });
+
+
     var defaultRule = 'Conway\'s Life';
     ca.rule = rules.get(defaultRule);
     $('#ca-rule-name').val(defaultRule);
