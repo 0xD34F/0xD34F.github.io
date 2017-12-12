@@ -14,6 +14,7 @@
 .link.projects {
     left: 5px;
     top: 5px;
+    display: none;
 }
 
 .links {
