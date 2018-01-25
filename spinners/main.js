@@ -787,9 +787,8 @@ var spinners = {
     height: 11em;\n\
     border: .5em solid black;\n\
     border-radius: 50%;\n\
-    background-color: black;\n\
+    background: linear-gradient(to bottom, black, black 50%, white 50%);\n\
     position: relative;\n\
-    box-shadow: inset 0 -10005em 0 -10000em white;\n\
     box-sizing: border-box;\n\
     animation: spinner-yin-yang 2s infinite linear;\n\
 }\n\
