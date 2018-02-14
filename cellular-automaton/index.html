@@ -7,12 +7,12 @@
     <script src="dist/build.js"></script>
 </head>
 <body class="ui-helper-hidden">
-    <div class="links">
-        <a class="link projects" href="../index.html">More projects</a>
-        <a class="link github" href="https://github.com/0xD34F/cellular-automaton">View on Github</a>
-    </div>
-
     <div class="content">
+        <div class="links">
+            <a class="link projects" href="../index.html">More projects</a>
+            <a class="link github" href="https://github.com/0xD34F/cellular-automaton">View on Github</a>
+        </div>
+
         <div class="controls">
             <button id="start" data-action="start" class="ca-start-hide"><span class="ui-icon ui-icon-play"></span></button>
             <button id="stop" data-action="stop" class="ca-start-show"><span class="ui-icon ui-icon-pause"></span></button>
@@ -47,8 +47,8 @@
             </div>
             <button id="ca-rule-save" title="Save rule into localStorage"><span class="ui-icon ui-icon-disk"></span></button>
             <button id="ca-rule-delete" title="Delete rule from localStorage"><span class="ui-icon ui-icon-trash"></span></button>
+            <textarea id="ca-rule-code" autofocus></textarea>
         </div>
-        <textarea id="ca-rule-code" autofocus></textarea>
     </div>
     <div id="ca-brush" title="Brush">
         <div id="brush-wrapper" class="cells-field-wrapper"></div>
