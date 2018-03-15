@@ -1,0 +1,195 @@
+html, body, #app {
+  margin: 0px;
+  padding: 0px;
+  height: 100%;
+  font-family: sans-serif;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+}
+
+#controls {
+  padding: 10px 20px;
+  position: relative;
+  background: #fff;
+  box-shadow: 0px 3px 5px 0 rgba(174, 174, 174, 0.5);
+}
+#controls > * {
+  margin: 0 20px;
+}
+
+#delete-checked {
+  float: right;
+}
+
+.button {
+  background: #ea212d;
+  width: 120px;
+  height: 40px;
+  border-radius: 5px;
+  color: #fff;
+  right: 20px;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.button:hover {
+  background: #ff4b56;
+}
+.button.disabled {
+  background: #c2c2c2;
+}
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+  width: 150px;
+  height: 20px;
+  padding: 10px 0;
+  border-radius: 5px;
+  box-shadow: 0px 2px 2px 0px rgba(0, 0, 0, 0.3);
+}
+.dropdown:before {
+  content: "";
+  display: inline-block;
+  position: absolute;
+  border: 3px solid black;
+  transform: rotate(45deg);
+  border-left-color: transparent;
+  border-top-color: transparent;
+  right: 15px;
+  top: 15px;
+}
+.dropdown:hover:before {
+  border-right-color: #ea212d;
+  border-bottom-color: #ea212d;
+}
+.dropdown-content {
+  display: none;
+  position: absolute;
+  padding-top: 15px;
+  background: transparent;
+  z-index: 2000;
+  width: 100%;
+}
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+.dropdown-options {
+  background-color: #fff;
+  margin-top: 15px;
+  padding: 5px 0;
+  box-shadow: 0px 2px 2px 0px rgba(0, 0, 0, 0.3);
+}
+.dropdown-value {
+  padding: 0 10px;
+}
+.dropdown-option {
+  padding: 10px;
+}
+.dropdown-option:hover {
+  background: #f2f2f2;
+}
+
+#photos {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  justify-content: center;
+  overflow: auto;
+  background: #ececec;
+}
+
+#photos .photo {
+  position: relative;
+  margin: 15px;
+  border: 3px solid transparent;
+  width: 200px;
+  height: 200px;
+}
+#photos .photo:hover {
+  border-color: #ea212d;
+}
+#photos .photo:hover:before {
+  content: attr(data-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  position: absolute;
+  z-index: 100;
+}
+
+#photos .photo input + label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  margin: 5px;
+  z-index: 1000;
+}
+
+#photos .photo input:checked ~ img {
+  filter: brightness(50%);
+}
+
+#photos .photo img {
+  display: block;
+  width: 200px;
+  height: 200px;
+}
+
+
+[type="checkbox"] {
+  position: absolute;
+  left: -9999px;
+}
+[type="checkbox"] + label {
+  position: relative;
+  padding-left: 1.95em;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+[type="checkbox"] + label:before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #bababa;
+  background: #fff;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.1);
+}
+[type="checkbox"] + label:after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 9px;
+  background: white;
+  width: 2px;
+  height: 2px;
+  box-shadow: 
+    2px 0 0 red,
+    4px 0 0 red,
+    4px -2px 0 red,
+    4px -4px 0 red,
+    4px -6px 0 red,
+    4px -8px 0 red;
+  transform: rotate(45deg);
+}
+[type="checkbox"]:not(:checked) + label:after {
+  opacity: 0;
+}
+[type="checkbox"]:checked + label:after {
+  opacity: 1;
+}
+[type="checkbox"] + label:hover:before {
+  border: 1px solid #656565;
+}
