@@ -14150,6 +14150,8 @@ Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
 var _utils = __webpack_require__(7);
 
 var predefinedRules = [{
@@ -14164,13 +14166,13 @@ var predefinedRules = [{
     code: 'makeTable(function(n) {\n    var s = n.north + n.south + n.west + n.east + n.n_west + n.s_west + n.n_east + n.s_east,\n        p0 = s === 3 ? 1 : (s === 2 ? n.center : 0),\n        p1 = (+!!n.center) | p0;\n\n    return p0 | (p1 << 1);\n});'
 }, {
     name: 'Forest fire',
-    code: 'setNeighborhoods({\n    extra: [ {\n        name: \'prob\',\n        data: [ 0.00001, 0.005 ]\n    } ]\n});\n\nview.setColors([ \'000000\', \'FF0000\', \'00FF00\' ], true);\n\nmakeTable(function(n) {\n    var fire = 1 & (n.north | n.south | n.west | n.east | n.n_west | n.n_east | n.s_west | n.s_east),\n        tree = n.center,\n        treeIgnite = n.prob & 1,\n        treeBirth = n.prob & 2;\n\n    if (tree === 2 && (fire || treeIgnite)) {\n        return 1;\n    }\n\n    if (tree === 0 && treeBirth) {\n        return 2;\n    }\n\n    return tree === 1 ? 0 : tree;\n});'
+    code: 'setNeighborhoods({\n    name: \'prob\',\n    data: [ 0.00001, 0.005 ]\n});\n\nview.setColors([ \'000000\', \'FF0000\', \'00FF00\' ], true);\n\nmakeTable(function(n) {\n    var fire = 1 & (n.north | n.south | n.west | n.east | n.n_west | n.n_east | n.s_west | n.s_east),\n        tree = n.center,\n        treeIgnite = n.prob & 1,\n        treeBirth = n.prob & 2;\n\n    if (tree === 2 && (fire || treeIgnite)) {\n        return 1;\n    }\n\n    if (tree === 0 && treeBirth) {\n        return 2;\n    }\n\n    return tree === 1 ? 0 : tree;\n});'
 }, {
     name: 'Brian\'s brain',
     code: 'var ready = n => n.center ? 0 : 1,\n    stimulus = rules.totalistic2d9(48);\n\nmakeTable(n => (stimulus(n) & ready(n)) | ((n.center & 1) << 1));'
 }, {
     name: 'Wireworld',
-    code: 'setNeighborhoods({\n    main: \'Moore-thick\'\n});\n\nmakeTable(function(n) {\n    var s = (n.north === 1) + (n.south === 1) + (n.west === 1) + (n.east === 1) + (n.n_west === 1) + (n.s_west === 1) + (n.n_east === 1) + (n.s_east === 1);\n\n    return [ 0, 2, 3, s === 1 || s === 2 ? 1 : 3 ][n.center];\n});'
+    code: 'setNeighborhoods(\'Moore-thick\');\n\nmakeTable(function(n) {\n    var s = (n.north === 1) + (n.south === 1) + (n.west === 1) + (n.east === 1) + (n.n_west === 1) + (n.s_west === 1) + (n.n_east === 1) + (n.s_east === 1);\n\n    return [ 0, 2, 3, s === 1 || s === 2 ? 1 : 3 ][n.center];\n});'
 }, {
     name: 'Life-like',
     code: '// see also: https://en.wikipedia.org/wiki/Life-like_cellular_automaton\n\nvar ruleCode = \n\n/* Replicator         */ // \'B1357/S1357\'\n/* Seeds              */ // \'B2/S\'\n/* Life without death */ // \'B3/S01234567\'\n/* Life               */ // \'B3/S23\'\n/* 34 Life            */ // \'B34/S34\'\n/* Diamoeba           */ // \'B35678/S5678\'\n/* 2x2                */  \'B36/S125\'\n/* Highlife           */ // \'B36/S23\'\n/* Day & Night        */ // \'B3678/S34678\'\n/* Morley             */ // \'B368/S245\'\n/* Anneal             */ // \'B4678/S35678\'\n\nmakeTable(rules.lifeLike(ruleCode))'
@@ -14179,39 +14181,39 @@ var predefinedRules = [{
     code: '// see also: https://en.wikipedia.org/wiki/Elementary_cellular_automaton\n\nvar ruleID = 102;\n\nmakeTable(rules.elementary(ruleID));'
 }, {
     name: 'Parity',
-    code: 'setNeighborhoods({\n    main: \'Neumann\'\n});\n\nmakeTable(function(n) {\n    return n.north ^ n.south ^ n.west ^ n.east ^ n.center;\n});\n\n// Same rule, for one bit plane:\n// makeTable(rules.totalistic2d5(614));'
+    code: 'setNeighborhoods(\'Neumann\');\n\nmakeTable(function(n) {\n    return n.north ^ n.south ^ n.west ^ n.east ^ n.center;\n});\n\n// Same rule, for one bit plane:\n// makeTable(rules.totalistic2d5(614));'
 }, {
     name: 'Anneal x 2',
-    code: 'setNeighborhoods({\n    main: \'Moore-thick\'\n});\n\nview.setColors([ \'000000\', \'FF0000\', \'00FF00\', \'FFFF00\' ], true);\n\nvar ruleID = 260480,\n    p0 = rules.totalistic2d9(ruleID, 0),\n    p1 = rules.totalistic2d9(ruleID, 1);\n\nmakeTable(n => p0(n) | p1(n));'
+    code: 'setNeighborhoods(\'Moore-thick\');\n\nview.setColors([ \'000000\', \'FF0000\', \'00FF00\', \'FFFF00\' ], true);\n\nvar ruleID = 260480,\n    p0 = rules.totalistic2d9(ruleID, 0),\n    p1 = rules.totalistic2d9(ruleID, 1);\n\nmakeTable(n => p0(n) | p1(n));'
 }, {
     name: 'Rand anneal',
-    code: 'setNeighborhoods({\n    main: \'Neumann\'\n});\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.north, n.south, n.west, n.east),\n        r = (+!!(2 & n.center & n.north & n.south & n.west & n.east)) ^ 1,\n        p0 = [ 0, 0, r, +!r, 1, 1 ][s],\n        p1 = 2 & (n.center ^ n.north ^ n.south ^ n.west ^ n.east);\n\n    return p0 | p1;\n});'
+    code: 'setNeighborhoods(\'Neumann\');\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.north, n.south, n.west, n.east),\n        r = (+!!(2 & n.center & n.north & n.south & n.west & n.east)) ^ 1,\n        p0 = [ 0, 0, r, +!r, 1, 1 ][s],\n        p1 = 2 & (n.center ^ n.north ^ n.south ^ n.west ^ n.east);\n\n    return p0 | p1;\n});'
 }, {
     name: 'Time tunnel',
     code: 'makeTable(function(n) {\n    var s = (n.center & 1) + n.north + n.south + n.west + n.east,\n        p0 = (s === 0 || s === 5 ? 0 : 1) ^ ((n.center & 2) >> 1),\n        p1 = n.center & 1;\n\n    return p0 | (p1 << 1);\n});'
 }, {
     name: 'Border / hollow',
-    code: 'setNeighborhoods({\n    extra: [\'phase\']\n});\n\nfunction border(n) {\n    return 1 & (n.center | n.north | n.south | n.west | n.east | n.n_west | n.n_east | n.s_west | n.s_east);\n}\n\nfunction hollow(n) {\n    var t = 1 & n.north & n.south & n.west & n.east & n.n_west & n.n_east & n.s_west & n.s_east;\n    return t ? 0 : n.center;\n}\n\nmakeTable(function(n) {\n    return (n.phase & 1) ? hollow(n) : border(n);\n});'
+    code: 'setNeighborhoods(\'phase\');\n\nfunction border(n) {\n    return 1 & (n.center | n.north | n.south | n.west | n.east | n.n_west | n.n_east | n.s_west | n.s_east);\n}\n\nfunction hollow(n) {\n    var t = 1 & n.north & n.south & n.west & n.east & n.n_west & n.n_east & n.s_west & n.s_east;\n    return t ? 0 : n.center;\n}\n\nmakeTable(function(n) {\n    return (n.phase & 1) ? hollow(n) : border(n);\n});'
 }, {
     name: 'Safe / pass',
-    code: 'setNeighborhoods({\n    main: \'Neumann\'\n});\n\nmakeTable(function(n) {\n    var p0 = n.center & 1,\n        p1 = n.center & 2;\n\n    if (!p0) {\n        if (!p1 && (n.north & 1)) {\n            p0 = 1;\n        }\n    } else {\n        if (!n.south) {\n            p0 = 0;\n        }\n    }\n\n    return p0 | p1;\n});'
+    code: 'setNeighborhoods(\'Neumann\');\n\nmakeTable(function(n) {\n    var p0 = n.center & 1,\n        p1 = n.center & 2;\n\n    if (!p0) {\n        if (!p1 && (n.north & 1)) {\n            p0 = 1;\n        }\n    } else {\n        if (!n.south) {\n            p0 = 0;\n        }\n    }\n\n    return p0 | p1;\n});'
 }, {
     name: 'Critters',
-    code: 'setNeighborhoods({\n    main: \'Margolus\'\n});\n\non.beforeNewGeneration = function() {\n    view.setColors(this.time & 1 ? [ \'000000\', \'FFFFFF\' ] : [ \'FFFFFF\', \'000000\' ]);\n};\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.cw, n.ccw, n.opp),\n        c = n.center ^ 1;\n\n    return [ c, c, n.center & 1, n.opp ^ 1, c ][s];\n});'
+    code: 'setNeighborhoods(\'Margolus\');\n\non.beforeNewGeneration = function() {\n    view.setColors(this.time & 1 ? [ \'000000\', \'FFFFFF\' ] : [ \'FFFFFF\', \'000000\' ]);\n};\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.cw, n.ccw, n.opp),\n        c = n.center ^ 1;\n\n    return [ c, c, n.center & 1, n.opp ^ 1, c ][s];\n});'
 }, {
     name: 'Tron',
-    code: 'setNeighborhoods({\n    main: \'Margolus\'\n});\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.cw, n.ccw, n.opp),\n        c = n.center;\n\n    return [ 1, c, c, c, 0 ][s];\n});'
+    code: 'setNeighborhoods(\'Margolus\');\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.cw, n.ccw, n.opp),\n        c = n.center;\n\n    return [ 1, c, c, c, 0 ][s];\n});'
 }, {
     name: 'Tube worms',
-    code: 'setNeighborhoods({\n    extra: [\'_center\']\n}, {\n    extra: [\'_center\']\n});\n\nmakeTable(function(n) {\n    var s = n.north + n.south + n.west + n.east + n.n_west + n.s_west + n.n_east + n.s_east,\n        alarm = [ 0, 0, 0, 1, 1, 1, 1, 1, 1 ][s];\n\n    return ([ 1, 0, 0, 0 ][n._center]) | (alarm << 1);\n},  function(n) {\n    return n._center === 3 ? 3 : ([ 0, 0, 1, 2 ][n.center]);\n});'
+    code: 'setNeighborhoods(\'_center\', \'_center\');\n\nmakeTable(function(n) {\n    var s = n.north + n.south + n.west + n.east + n.n_west + n.s_west + n.n_east + n.s_east,\n        alarm = [ 0, 0, 0, 1, 1, 1, 1, 1, 1 ][s];\n\n    return ([ 1, 0, 0, 0 ][n._center]) | (alarm << 1);\n},  function(n) {\n    return n._center === 3 ? 3 : ([ 0, 0, 1, 2 ][n.center]);\n});'
 }, {
     name: 'Brownian',
-    code: 'setNeighborhoods({\n    main: \'Margolus\'\n}, {\n    extra: [\'_center\']\n});\n\nmakeTable(function(n) {\n    var p1 = 2 & (n.ccw & n.opp ^ n.cw ^ n.center),\n        rand = 2 & (n.ccw ^ n.opp ^ n.cw ^ n.center);\n\n    return ((rand ? n.cw : n.ccw) & 1) | p1;\n},  function(n) {\n    return (n._center & 1) | n.center;\n});'
+    code: 'setNeighborhoods(\'Margolus\', \'_center\');\n\nmakeTable(function(n) {\n    var p1 = 2 & (n.ccw & n.opp ^ n.cw ^ n.center),\n        rand = 2 & (n.ccw ^ n.opp ^ n.cw ^ n.center);\n\n    return ((rand ? n.cw : n.ccw) & 1) | p1;\n},  function(n) {\n    return (n._center & 1) | n.center;\n});'
 }, {
     name: 'Cyclic',
     code: 'view.setColors(view.gradient(\'#FF0000\', \'#FFFF00\'), true);\n\nmain = function(n) {\n    var t = (n.center + 1) & 15,\n        s = (n.north === t) + (n.south === t) + (n.west === t) + (n.east === t) + (n.n_west === t) + (n.n_east === t) + (n.s_west === t) + (n.s_east === t);\n\n    return s ? t : n.center;\n}'
 }].map(function (n) {
-    return Object.assign(n, { predefined: true });
+    return _extends({}, n, { predefined: true });
 });
 
 var savedRules = null;
@@ -14542,7 +14544,7 @@ var templates = {
                 var $this = (0, _jquery2.default)(this);
                 $this.parent().find('.ui-state-active').removeClass('ui-state-active');
                 $this.addClass('ui-state-active');
-                caBrush.brush.data[0][0] = $this.attr('ca-state');
+                caBrush.brush.data[0][0] = +$this.attr('ca-state');
             });
         },
         open: function open() {
@@ -25406,8 +25408,7 @@ var History = function () {
         key: "back",
         value: function back() {
             if (this.data) {
-                this.cells.copy(this.data.cells);
-                Object.assign(this.cells._shift, this.data.cells._shift);
+                this.cells.conform(this.data.cells);
                 this.generations.time = this.data.time;
                 this.data = null;
             }
@@ -25519,16 +25520,25 @@ var Compiler = function () {
 
     _createClass(Compiler, [{
         key: 'setNeighborhoods',
-        value: function setNeighborhoods() {
+        value: function setNeighborhoods(neighborhoods) {
             var _this = this;
 
-            var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
-                _ref$main = _ref.main,
-                main = _ref$main === undefined ? 'Moore' : _ref$main,
-                _ref$extra = _ref.extra,
-                extra = _ref$extra === undefined ? [] : _ref$extra;
+            var
+            // основная окрестность может быть одна и только одна
+            main = _neighborhood2.default.main['Moore'],
 
-            this.neighbors = Array.prototype.concat.apply([], [_neighborhood2.default.base, _neighborhood2.default.main[main]].concat(_toConsumableArray(extra.map(function (n) {
+            // дополнительных окрестностей можно подключить сколько угодно
+            extra = [];
+
+            [].concat(neighborhoods).forEach(function (n) {
+                if (_neighborhood2.default.main[n]) {
+                    main = _neighborhood2.default.main[n];
+                } else {
+                    extra.push(n);
+                }
+            });
+
+            this.neighbors = Array.prototype.concat.apply([], [_neighborhood2.default.base, main].concat(_toConsumableArray(extra.map(function (n) {
                 var name = n instanceof Object ? n.name : n,
                     val = _this.customNeighborhood[name] || _neighborhood2.default.extra[name];
 
@@ -25616,9 +25626,9 @@ var Generations = (_dec = (0, _utils.logExecutionTime)('new generation'), (_clas
                 }
 
                 this.calculateNewGeneration(curr.data, next.data);
-                var _ref2 = [curr.data, next.data];
-                next.data = _ref2[0];
-                curr.data = _ref2[1];
+                var _ref = [curr.data, next.data];
+                next.data = _ref[0];
+                curr.data = _ref[1];
 
 
                 this.time++;
@@ -25675,6 +25685,9 @@ exports.default = Generations;
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
+
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
 var neighborhood = {
     base: [{ name: 'center', size: 2, code: 'dXCurr[y]' }],
     main: {
@@ -25697,7 +25710,7 @@ var neighborhood = {
     }
 };
 neighborhood.main['Moore-thick'] = neighborhood.main.Moore.map(function (n) {
-    return Object.assign({}, n, { size: 2 });
+    return _extends({}, n, { size: 2 });
 });
 
 exports.default = neighborhood;
@@ -25713,6 +25726,8 @@ Object.defineProperty(exports, "__esModule", {
     value: true
 });
 exports.default = undefined;
+
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
@@ -25737,7 +25752,7 @@ var CellField = function () {
 
             this.xSize = x;
             this.ySize = y;
-            this._shift = Object.assign({}, shift);
+            this._shift = _extends({}, shift);
             this.data = [].concat(_toConsumableArray(Array(x))).map(function () {
                 return Array(y).fill(0);
             });
@@ -25779,9 +25794,15 @@ var CellField = function () {
             return new CellField(this.xSize, this.ySize, this._shift).copy(this);
         }
     }, {
+        key: 'conform',
+        value: function conform(f) {
+            Object.assign(this._shift, f._shift);
+            return this.copy(f);
+        }
+    }, {
         key: 'copy',
         value: function copy(source, options) {
-            options = Object.assign({ x: 0, y: 0 }, options);
+            options = _extends({ x: 0, y: 0 }, options);
 
             for (var i = 0, x = options.x; i < source.xSize; i++, x++) {
                 if (x === this.xSize) {
@@ -25810,7 +25831,7 @@ var CellField = function () {
             });
         }
 
-        // btiPlanes - массив номеров битовых плоскостей
+        // bitPlanes - массив номеров битовых плоскостей
 
     }, {
         key: 'invertBitPlane',
@@ -25903,6 +25924,8 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 var _dec, _dec2, _desc, _value, _class;
 
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
 var _utils = __webpack_require__(7);
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -25938,6 +25961,8 @@ function _applyDecoratedDescriptor(target, property, decorators, descriptor, con
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
 var defaultColors = {
     background: '#505050',
     0: '#000000',
@@ -25958,10 +25983,21 @@ var defaultColors = {
     15: '#80FFFF'
 };
 
+var mouseButtons = {
+    left: 1,
+    right: 2
+};
+
+var scale = {
+    up: 1,
+    down: -1
+};
+
 var eventHandlers = [{
     events: ['contextmenu'],
     handler: function handler(e) {
-        return false;
+        // контекстное меню доступно при зажатом ctrl
+        return e.ctrlKey;
     }
 }, {
     events: ['mouseup', 'mouseleave'],
@@ -25973,7 +26009,7 @@ var eventHandlers = [{
     handler: function handler(e) {
         e.preventDefault();
 
-        if (e.buttons !== 1 && e.buttons !== 2) {
+        if (![mouseButtons.left, mouseButtons.right].includes(e.buttons)) {
             return;
         }
 
@@ -26004,7 +26040,7 @@ var eventHandlers = [{
         e.preventDefault();
         e.stopPropagation();
 
-        changeScale(this, e.deltaY > 0 ? -1 : 1, detectEventCoord(this, e));
+        changeScale(this, e.deltaY > 0 ? scale.down : scale.up, detectEventCoord(this, e));
     }
 }];
 
@@ -26017,11 +26053,11 @@ var userActions = {
                 f = this.field,
                 b = this.brush;
 
-            if (x >= f.xSize || y >= f.ySize || x < 0 || y < 0 || !b) {
+            if (x >= f.xSize || y >= f.ySize || x < 0 || y < 0 || !b || e.ctrlKey) {
                 return false;
             }
 
-            var coord = (0, _utils.getLineCoord)(newCoord, Object.assign({}, newCoord, oldCoord));
+            var coord = (0, _utils.getLineCoord)(newCoord, _extends({}, newCoord, oldCoord));
             for (var i = 0; i < coord.length; i++) {
                 x = (coord[i].x - Math.floor(b.xSize / 2) + f.xSize) % f.xSize;
                 y = (coord[i].y - Math.floor(b.ySize / 2) + f.ySize) % f.ySize;
@@ -26030,7 +26066,7 @@ var userActions = {
                     x: x,
                     y: y,
                     skipZeros: true,
-                    setZeros: e.buttons === 2
+                    setZeros: e.buttons === mouseButtons.right
                 });
                 this.renderPartial({ x: x, y: y, xSize: b.xSize, ySize: b.ySize });
             }
@@ -26046,10 +26082,9 @@ var userActions = {
     scale: {
         events: ['mousedown'],
         handler: function handler(e, newCoord, oldCoord) {
-            changeScale(this, {
-                1: 1,
-                2: -1
-            }[e.buttons] || 0, newCoord);
+            var _mouseButtons$left$mo;
+
+            changeScale(this, (_mouseButtons$left$mo = {}, _defineProperty(_mouseButtons$left$mo, mouseButtons.left, scale.up), _defineProperty(_mouseButtons$left$mo, mouseButtons.right, scale.down), _mouseButtons$left$mo)[e.buttons] || 0, newCoord);
         }
     }
 };
@@ -26114,6 +26149,7 @@ function getFullSize(view) {
     };
 }
 
+// левый верхний угол canvas'а совпадает с левым верхним углом клетки (если возможно)
 function scrollFix(view) {
     var s = view.cellSide + view.cellBorder,
         w = view.wrapper,
@@ -26150,7 +26186,12 @@ function detectViewCoord(view) {
 var limit = _utils.limitation;
 
 var MAX_CELL_SIDE_WITH_OWN_RENDER = 20;
-
+/*
+ * собственные методы отрисовки под различные размеры клетки
+ *
+ * прирост скорости отрисовки - до ~2 раз (чем меньше размер - тем больше эффект),
+ * за счёт отсутствия накладных расходов на организацию циклов по пикселям отдельной клетки
+ */
 var cellFieldRenderFunction = function cellFieldRenderFunction(cellRenderCode) {
     return eval('\n(function() {\n    var coord = detectViewCoord(this),\n        mask = this.showBitPlanes,\n        cells = this.field.data,\n        maxX = limit(coord.x + coord.xSize, 0, this.field.xSize),\n        maxY = limit(coord.y + coord.ySize, 0, this.field.ySize),\n        border = this.cellBorder,\n        side = this.cellSide,\n        sideFull = side + border,\n        image = this.buf32,\n        width = this.imageData.width,\n        colors = this.colorsForRender;\n\n    for (var i = 0, x = coord.x; x < maxX; x++, i++) {\n        var column = cells[x];\n\n        for (var j = 0, y = coord.y; y < maxY; y++, j++) {\n            var color = colors[column[y] & mask];\n\n            ' + cellRenderCode + '\n        }\n    }\n\n    this.imageData.data.set(this.buf8);\n    this.context.putImageData(\n        this.imageData,\n        -(this.wrapper.scrollLeft % sideFull),\n        -(this.wrapper.scrollTop % sideFull)\n    );\n})\n');
 };
@@ -26331,8 +26372,14 @@ var CellFieldView = (_dec = (0, _utils.logExecutionTime)('renderPartial'), _dec2
         value: function download() {
             var filename = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : Date.now().toString() + '.png';
 
+            var canvas = document.createElement('canvas');
+            var ctx = canvas.getContext('2d');
+            canvas.width = this.imageData.width;
+            canvas.height = this.imageData.height;
+            ctx.putImageData(this.imageData, 0, 0);
+
             var a = document.createElement('a');
-            a.href = this.canvas.toDataURL();
+            a.href = canvas.toDataURL();
             a.download = filename;
             document.body.appendChild(a);
             a.click();
