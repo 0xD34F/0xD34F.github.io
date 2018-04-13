@@ -14414,6 +14414,10 @@ var _utils = __webpack_require__(7);
 
 var _ca = __webpack_require__(68);
 
+var _config = __webpack_require__(76);
+
+var _config2 = _interopRequireDefault(_config);
+
 __webpack_require__(74);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
@@ -14436,7 +14440,7 @@ _jquery2.default.widget('ui.spinner', _jquery2.default.ui.spinner, {
     }
 });
 
-_jquery2.default.widget('ui.dialog', _jquery2.default.ui.dialog, {
+_jquery2.default.widget('ui.confirmDialog', _jquery2.default.ui.dialog, {
     options: {
         modal: true,
         autoOpen: false,
@@ -14449,16 +14453,16 @@ _jquery2.default.widget('ui.dialog', _jquery2.default.ui.dialog, {
 
             _jquery2.default.when(run).always(function (result) {
                 if (result !== false) {
-                    $this.dialog('close');
+                    $this.confirmDialog('close');
                 }
             });
         };
     },
     _create: function _create() {
-        var buttons = this.options.buttons;
-        for (var i in buttons) {
-            buttons[i] = this._closeDialog(buttons[i]);
-        }
+        this.options.buttons = {
+            OK: this._closeDialog(this.options.ok || null),
+            Cancel: this._closeDialog(this.options.cancel || null)
+        };
 
         return this._super();
     },
@@ -14467,7 +14471,7 @@ _jquery2.default.widget('ui.dialog', _jquery2.default.ui.dialog, {
 
         this._super();
         this.overlay.on('click', function () {
-            return _this.element.dialog('close');
+            return _this.element.confirmDialog('close');
         });
 
         return this;
@@ -14501,15 +14505,16 @@ var templates = {
 };
 
 (0, _jquery2.default)(document).ready(function () {
-    var X_SIZE_MIN = 32,
-        Y_SIZE_MIN = 32,
-        X_SIZE_MAX = 1024,
-        Y_SIZE_MAX = 1024,
-        CELL_SIDE_MIN = 1,
-        CELL_SIDE_MAX = 20,
-        CELL_BORDER_MIN = 0,
-        CELL_BORDER_MAX = 4,
-        BRUSH_SIZE = 11;
+    var X_SIZE_MIN = _config2.default.X_SIZE_MIN,
+        Y_SIZE_MIN = _config2.default.Y_SIZE_MIN,
+        X_SIZE_MAX = _config2.default.X_SIZE_MAX,
+        Y_SIZE_MAX = _config2.default.Y_SIZE_MAX,
+        CELL_SIDE_MIN = _config2.default.CELL_SIDE_MIN,
+        CELL_SIDE_MAX = _config2.default.CELL_SIDE_MAX,
+        CELL_BORDER_MIN = _config2.default.CELL_BORDER_MIN,
+        CELL_BORDER_MAX = _config2.default.CELL_BORDER_MAX,
+        BRUSH_SIZE = _config2.default.BRUSH_SIZE;
+
 
     var caBrush = new _ca.CellFieldView(new _ca.CellField(BRUSH_SIZE), {
         wrapper: '#brush-wrapper',
@@ -14522,22 +14527,22 @@ var templates = {
     caBrush.field.data[Math.floor(BRUSH_SIZE / 2)][Math.floor(BRUSH_SIZE / 2)] = 1;
 
     var ca = window.ca = new _ca.CellularAutomaton({
-        xSize: X_SIZE_MAX,
-        ySize: Y_SIZE_MAX,
-        ruleName: 'Conway\'s Life',
+        xSize: _config2.default.DEFAULT_X_SIZE,
+        ySize: _config2.default.DEFAULT_Y_SIZE,
+        ruleName: _config2.default.DEFAULT_RULE,
         view: {
             wrapper: '#cells-wrapper',
             scaling: {
                 min: CELL_SIDE_MIN,
                 max: CELL_SIDE_MAX
             },
-            cellSide: 2,
-            cellBorder: 1,
+            cellSide: _config2.default.DEFAULT_CELL_SIDE,
+            cellBorder: _config2.default.DEFAULT_CELL_BORDER,
             brush: caBrush.field.clone()
         }
     });
 
-    (0, _jquery2.default)('#ca-brush').dialog({
+    (0, _jquery2.default)('#ca-brush').confirmDialog({
         width: 380,
         create: function create() {
             (0, _jquery2.default)(this).find('.ca-state-select').on('click', '.ca-state', function () {
@@ -14560,15 +14565,12 @@ var templates = {
                 };
             }))).find('[ca-state="' + caBrush.brush.data[0][0] + '"]').addClass('ui-state-active');
         },
-        buttons: {
-            'OK': function OK() {
-                ca.view.brush.copy(caBrush.field);
-            },
-            'Cancel': null
+        ok: function ok() {
+            ca.view.brush.copy(caBrush.field);
         }
     });
 
-    (0, _jquery2.default)('#ca-filling').dialog({
+    (0, _jquery2.default)('#ca-filling').confirmDialog({
         width: 480,
         create: function create() {
             var planesList = ca.cells.getBitPlanes(),
@@ -14595,39 +14597,36 @@ var templates = {
                 }
             }).end().find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
         },
-        buttons: {
-            'OK': function OK() {
-                var invert = [],
-                    random = {},
-                    copy = {};
+        ok: function ok() {
+            var invert = [],
+                random = {},
+                copy = {};
 
-                this.find('.ca-bit-plane-cb:checked').each(function () {
-                    var $tr = (0, _jquery2.default)(this).closest('tr'),
-                        plane = $tr.attr('data-bit-plane');
+            this.find('.ca-bit-plane-cb:checked').each(function () {
+                var $tr = (0, _jquery2.default)(this).closest('tr'),
+                    plane = $tr.attr('data-bit-plane');
 
-                    switch ($tr.find('.ca-filling-method').val()) {
-                        case 'invert':
-                            invert.push(plane);break;
-                        case 'all1':
-                            random[plane] = ca.cells.randomFillDensityDescritization;break;
-                        case 'all0':
-                            random[plane] = 0;break;
-                        case 'random':
-                            random[plane] = $tr.find('.ca-filling-random input').val();break;
-                        case 'copy':
-                            copy[plane] = $tr.find('.ca-filling-copy input').val();break;
-                    }
-                });
+                switch ($tr.find('.ca-filling-method').val()) {
+                    case 'invert':
+                        invert.push(plane);break;
+                    case 'all1':
+                        random[plane] = ca.cells.randomFillDensityDescritization;break;
+                    case 'all0':
+                        random[plane] = 0;break;
+                    case 'random':
+                        random[plane] = $tr.find('.ca-filling-random input').val();break;
+                    case 'copy':
+                        copy[plane] = $tr.find('.ca-filling-copy input').val();break;
+                }
+            });
 
-                ca.fill({ invert: invert, random: random, copy: copy });
-            },
-            'Cancel': null
+            ca.fill({ invert: invert, random: random, copy: copy });
         }
     });
 
     (0, _jquery2.default)('#ca-field-settings').tabs();
 
-    (0, _jquery2.default)('#ca-field').dialog({
+    (0, _jquery2.default)('#ca-field').confirmDialog({
         width: 320,
         height: 460,
         create: function create() {
@@ -14663,31 +14662,28 @@ var templates = {
                 this.checked = !!(ca.view.showBitPlanes & 1 << i);
             }).change();
         },
-        buttons: {
-            'OK': function OK() {
-                var newColors = {};
-                this.find('.jscolor').each(function () {
-                    var $this = (0, _jquery2.default)(this);
-                    newColors[$this.attr('color-name')] = $this.val();
-                });
-                ca.view.setColors(newColors);
+        ok: function ok() {
+            var newColors = {};
+            this.find('.jscolor').each(function () {
+                var $this = (0, _jquery2.default)(this);
+                newColors[$this.attr('color-name')] = $this.val();
+            });
+            ca.view.setColors(newColors);
 
-                ca.view.showBitPlanes = this.find('.ca-bit-plane-cb').toArray().reduce(function (prev, curr, i) {
-                    return prev | curr.checked << i;
-                }, 0);
+            ca.view.showBitPlanes = this.find('.ca-bit-plane-cb').toArray().reduce(function (planes, cb, i) {
+                return planes | cb.checked << i;
+            }, 0);
 
-                ca.resize({
-                    xSize: (0, _utils.limitation)(this.find('#ca-field-x-size').val(), X_SIZE_MIN, X_SIZE_MAX),
-                    ySize: (0, _utils.limitation)(this.find('#ca-field-y-size').val(), Y_SIZE_MIN, Y_SIZE_MAX),
-                    cellSide: (0, _utils.limitation)(this.find('#ca-field-cell-side').val(), CELL_SIDE_MIN, CELL_SIDE_MAX),
-                    cellBorder: (0, _utils.limitation)(this.find('#ca-field-cell-border').val(), CELL_BORDER_MIN, CELL_BORDER_MAX)
-                });
-            },
-            'Cancel': null
+            ca.resize({
+                xSize: (0, _utils.limitation)(this.find('#ca-field-x-size').val(), X_SIZE_MIN, X_SIZE_MAX),
+                ySize: (0, _utils.limitation)(this.find('#ca-field-y-size').val(), Y_SIZE_MIN, Y_SIZE_MAX),
+                cellSide: (0, _utils.limitation)(this.find('#ca-field-cell-side').val(), CELL_SIDE_MIN, CELL_SIDE_MAX),
+                cellBorder: (0, _utils.limitation)(this.find('#ca-field-cell-border').val(), CELL_BORDER_MIN, CELL_BORDER_MAX)
+            });
         }
     });
 
-    (0, _jquery2.default)('#ca-rule').dialog({
+    (0, _jquery2.default)('#ca-rule').confirmDialog({
         width: '80%',
         create: function create() {
             var $this = (0, _jquery2.default)(this);
@@ -14753,41 +14749,35 @@ var templates = {
         open: function open() {
             (0, _jquery2.default)('#ca-rule-code').val(ca.rule);
         },
-        buttons: {
-            'OK': function OK() {
-                try {
-                    ca.rule = (0, _jquery2.default)('#ca-rule-code').val();
-                } catch (e) {
-                    _toastr2.default.error(e.message);
-                    return false;
-                }
-            },
-            'Cancel': null
+        ok: function ok() {
+            try {
+                ca.rule = (0, _jquery2.default)('#ca-rule-code').val();
+            } catch (e) {
+                _toastr2.default.error(e.message);
+                return false;
+            }
         }
     });
 
-    (0, _jquery2.default)('#ca-speed').dialog({
+    (0, _jquery2.default)('#ca-speed').confirmDialog({
         width: 320,
         create: function create() {
             (0, _jquery2.default)(this).find('#generations-per-step').spinner({
-                min: 1,
-                max: 100,
-                step: 1
+                min: _config2.default.GENERATIONS_PER_STEP_MIN,
+                max: _config2.default.GENERATIONS_PER_STEP_MAX,
+                step: _config2.default.GENERATIONS_PER_STEP_CHANGE
             }).end().find('#step-duration').spinner({
-                min: 10,
-                max: 5000,
-                step: 10
+                min: _config2.default.STEP_DURATION_MIN,
+                max: _config2.default.STEP_DURATION_MAX,
+                step: _config2.default.STEP_DURATION_CHANGE
             });
         },
         open: function open() {
             (0, _jquery2.default)(this).find('#generations-per-step').val(ca.generationsPerStep).end().find('#step-duration').val(ca.stepDuration);
         },
-        buttons: {
-            'OK': function OK() {
-                ca.generationsPerStep = this.find('#generations-per-step').val();
-                ca.stepDuration = this.find('#step-duration').val();
-            },
-            'Cancel': null
+        ok: function ok() {
+            ca.generationsPerStep = this.find('#generations-per-step').val();
+            ca.stepDuration = this.find('#step-duration').val();
         }
     });
 
@@ -14801,7 +14791,7 @@ var templates = {
     }).find('[for="mode-' + ca.view.mode + '"]').click();
 
     (0, _jquery2.default)('.content > .controls').find('button').button().end().on('click.ca-dialog', '[data-dialog]', function () {
-        (0, _jquery2.default)('#' + (0, _jquery2.default)(this).attr('data-dialog')).dialog('open');
+        (0, _jquery2.default)('#' + (0, _jquery2.default)(this).attr('data-dialog')).confirmDialog('open');
     }).on('click.ca-action', '[data-action]', function () {
         ca[(0, _jquery2.default)(this).attr('data-action')]();
     });
@@ -14838,13 +14828,13 @@ var templates = {
     });
 
     (0, _jquery2.default)('#skip').click(function () {
-        var $steps = (0, _jquery2.default)(this).parent().find('input'),
-            steps = (0, _utils.limitation)($steps.val(), 1, Math.pow(10, $steps.attr('maxlength')) - 1);
+        ca.newGeneration((0, _jquery2.default)(this).parent().find('input').val());
+    }).parent().find('input').width(50).on('input', function () {
+        var $this = (0, _jquery2.default)(this),
+            val = parseInt($this.val(), 10);
 
-        $steps.val(steps);
-
-        ca.newGeneration(steps);
-    }).parent().find('input').width(50).val('1');
+        $this.val((0, _utils.limitation)(val, _config2.default.SKIP_GENERATIONS_MIN, _config2.default.SKIP_GENERATIONS_MAX));
+    }).val(_config2.default.SKIP_GENERATIONS_MIN);
 
     (0, _jquery2.default)('#save-as-image').click(function () {
         ca.view.download();
@@ -25196,19 +25186,18 @@ var _cellFieldView = __webpack_require__(73);
 
 var _cellFieldView2 = _interopRequireDefault(_cellFieldView);
 
+var _config = __webpack_require__(76);
+
+var _config2 = _interopRequireDefault(_config);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var MIN_DELAY = 1,
-    MAX_DELAY = 10000,
-    MIN_GENERATIONS = 1,
-    MAX_GENERATIONS = 100;
-
 var defaultOptions = {
     _intervalID: null,
-    _stepDuration: 30,
-    _generationsPerStep: 1
+    _stepDuration: _config2.default.DEFAULT_STEP_DURATION,
+    _generationsPerStep: _config2.default.DEFAULT_GENERATIONS_PER_STEP
 };
 
 var CellularAutomaton = function () {
@@ -25340,7 +25329,7 @@ var CellularAutomaton = function () {
             return this._generationsPerStep;
         },
         set: function set(value) {
-            this._generationsPerStep = (0, _utils.limitation)(value, MIN_GENERATIONS, MAX_GENERATIONS);
+            this._generationsPerStep = (0, _utils.limitation)(value, _config2.default.GENERATIONS_PER_STEP_MIN, _config2.default.GENERATIONS_PER_STEP_MAX);
         }
     }, {
         key: 'stepDuration',
@@ -25348,7 +25337,7 @@ var CellularAutomaton = function () {
             return this._stepDuration;
         },
         set: function set(value) {
-            this._stepDuration = (0, _utils.limitation)(value, MIN_DELAY, MAX_DELAY);
+            this._stepDuration = (0, _utils.limitation)(value, _config2.default.STEP_DURATION_MIN, _config2.default.STEP_DURATION_MAX);
             if (this._intervalID) {
                 this.stop();
                 this.start();
@@ -25928,6 +25917,12 @@ var _extends = Object.assign || function (target) { for (var i = 1; i < argument
 
 var _utils = __webpack_require__(7);
 
+var _config = __webpack_require__(76);
+
+var _config2 = _interopRequireDefault(_config);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
@@ -25963,25 +25958,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 
 function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
 
-var defaultColors = {
-    background: '#505050',
-    0: '#000000',
-    1: '#FFFFFF',
-    2: '#666666',
-    3: '#A8A8A8',
-    4: '#FF0000',
-    5: '#00FF00',
-    6: '#0000FF',
-    7: '#00FFFF',
-    8: '#FF00FF',
-    9: '#FFFF00',
-    10: '#FF8080',
-    11: '#80FF80',
-    12: '#8080FF',
-    13: '#FFFF80',
-    14: '#FF80FF',
-    15: '#80FFFF'
-};
+var defaultColors = _config2.default.DEFAULT_COLORS;
 
 var mouseButtons = {
     left: 1,
@@ -26185,7 +26162,6 @@ function detectViewCoord(view) {
 
 var limit = _utils.limitation;
 
-var MAX_CELL_SIDE_WITH_OWN_RENDER = 20;
 /*
  * собственные методы отрисовки под различные размеры клетки
  *
@@ -26317,7 +26293,7 @@ var CellFieldView = (_dec = (0, _utils.logExecutionTime)('renderPartial'), _dec2
 
             this.buf32.fill(this.colorsForRender.background);
 
-            if (!renderFunctions.hasOwnProperty(cellSide) && cellSide <= MAX_CELL_SIDE_WITH_OWN_RENDER) {
+            if (!renderFunctions.hasOwnProperty(cellSide) && cellSide <= _config2.default.MAX_CELL_SIDE_WITH_OWN_RENDER) {
                 renderFunctions[cellSide] = cellFieldRenderFunction(cellRenderCode(cellSide));
             }
 
@@ -26331,7 +26307,7 @@ var CellFieldView = (_dec = (0, _utils.logExecutionTime)('renderPartial'), _dec2
                 newColors = {},
                 colorsForRender = {};
 
-            colors = Object.assign({}, oldColors, colors === null ? defaultColors : colors);
+            colors = Object.assign({}, oldColors, colors || defaultColors);
 
             for (var i in defaultColors) {
                 var color = colors[i] || oldColors[i];
@@ -26372,6 +26348,11 @@ var CellFieldView = (_dec = (0, _utils.logExecutionTime)('renderPartial'), _dec2
         value: function download() {
             var filename = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : Date.now().toString() + '.png';
 
+            /*
+             * отдельный canvas - чтобы результирующее изображение содержало
+             * только данные из this.imageData; актуально для случаев, когда
+             * размеры this.imageData меньше, чем размеры wrapper'а
+             */
             var canvas = document.createElement('canvas');
             var ctx = canvas.getContext('2d');
             canvas.width = this.imageData.width;
@@ -26465,6 +26446,72 @@ exports.push([module.i, "/*-CSS-reset-------------------------------------------
 
 // exports
 
+
+/***/ }),
+/* 76 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = {
+
+  X_SIZE_MIN: 32,
+  Y_SIZE_MIN: 32,
+  X_SIZE_MAX: 1024,
+  Y_SIZE_MAX: 1024,
+
+  CELL_SIDE_MIN: 1,
+  CELL_SIDE_MAX: 20,
+  CELL_BORDER_MIN: 0,
+  CELL_BORDER_MAX: 4,
+
+  BRUSH_SIZE: 11,
+
+  GENERATIONS_PER_STEP_MIN: 1,
+  GENERATIONS_PER_STEP_MAX: 100,
+  GENERATIONS_PER_STEP_CHANGE: 1,
+  STEP_DURATION_MIN: 0,
+  STEP_DURATION_MAX: 5000,
+  STEP_DURATION_CHANGE: 10,
+
+  SKIP_GENERATIONS_MIN: 1,
+  SKIP_GENERATIONS_MAX: 10000,
+
+  MAX_CELL_SIDE_WITH_OWN_RENDER: 20,
+
+  DEFAULT_RULE: "Conway's Life",
+  DEFAULT_X_SIZE: 256,
+  DEFAULT_Y_SIZE: 256,
+  DEFAULT_CELL_SIDE: 7,
+  DEFAULT_CELL_BORDER: 1,
+  DEFAULT_GENERATIONS_PER_STEP: 1,
+  DEFAULT_STEP_DURATION: 30,
+
+  DEFAULT_COLORS: {
+    background: '#505050',
+    0: '#000000',
+    1: '#FFFFFF',
+    2: '#666666',
+    3: '#A8A8A8',
+    4: '#FF0000',
+    5: '#00FF00',
+    6: '#0000FF',
+    7: '#00FFFF',
+    8: '#FF00FF',
+    9: '#FFFF00',
+    10: '#FF8080',
+    11: '#80FF80',
+    12: '#8080FF',
+    13: '#FFFF80',
+    14: '#FF80FF',
+    15: '#80FFFF'
+  }
+
+};
 
 /***/ })
 /******/ ]);
