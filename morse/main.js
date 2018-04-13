@@ -44,12 +44,10 @@
     };
     speedTimeUnitElem.onchange();
 
-    textElem.onchange = textElem.onkeyup = function() {
-        setTimeout(function() {
-            document.getElementById('value').value = Morse.encode(textElem.value);
-        }, 0);
+    textElem.oninput = function() {
+        document.getElementById('value').value = Morse.encode(textElem.value);
     };
-    textElem.onchange();
+    textElem.oninput();
 
     playElem.onclick = function() {
         if (Morse.isPlaying()) {

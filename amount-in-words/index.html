@@ -10,14 +10,12 @@
 window.onload = function() {
     var valueElem = document.getElementById('value');
 
-    valueElem.onchange = valueElem.onkeyup = function() {
-        setTimeout(function() {
-            document.getElementById('text').value = amountInWords(valueElem.value) || 'null';
-        }, 0);
+    valueElem.oninput = function() {
+        document.getElementById('text').value = amountInWords(valueElem.value) || 'null';
     };
 
     valueElem.value = (Math.random() * 100000).toFixed(2);
-    valueElem.onchange();
+    valueElem.oninput();
 };
     </script>
 </head>
