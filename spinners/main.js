@@ -1174,4 +1174,8 @@ window.onload = function() {
         overlay.classList.add('hidden');
         source.classList.add('hidden');
     };
+
+    overlay.onwheel = function(e) {
+        e.preventDefault();
+    };
 };
