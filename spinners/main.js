@@ -1113,15 +1113,37 @@ window.onload = function() {
         source = document.querySelector('.source');
 
     content.innerHTML += [
-        'spinner-1', 'spinner-2', 'spinner-3', 'spinner-4', 'spinner-5',
-        'spinner-6', 'spinner-7', 'spinner-8', 'spinner-9', 'spinner-11',
-        'spinner-12', 'spinner-17', 'spinner-13', 'spinner-14', 'spinner-16',
-        'spinner-wi-fi', 'spinner-heart', 'spinner-hydrogen',
-        'spinner-yin-yang', 'spinner-clock', 'spinner-counter',
-        'spinner-zebra', 'spinner-collisions', 'spinner-glider'
-     ].map(function(name) {
-        var data = spinners[name] || {},
-            html = '<div class="' + name + '"></div>';
+        { name: 'spinner-1',          show: true },
+        { name: 'spinner-2',          show: true },
+        { name: 'spinner-3',          show: true },
+        { name: 'spinner-4',          show: true },
+        { name: 'spinner-5',          show: true },
+        { name: 'spinner-6',          show: true },
+        { name: 'spinner-7',          show: true },
+        { name: 'spinner-8',          show: true },
+        { name: 'spinner-9',          show: true },
+        { name: 'spinner-10',         show: false },
+        { name: 'spinner-11',         show: true },
+        { name: 'spinner-12',         show: true },
+        { name: 'spinner-17',         show: true },
+        { name: 'spinner-13',         show: true },
+        { name: 'spinner-14',         show: true },
+        { name: 'spinner-15',         show: false },
+        { name: 'spinner-16',         show: true },
+        { name: 'spinner-wi-fi',      show: true },
+        { name: 'spinner-heart',      show: true },
+        { name: 'spinner-hydrogen',   show: true },
+        { name: 'spinner-yin-yang',   show: true },
+        { name: 'spinner-clock',      show: true },
+        { name: 'spinner-counter',    show: true },
+        { name: 'spinner-zebra',      show: true },
+        { name: 'spinner-collisions', show: true },
+        { name: 'spinner-glider',     show: true }
+     ].filter(function(n) {
+         return n.show;
+     }).map(function(n) {
+        var data = spinners[n.name] || {},
+            html = '<div class="' + n.name + '"></div>';
 
         if (data.title) {
             html += '<div class="spinner-title">' + data.title + '</div>';
@@ -1131,7 +1153,7 @@ window.onload = function() {
             html += '<div class="spinner-source"></div>';
         }
 
-        return '<div class="spinner-container" data-spinner="' + name + '">' + html + '</div>';
+        return '<div class="spinner-container" data-spinner="' + n.name + '">' + html + '</div>';
     }).join('');
 
     content.onclick = function(e) {
