@@ -1175,7 +1175,14 @@ window.onload = function() {
         source.classList.add('hidden');
     };
 
-    overlay.onwheel = function(e) {
+    overlay.onwheel = source.querySelector('.source-html').onwheel = function(e) {
         e.preventDefault();
+    };
+    source.onwheel = function(e) {
+        var css = source.querySelector('.source-css');
+        if ((css.scrollHeight - css.scrollTop === css.clientHeight && e.deltaY > 0) ||
+            (css.scrollTop == 0 && e.deltaY < 0)) {
+            e.preventDefault();
+        }
     };
 };
