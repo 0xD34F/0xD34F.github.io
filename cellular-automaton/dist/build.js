@@ -60,7 +60,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 23);
+/******/ 	return __webpack_require__(__webpack_require__.s = 24);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -11351,7 +11351,7 @@ var singleton = null;
 var	singletonCounter = 0;
 var	stylesInsertedAtTop = [];
 
-var	fixUrls = __webpack_require__(42);
+var	fixUrls = __webpack_require__(43);
 
 module.exports = function(list, options) {
 	if (typeof DEBUG !== "undefined" && DEBUG) {
@@ -12491,8 +12491,8 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 
 			// These are only for backcompat
 			// TODO: Remove after 1.12
-			__webpack_require__(26),
 			__webpack_require__(27),
+			__webpack_require__(28),
 
 			__webpack_require__(5),
 			__webpack_require__(2)
@@ -12879,7 +12879,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(31),
+			__webpack_require__(32),
 			__webpack_require__(1),
 			__webpack_require__(2)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
@@ -13092,6 +13092,73 @@ return $.widget( "ui.mouse", {
 
 /***/ }),
 /* 13 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = {
+
+  X_SIZE_MIN: 32,
+  Y_SIZE_MIN: 32,
+  X_SIZE_MAX: 1024,
+  Y_SIZE_MAX: 1024,
+
+  CELL_SIDE_MIN: 1,
+  CELL_SIDE_MAX: 20,
+  CELL_BORDER_MIN: 0,
+  CELL_BORDER_MAX: 4,
+
+  BRUSH_SIZE: 11,
+
+  GENERATIONS_PER_STEP_MIN: 1,
+  GENERATIONS_PER_STEP_MAX: 100,
+  GENERATIONS_PER_STEP_CHANGE: 1,
+  STEP_DURATION_MIN: 0,
+  STEP_DURATION_MAX: 5000,
+  STEP_DURATION_CHANGE: 10,
+
+  SKIP_GENERATIONS_MIN: 1,
+  SKIP_GENERATIONS_MAX: 10000,
+
+  MAX_CELL_SIDE_WITH_OWN_RENDER: 20,
+
+  DEFAULT_RULE: "Conway's Life",
+  DEFAULT_X_SIZE: 256,
+  DEFAULT_Y_SIZE: 256,
+  DEFAULT_CELL_SIDE: 7,
+  DEFAULT_CELL_BORDER: 1,
+  DEFAULT_GENERATIONS_PER_STEP: 1,
+  DEFAULT_STEP_DURATION: 30,
+  DEFAULT_FILL_DENSITY: 0.5,
+
+  DEFAULT_COLORS: {
+    background: '#505050',
+    0: '#000000',
+    1: '#FFFFFF',
+    2: '#666666',
+    3: '#A8A8A8',
+    4: '#FF0000',
+    5: '#00FF00',
+    6: '#0000FF',
+    7: '#00FFFF',
+    8: '#FF00FF',
+    9: '#FFFF00',
+    10: '#FF8080',
+    11: '#80FF80',
+    12: '#8080FF',
+    13: '#FFFF80',
+    14: '#FF80FF',
+    15: '#80FFFF'
+  }
+
+};
+
+/***/ }),
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -13773,7 +13840,7 @@ return $.widget( "ui.menu", {
 
 
 /***/ }),
-/* 14 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -13796,7 +13863,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(28),
+			__webpack_require__(29),
 			__webpack_require__(1)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
@@ -13859,7 +13926,7 @@ return $.ui.formResetMixin = {
 
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -13930,7 +13997,7 @@ return $.fn.labels = function() {
 
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
@@ -13983,7 +14050,7 @@ return $.ui.plugin = {
 
 
 /***/ }),
-/* 17 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
@@ -14013,7 +14080,7 @@ return $.ui.safeBlur = function( element ) {
 
 
 /***/ }),
-/* 18 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -14106,7 +14173,7 @@ return $.ui.focusable;
 
 
 /***/ }),
-/* 19 */
+/* 20 */
 /***/ (function(module, exports) {
 
 module.exports = function escape(url) {
@@ -14128,19 +14195,19 @@ module.exports = function escape(url) {
 
 
 /***/ }),
-/* 20 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "dist/images/ui-icons_444444_256x240.png";
 
 /***/ }),
-/* 21 */
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "dist/images/ui-icons_ffffff_256x240.png";
 
 /***/ }),
-/* 22 */
+/* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -14360,7 +14427,7 @@ var rules = {
 exports.default = rules;
 
 /***/ }),
-/* 23 */
+/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -14370,15 +14437,13 @@ var _jquery = __webpack_require__(0);
 
 var _jquery2 = _interopRequireDefault(_jquery);
 
-__webpack_require__(24);
-
 __webpack_require__(25);
+
+__webpack_require__(26);
 
 __webpack_require__(11);
 
-__webpack_require__(29);
-
-__webpack_require__(37);
+__webpack_require__(30);
 
 __webpack_require__(38);
 
@@ -14386,39 +14451,41 @@ __webpack_require__(39);
 
 __webpack_require__(40);
 
-__webpack_require__(43);
+__webpack_require__(41);
 
-__webpack_require__(45);
+__webpack_require__(44);
 
-__webpack_require__(47);
+__webpack_require__(46);
 
-__webpack_require__(49);
+__webpack_require__(48);
 
-__webpack_require__(51);
+__webpack_require__(50);
 
-__webpack_require__(53);
+__webpack_require__(52);
 
-__webpack_require__(55);
+__webpack_require__(54);
 
-__webpack_require__(57);
+__webpack_require__(56);
 
-__webpack_require__(63);
+__webpack_require__(58);
 
-var _toastr = __webpack_require__(64);
+__webpack_require__(64);
+
+var _toastr = __webpack_require__(65);
 
 var _toastr2 = _interopRequireDefault(_toastr);
 
-__webpack_require__(66);
+__webpack_require__(67);
 
 var _utils = __webpack_require__(7);
 
-var _ca = __webpack_require__(68);
+var _ca = __webpack_require__(69);
 
-var _config = __webpack_require__(76);
+var _config = __webpack_require__(13);
 
 var _config2 = _interopRequireDefault(_config);
 
-__webpack_require__(74);
+__webpack_require__(75);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -14573,15 +14640,15 @@ var templates = {
     (0, _jquery2.default)('#ca-filling').confirmDialog({
         width: 480,
         create: function create() {
-            var planesList = ca.cells.getBitPlanes(),
+            var planesList = ca.cells.curr.getBitPlanes(),
                 planesHTML = templates.fieldFilling(planesList);
 
-            var max = ca.cells.randomFillDensityDescritization;
+            var max = ca.cells.curr.randomFillDensityDescritization;
             (0, _jquery2.default)(this).append(planesHTML).find('.ca-filling-random > input').spinner({
                 min: 0,
                 max: max,
                 step: 1
-            }).val(max / 2).end().find('select').selectmenu({
+            }).val(max * _config2.default.DEFAULT_FILL_DENSITY | 0).end().find('select').selectmenu({
                 width: 100
             }).on('selectmenuchange', function (e, ui) {
                 (0, _jquery2.default)(this).closest('tr').find('.ca-filling-options').find('>').hide().end().find('.ca-filling-' + (ui ? ui.item.value : this.value)).show();
@@ -14610,7 +14677,7 @@ var templates = {
                     case 'invert':
                         invert.push(plane);break;
                     case 'all1':
-                        random[plane] = ca.cells.randomFillDensityDescritization;break;
+                        random[plane] = ca.cells.curr.randomFillDensityDescritization;break;
                     case 'all0':
                         random[plane] = 0;break;
                     case 'random':
@@ -14651,10 +14718,10 @@ var templates = {
                 });
             });
 
-            $this.find('#ca-field-planes').append(templates.bitPlanesShow(ca.cells.getBitPlanes())).find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
+            $this.find('#ca-field-planes').append(templates.bitPlanesShow(ca.cells.curr.getBitPlanes())).find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
         },
         open: function open() {
-            (0, _jquery2.default)(this).find('#ca-field-x-size').val(ca.cells.xSize).end().find('#ca-field-y-size').val(ca.cells.ySize).end().find('#ca-field-cell-side').val(ca.view.cellSide).end().find('#ca-field-cell-border').val(ca.view.cellBorder).end().find('.jscolor').each(function () {
+            (0, _jquery2.default)(this).find('#ca-field-x-size').val(ca.cells.curr.xSize).end().find('#ca-field-y-size').val(ca.cells.curr.ySize).end().find('#ca-field-cell-side').val(ca.view.cellSide).end().find('#ca-field-cell-border').val(ca.view.cellBorder).end().find('.jscolor').each(function () {
                 var $this = (0, _jquery2.default)(this);
                 $this.val(ca.view.colors[$this.attr('color-name')]);
                 this.jscolor.importColor();
@@ -14796,7 +14863,7 @@ var templates = {
         ca[(0, _jquery2.default)(this).attr('data-action')]();
     });
 
-    (0, _jquery2.default)('#cell-field-data').buttonset();
+    (0, _jquery2.default)('.toolbar').buttonset();
 
     (0, _jquery2.default)(window).on({
         'resize': function resize() {
@@ -14846,7 +14913,7 @@ var templates = {
 });
 
 /***/ }),
-/* 24 */
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;// This file is deprecated in 1.12.0 to be removed in 1.13
@@ -14877,7 +14944,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;// This file i
 
 
 /***/ }),
-/* 25 */
+/* 26 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -14904,7 +14971,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(13),
+			__webpack_require__(14),
 			__webpack_require__(5),
 			__webpack_require__(8),
 			__webpack_require__(6),
@@ -15568,7 +15635,7 @@ return $.ui.autocomplete;
 
 
 /***/ }),
-/* 26 */
+/* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -15875,7 +15942,7 @@ return $.widget( "ui.controlgroup", {
 
 
 /***/ }),
-/* 27 */
+/* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -15904,8 +15971,8 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
 			__webpack_require__(10),
-			__webpack_require__(14),
 			__webpack_require__(15),
+			__webpack_require__(16),
 			__webpack_require__(2)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
@@ -16170,7 +16237,7 @@ return $.ui.checkboxradio;
 
 
 /***/ }),
-/* 28 */
+/* 29 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
@@ -16199,7 +16266,7 @@ return $.fn.form = function() {
 
 
 /***/ }),
-/* 29 */
+/* 30 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -16227,15 +16294,15 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
 			__webpack_require__(11),
-			__webpack_require__(30),
+			__webpack_require__(31),
 			__webpack_require__(12),
-			__webpack_require__(34),
-			__webpack_require__(18),
+			__webpack_require__(35),
+			__webpack_require__(19),
 			__webpack_require__(5),
 			__webpack_require__(8),
 			__webpack_require__(6),
-			__webpack_require__(17),
-			__webpack_require__(36),
+			__webpack_require__(18),
+			__webpack_require__(37),
 			__webpack_require__(9),
 			__webpack_require__(1),
 			__webpack_require__(2)
@@ -17148,7 +17215,7 @@ return $.ui.dialog;
 
 
 /***/ }),
-/* 30 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -17174,11 +17241,11 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
 			__webpack_require__(12),
-			__webpack_require__(32),
-			__webpack_require__(16),
-			__webpack_require__(6),
-			__webpack_require__(17),
 			__webpack_require__(33),
+			__webpack_require__(17),
+			__webpack_require__(6),
+			__webpack_require__(18),
+			__webpack_require__(34),
 			__webpack_require__(1),
 			__webpack_require__(2)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
@@ -18407,7 +18474,7 @@ return $.ui.draggable;
 
 
 /***/ }),
-/* 31 */
+/* 32 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
@@ -18431,7 +18498,7 @@ return $.ui.ie = !!/msie [\w.]+/.exec( navigator.userAgent.toLowerCase() );
 
 
 /***/ }),
-/* 32 */
+/* 33 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -18479,7 +18546,7 @@ return $.extend( $.expr[ ":" ], {
 
 
 /***/ }),
-/* 33 */
+/* 34 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -18533,7 +18600,7 @@ return $.fn.scrollParent = function( includeHidden ) {
 
 
 /***/ }),
-/* 34 */
+/* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -18561,8 +18628,8 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
 			__webpack_require__(12),
-			__webpack_require__(35),
-			__webpack_require__(16),
+			__webpack_require__(36),
+			__webpack_require__(17),
 			__webpack_require__(1),
 			__webpack_require__(2)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
@@ -19743,7 +19810,7 @@ return $.ui.resizable;
 
 
 /***/ }),
-/* 35 */
+/* 36 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -19798,7 +19865,7 @@ return $.fn.extend( {
 
 
 /***/ }),
-/* 36 */
+/* 37 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -19819,7 +19886,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 	if ( true ) {
 
 		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1), __webpack_require__(18) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1), __webpack_require__(19) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
 				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
 				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
@@ -19842,7 +19909,7 @@ return $.extend( $.expr[ ":" ], {
 
 
 /***/ }),
-/* 37 */
+/* 38 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -20426,7 +20493,7 @@ return $.ui.spinner;
 
 
 /***/ }),
-/* 38 */
+/* 39 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -20455,11 +20522,11 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(13),
-			__webpack_require__(10),
 			__webpack_require__(14),
-			__webpack_require__(5),
+			__webpack_require__(10),
 			__webpack_require__(15),
+			__webpack_require__(5),
+			__webpack_require__(16),
 			__webpack_require__(8),
 			__webpack_require__(9),
 			__webpack_require__(1),
@@ -21122,7 +21189,7 @@ return $.widget( "ui.selectmenu", [ $.ui.formResetMixin, {
 
 
 /***/ }),
-/* 39 */
+/* 40 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -22055,11 +22122,11 @@ return $.ui.tabs;
 
 
 /***/ }),
-/* 40 */
+/* 41 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(41);
+var content = __webpack_require__(42);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22105,7 +22172,7 @@ if(false) {
 }
 
 /***/ }),
-/* 41 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
 exports = module.exports = __webpack_require__(3)(false);
@@ -22119,7 +22186,7 @@ exports.push([module.i, "/*!\n * jQuery UI CSS Framework 1.12.1\n * http://jquer
 
 
 /***/ }),
-/* 42 */
+/* 43 */
 /***/ (function(module, exports) {
 
 
@@ -22214,11 +22281,11 @@ module.exports = function (css) {
 
 
 /***/ }),
-/* 43 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(44);
+var content = __webpack_require__(45);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22264,7 +22331,7 @@ if(false) {
 }
 
 /***/ }),
-/* 44 */
+/* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
 exports = module.exports = __webpack_require__(3)(false);
@@ -22278,11 +22345,11 @@ exports.push([module.i, "/*!\n * jQuery UI Autocomplete 1.12.1\n * http://jquery
 
 
 /***/ }),
-/* 45 */
+/* 46 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(46);
+var content = __webpack_require__(47);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22328,7 +22395,7 @@ if(false) {
 }
 
 /***/ }),
-/* 46 */
+/* 47 */
 /***/ (function(module, exports, __webpack_require__) {
 
 exports = module.exports = __webpack_require__(3)(false);
@@ -22342,11 +22409,11 @@ exports.push([module.i, "/*!\n * jQuery UI Button 1.12.1\n * http://jqueryui.com
 
 
 /***/ }),
-/* 47 */
+/* 48 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(48);
+var content = __webpack_require__(49);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22392,7 +22459,7 @@ if(false) {
 }
 
 /***/ }),
-/* 48 */
+/* 49 */
 /***/ (function(module, exports, __webpack_require__) {
 
 exports = module.exports = __webpack_require__(3)(false);
@@ -22406,11 +22473,11 @@ exports.push([module.i, "/*!\n * jQuery UI Controlgroup 1.12.1\n * http://jquery
 
 
 /***/ }),
-/* 49 */
+/* 50 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(50);
+var content = __webpack_require__(51);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22456,7 +22523,7 @@ if(false) {
 }
 
 /***/ }),
-/* 50 */
+/* 51 */
 /***/ (function(module, exports, __webpack_require__) {
 
 exports = module.exports = __webpack_require__(3)(false);
@@ -22470,11 +22537,11 @@ exports.push([module.i, "/*!\n * jQuery UI Dialog 1.12.1\n * http://jqueryui.com
 
 
 /***/ }),
-/* 51 */
+/* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(52);
+var content = __webpack_require__(53);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22520,7 +22587,7 @@ if(false) {
 }
 
 /***/ }),
-/* 52 */
+/* 53 */
 /***/ (function(module, exports, __webpack_require__) {
 
 exports = module.exports = __webpack_require__(3)(false);
@@ -22534,11 +22601,11 @@ exports.push([module.i, "/*!\n * jQuery UI Spinner 1.12.1\n * http://jqueryui.co
 
 
 /***/ }),
-/* 53 */
+/* 54 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(54);
+var content = __webpack_require__(55);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22584,7 +22651,7 @@ if(false) {
 }
 
 /***/ }),
-/* 54 */
+/* 55 */
 /***/ (function(module, exports, __webpack_require__) {
 
 exports = module.exports = __webpack_require__(3)(false);
@@ -22598,11 +22665,11 @@ exports.push([module.i, "/*!\n * jQuery UI Selectmenu 1.12.1\n * http://jqueryui
 
 
 /***/ }),
-/* 55 */
+/* 56 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(56);
+var content = __webpack_require__(57);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22648,7 +22715,7 @@ if(false) {
 }
 
 /***/ }),
-/* 56 */
+/* 57 */
 /***/ (function(module, exports, __webpack_require__) {
 
 exports = module.exports = __webpack_require__(3)(false);
@@ -22662,11 +22729,11 @@ exports.push([module.i, "/*!\n * jQuery UI Tabs 1.12.1\n * http://jqueryui.com\n
 
 
 /***/ }),
-/* 57 */
+/* 58 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(58);
+var content = __webpack_require__(59);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22712,46 +22779,46 @@ if(false) {
 }
 
 /***/ }),
-/* 58 */
+/* 59 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var escape = __webpack_require__(19);
+var escape = __webpack_require__(20);
 exports = module.exports = __webpack_require__(3)(false);
 // imports
 
 
 // module
-exports.push([module.i, "/*!\n * jQuery UI CSS Framework 1.12.1\n * http://jqueryui.com\n *\n * Copyright jQuery Foundation and other contributors\n * Released under the MIT license.\n * http://jquery.org/license\n *\n * http://api.jqueryui.com/category/theming/\n *\n * To view and modify this theme, visit http://jqueryui.com/themeroller/\n */\n\n\n/* Component containers\n----------------------------------*/\n.ui-widget {\n\tfont-family: Arial,Helvetica,sans-serif/*{ffDefault}*/;\n\tfont-size: 1em/*{fsDefault}*/;\n}\n.ui-widget .ui-widget {\n\tfont-size: 1em;\n}\n.ui-widget input,\n.ui-widget select,\n.ui-widget textarea,\n.ui-widget button {\n\tfont-family: Arial,Helvetica,sans-serif/*{ffDefault}*/;\n\tfont-size: 1em;\n}\n.ui-widget.ui-widget-content {\n\tborder: 1px solid #c5c5c5/*{borderColorDefault}*/;\n}\n.ui-widget-content {\n\tborder: 1px solid #dddddd/*{borderColorContent}*/;\n\tbackground: #ffffff/*{bgColorContent}*/ /*{bgImgUrlContent}*/ /*{bgContentXPos}*/ /*{bgContentYPos}*/ /*{bgContentRepeat}*/;\n\tcolor: #333333/*{fcContent}*/;\n}\n.ui-widget-content a {\n\tcolor: #333333/*{fcContent}*/;\n}\n.ui-widget-header {\n\tborder: 1px solid #dddddd/*{borderColorHeader}*/;\n\tbackground: #e9e9e9/*{bgColorHeader}*/ /*{bgImgUrlHeader}*/ /*{bgHeaderXPos}*/ /*{bgHeaderYPos}*/ /*{bgHeaderRepeat}*/;\n\tcolor: #333333/*{fcHeader}*/;\n\tfont-weight: bold;\n}\n.ui-widget-header a {\n\tcolor: #333333/*{fcHeader}*/;\n}\n\n/* Interaction states\n----------------------------------*/\n.ui-state-default,\n.ui-widget-content .ui-state-default,\n.ui-widget-header .ui-state-default,\n.ui-button,\n\n/* We use html here because we need a greater specificity to make sure disabled\nworks properly when clicked or hovered */\nhtml .ui-button.ui-state-disabled:hover,\nhtml .ui-button.ui-state-disabled:active {\n\tborder: 1px solid #c5c5c5/*{borderColorDefault}*/;\n\tbackground: #f6f6f6/*{bgColorDefault}*/ /*{bgImgUrlDefault}*/ /*{bgDefaultXPos}*/ /*{bgDefaultYPos}*/ /*{bgDefaultRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #454545/*{fcDefault}*/;\n}\n.ui-state-default a,\n.ui-state-default a:link,\n.ui-state-default a:visited,\na.ui-button,\na:link.ui-button,\na:visited.ui-button,\n.ui-button {\n\tcolor: #454545/*{fcDefault}*/;\n\ttext-decoration: none;\n}\n.ui-state-hover,\n.ui-widget-content .ui-state-hover,\n.ui-widget-header .ui-state-hover,\n.ui-state-focus,\n.ui-widget-content .ui-state-focus,\n.ui-widget-header .ui-state-focus,\n.ui-button:hover,\n.ui-button:focus {\n\tborder: 1px solid #cccccc/*{borderColorHover}*/;\n\tbackground: #ededed/*{bgColorHover}*/ /*{bgImgUrlHover}*/ /*{bgHoverXPos}*/ /*{bgHoverYPos}*/ /*{bgHoverRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #2b2b2b/*{fcHover}*/;\n}\n.ui-state-hover a,\n.ui-state-hover a:hover,\n.ui-state-hover a:link,\n.ui-state-hover a:visited,\n.ui-state-focus a,\n.ui-state-focus a:hover,\n.ui-state-focus a:link,\n.ui-state-focus a:visited,\na.ui-button:hover,\na.ui-button:focus {\n\tcolor: #2b2b2b/*{fcHover}*/;\n\ttext-decoration: none;\n}\n\n.ui-visual-focus {\n\tbox-shadow: 0 0 3px 1px rgb(94, 158, 214);\n}\n.ui-state-active,\n.ui-widget-content .ui-state-active,\n.ui-widget-header .ui-state-active,\na.ui-button:active,\n.ui-button:active,\n.ui-button.ui-state-active:hover {\n\tborder: 1px solid #003eff/*{borderColorActive}*/;\n\tbackground: #007fff/*{bgColorActive}*/ /*{bgImgUrlActive}*/ /*{bgActiveXPos}*/ /*{bgActiveYPos}*/ /*{bgActiveRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #ffffff/*{fcActive}*/;\n}\n.ui-icon-background,\n.ui-state-active .ui-icon-background {\n\tborder: #003eff/*{borderColorActive}*/;\n\tbackground-color: #ffffff/*{fcActive}*/;\n}\n.ui-state-active a,\n.ui-state-active a:link,\n.ui-state-active a:visited {\n\tcolor: #ffffff/*{fcActive}*/;\n\ttext-decoration: none;\n}\n\n/* Interaction Cues\n----------------------------------*/\n.ui-state-highlight,\n.ui-widget-content .ui-state-highlight,\n.ui-widget-header .ui-state-highlight {\n\tborder: 1px solid #dad55e/*{borderColorHighlight}*/;\n\tbackground: #fffa90/*{bgColorHighlight}*/ /*{bgImgUrlHighlight}*/ /*{bgHighlightXPos}*/ /*{bgHighlightYPos}*/ /*{bgHighlightRepeat}*/;\n\tcolor: #777620/*{fcHighlight}*/;\n}\n.ui-state-checked {\n\tborder: 1px solid #dad55e/*{borderColorHighlight}*/;\n\tbackground: #fffa90/*{bgColorHighlight}*/;\n}\n.ui-state-highlight a,\n.ui-widget-content .ui-state-highlight a,\n.ui-widget-header .ui-state-highlight a {\n\tcolor: #777620/*{fcHighlight}*/;\n}\n.ui-state-error,\n.ui-widget-content .ui-state-error,\n.ui-widget-header .ui-state-error {\n\tborder: 1px solid #f1a899/*{borderColorError}*/;\n\tbackground: #fddfdf/*{bgColorError}*/ /*{bgImgUrlError}*/ /*{bgErrorXPos}*/ /*{bgErrorYPos}*/ /*{bgErrorRepeat}*/;\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-state-error a,\n.ui-widget-content .ui-state-error a,\n.ui-widget-header .ui-state-error a {\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-state-error-text,\n.ui-widget-content .ui-state-error-text,\n.ui-widget-header .ui-state-error-text {\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-priority-primary,\n.ui-widget-content .ui-priority-primary,\n.ui-widget-header .ui-priority-primary {\n\tfont-weight: bold;\n}\n.ui-priority-secondary,\n.ui-widget-content .ui-priority-secondary,\n.ui-widget-header .ui-priority-secondary {\n\topacity: .7;\n\tfilter:Alpha(Opacity=70); /* support: IE8 */\n\tfont-weight: normal;\n}\n.ui-state-disabled,\n.ui-widget-content .ui-state-disabled,\n.ui-widget-header .ui-state-disabled {\n\topacity: .35;\n\tfilter:Alpha(Opacity=35); /* support: IE8 */\n\tbackground-image: none;\n}\n.ui-state-disabled .ui-icon {\n\tfilter:Alpha(Opacity=35); /* support: IE8 - See #6059 */\n}\n\n/* Icons\n----------------------------------*/\n\n/* states and images */\n.ui-icon {\n\twidth: 16px;\n\theight: 16px;\n}\n.ui-icon,\n.ui-widget-content .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(20)) + ");\n}\n.ui-widget-header .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(20)) + ");\n}\n.ui-state-hover .ui-icon,\n.ui-state-focus .ui-icon,\n.ui-button:hover .ui-icon,\n.ui-button:focus .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(59)) + ");\n}\n.ui-state-active .ui-icon,\n.ui-button:active .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(21)) + ");\n}\n.ui-state-highlight .ui-icon,\n.ui-button .ui-state-highlight.ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(60)) + ");\n}\n.ui-state-error .ui-icon,\n.ui-state-error-text .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(61)) + ");\n}\n.ui-button .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(62)) + ");\n}\n\n/* positioning */\n.ui-icon-blank { background-position: 16px 16px; }\n.ui-icon-caret-1-n { background-position: 0 0; }\n.ui-icon-caret-1-ne { background-position: -16px 0; }\n.ui-icon-caret-1-e { background-position: -32px 0; }\n.ui-icon-caret-1-se { background-position: -48px 0; }\n.ui-icon-caret-1-s { background-position: -65px 0; }\n.ui-icon-caret-1-sw { background-position: -80px 0; }\n.ui-icon-caret-1-w { background-position: -96px 0; }\n.ui-icon-caret-1-nw { background-position: -112px 0; }\n.ui-icon-caret-2-n-s { background-position: -128px 0; }\n.ui-icon-caret-2-e-w { background-position: -144px 0; }\n.ui-icon-triangle-1-n { background-position: 0 -16px; }\n.ui-icon-triangle-1-ne { background-position: -16px -16px; }\n.ui-icon-triangle-1-e { background-position: -32px -16px; }\n.ui-icon-triangle-1-se { background-position: -48px -16px; }\n.ui-icon-triangle-1-s { background-position: -65px -16px; }\n.ui-icon-triangle-1-sw { background-position: -80px -16px; }\n.ui-icon-triangle-1-w { background-position: -96px -16px; }\n.ui-icon-triangle-1-nw { background-position: -112px -16px; }\n.ui-icon-triangle-2-n-s { background-position: -128px -16px; }\n.ui-icon-triangle-2-e-w { background-position: -144px -16px; }\n.ui-icon-arrow-1-n { background-position: 0 -32px; }\n.ui-icon-arrow-1-ne { background-position: -16px -32px; }\n.ui-icon-arrow-1-e { background-position: -32px -32px; }\n.ui-icon-arrow-1-se { background-position: -48px -32px; }\n.ui-icon-arrow-1-s { background-position: -65px -32px; }\n.ui-icon-arrow-1-sw { background-position: -80px -32px; }\n.ui-icon-arrow-1-w { background-position: -96px -32px; }\n.ui-icon-arrow-1-nw { background-position: -112px -32px; }\n.ui-icon-arrow-2-n-s { background-position: -128px -32px; }\n.ui-icon-arrow-2-ne-sw { background-position: -144px -32px; }\n.ui-icon-arrow-2-e-w { background-position: -160px -32px; }\n.ui-icon-arrow-2-se-nw { background-position: -176px -32px; }\n.ui-icon-arrowstop-1-n { background-position: -192px -32px; }\n.ui-icon-arrowstop-1-e { background-position: -208px -32px; }\n.ui-icon-arrowstop-1-s { background-position: -224px -32px; }\n.ui-icon-arrowstop-1-w { background-position: -240px -32px; }\n.ui-icon-arrowthick-1-n { background-position: 1px -48px; }\n.ui-icon-arrowthick-1-ne { background-position: -16px -48px; }\n.ui-icon-arrowthick-1-e { background-position: -32px -48px; }\n.ui-icon-arrowthick-1-se { background-position: -48px -48px; }\n.ui-icon-arrowthick-1-s { background-position: -64px -48px; }\n.ui-icon-arrowthick-1-sw { background-position: -80px -48px; }\n.ui-icon-arrowthick-1-w { background-position: -96px -48px; }\n.ui-icon-arrowthick-1-nw { background-position: -112px -48px; }\n.ui-icon-arrowthick-2-n-s { background-position: -128px -48px; }\n.ui-icon-arrowthick-2-ne-sw { background-position: -144px -48px; }\n.ui-icon-arrowthick-2-e-w { background-position: -160px -48px; }\n.ui-icon-arrowthick-2-se-nw { background-position: -176px -48px; }\n.ui-icon-arrowthickstop-1-n { background-position: -192px -48px; }\n.ui-icon-arrowthickstop-1-e { background-position: -208px -48px; }\n.ui-icon-arrowthickstop-1-s { background-position: -224px -48px; }\n.ui-icon-arrowthickstop-1-w { background-position: -240px -48px; }\n.ui-icon-arrowreturnthick-1-w { background-position: 0 -64px; }\n.ui-icon-arrowreturnthick-1-n { background-position: -16px -64px; }\n.ui-icon-arrowreturnthick-1-e { background-position: -32px -64px; }\n.ui-icon-arrowreturnthick-1-s { background-position: -48px -64px; }\n.ui-icon-arrowreturn-1-w { background-position: -64px -64px; }\n.ui-icon-arrowreturn-1-n { background-position: -80px -64px; }\n.ui-icon-arrowreturn-1-e { background-position: -96px -64px; }\n.ui-icon-arrowreturn-1-s { background-position: -112px -64px; }\n.ui-icon-arrowrefresh-1-w { background-position: -128px -64px; }\n.ui-icon-arrowrefresh-1-n { background-position: -144px -64px; }\n.ui-icon-arrowrefresh-1-e { background-position: -160px -64px; }\n.ui-icon-arrowrefresh-1-s { background-position: -176px -64px; }\n.ui-icon-arrow-4 { background-position: 0 -80px; }\n.ui-icon-arrow-4-diag { background-position: -16px -80px; }\n.ui-icon-extlink { background-position: -32px -80px; }\n.ui-icon-newwin { background-position: -48px -80px; }\n.ui-icon-refresh { background-position: -64px -80px; }\n.ui-icon-shuffle { background-position: -80px -80px; }\n.ui-icon-transfer-e-w { background-position: -96px -80px; }\n.ui-icon-transferthick-e-w { background-position: -112px -80px; }\n.ui-icon-folder-collapsed { background-position: 0 -96px; }\n.ui-icon-folder-open { background-position: -16px -96px; }\n.ui-icon-document { background-position: -32px -96px; }\n.ui-icon-document-b { background-position: -48px -96px; }\n.ui-icon-note { background-position: -64px -96px; }\n.ui-icon-mail-closed { background-position: -80px -96px; }\n.ui-icon-mail-open { background-position: -96px -96px; }\n.ui-icon-suitcase { background-position: -112px -96px; }\n.ui-icon-comment { background-position: -128px -96px; }\n.ui-icon-person { background-position: -144px -96px; }\n.ui-icon-print { background-position: -160px -96px; }\n.ui-icon-trash { background-position: -176px -96px; }\n.ui-icon-locked { background-position: -192px -96px; }\n.ui-icon-unlocked { background-position: -208px -96px; }\n.ui-icon-bookmark { background-position: -224px -96px; }\n.ui-icon-tag { background-position: -240px -96px; }\n.ui-icon-home { background-position: 0 -112px; }\n.ui-icon-flag { background-position: -16px -112px; }\n.ui-icon-calendar { background-position: -32px -112px; }\n.ui-icon-cart { background-position: -48px -112px; }\n.ui-icon-pencil { background-position: -64px -112px; }\n.ui-icon-clock { background-position: -80px -112px; }\n.ui-icon-disk { background-position: -96px -112px; }\n.ui-icon-calculator { background-position: -112px -112px; }\n.ui-icon-zoomin { background-position: -128px -112px; }\n.ui-icon-zoomout { background-position: -144px -112px; }\n.ui-icon-search { background-position: -160px -112px; }\n.ui-icon-wrench { background-position: -176px -112px; }\n.ui-icon-gear { background-position: -192px -112px; }\n.ui-icon-heart { background-position: -208px -112px; }\n.ui-icon-star { background-position: -224px -112px; }\n.ui-icon-link { background-position: -240px -112px; }\n.ui-icon-cancel { background-position: 0 -128px; }\n.ui-icon-plus { background-position: -16px -128px; }\n.ui-icon-plusthick { background-position: -32px -128px; }\n.ui-icon-minus { background-position: -48px -128px; }\n.ui-icon-minusthick { background-position: -64px -128px; }\n.ui-icon-close { background-position: -80px -128px; }\n.ui-icon-closethick { background-position: -96px -128px; }\n.ui-icon-key { background-position: -112px -128px; }\n.ui-icon-lightbulb { background-position: -128px -128px; }\n.ui-icon-scissors { background-position: -144px -128px; }\n.ui-icon-clipboard { background-position: -160px -128px; }\n.ui-icon-copy { background-position: -176px -128px; }\n.ui-icon-contact { background-position: -192px -128px; }\n.ui-icon-image { background-position: -208px -128px; }\n.ui-icon-video { background-position: -224px -128px; }\n.ui-icon-script { background-position: -240px -128px; }\n.ui-icon-alert { background-position: 0 -144px; }\n.ui-icon-info { background-position: -16px -144px; }\n.ui-icon-notice { background-position: -32px -144px; }\n.ui-icon-help { background-position: -48px -144px; }\n.ui-icon-check { background-position: -64px -144px; }\n.ui-icon-bullet { background-position: -80px -144px; }\n.ui-icon-radio-on { background-position: -96px -144px; }\n.ui-icon-radio-off { background-position: -112px -144px; }\n.ui-icon-pin-w { background-position: -128px -144px; }\n.ui-icon-pin-s { background-position: -144px -144px; }\n.ui-icon-play { background-position: 0 -160px; }\n.ui-icon-pause { background-position: -16px -160px; }\n.ui-icon-seek-next { background-position: -32px -160px; }\n.ui-icon-seek-prev { background-position: -48px -160px; }\n.ui-icon-seek-end { background-position: -64px -160px; }\n.ui-icon-seek-start { background-position: -80px -160px; }\n/* ui-icon-seek-first is deprecated, use ui-icon-seek-start instead */\n.ui-icon-seek-first { background-position: -80px -160px; }\n.ui-icon-stop { background-position: -96px -160px; }\n.ui-icon-eject { background-position: -112px -160px; }\n.ui-icon-volume-off { background-position: -128px -160px; }\n.ui-icon-volume-on { background-position: -144px -160px; }\n.ui-icon-power { background-position: 0 -176px; }\n.ui-icon-signal-diag { background-position: -16px -176px; }\n.ui-icon-signal { background-position: -32px -176px; }\n.ui-icon-battery-0 { background-position: -48px -176px; }\n.ui-icon-battery-1 { background-position: -64px -176px; }\n.ui-icon-battery-2 { background-position: -80px -176px; }\n.ui-icon-battery-3 { background-position: -96px -176px; }\n.ui-icon-circle-plus { background-position: 0 -192px; }\n.ui-icon-circle-minus { background-position: -16px -192px; }\n.ui-icon-circle-close { background-position: -32px -192px; }\n.ui-icon-circle-triangle-e { background-position: -48px -192px; }\n.ui-icon-circle-triangle-s { background-position: -64px -192px; }\n.ui-icon-circle-triangle-w { background-position: -80px -192px; }\n.ui-icon-circle-triangle-n { background-position: -96px -192px; }\n.ui-icon-circle-arrow-e { background-position: -112px -192px; }\n.ui-icon-circle-arrow-s { background-position: -128px -192px; }\n.ui-icon-circle-arrow-w { background-position: -144px -192px; }\n.ui-icon-circle-arrow-n { background-position: -160px -192px; }\n.ui-icon-circle-zoomin { background-position: -176px -192px; }\n.ui-icon-circle-zoomout { background-position: -192px -192px; }\n.ui-icon-circle-check { background-position: -208px -192px; }\n.ui-icon-circlesmall-plus { background-position: 0 -208px; }\n.ui-icon-circlesmall-minus { background-position: -16px -208px; }\n.ui-icon-circlesmall-close { background-position: -32px -208px; }\n.ui-icon-squaresmall-plus { background-position: -48px -208px; }\n.ui-icon-squaresmall-minus { background-position: -64px -208px; }\n.ui-icon-squaresmall-close { background-position: -80px -208px; }\n.ui-icon-grip-dotted-vertical { background-position: 0 -224px; }\n.ui-icon-grip-dotted-horizontal { background-position: -16px -224px; }\n.ui-icon-grip-solid-vertical { background-position: -32px -224px; }\n.ui-icon-grip-solid-horizontal { background-position: -48px -224px; }\n.ui-icon-gripsmall-diagonal-se { background-position: -64px -224px; }\n.ui-icon-grip-diagonal-se { background-position: -80px -224px; }\n\n\n/* Misc visuals\n----------------------------------*/\n\n/* Corner radius */\n.ui-corner-all,\n.ui-corner-top,\n.ui-corner-left,\n.ui-corner-tl {\n\tborder-top-left-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-top,\n.ui-corner-right,\n.ui-corner-tr {\n\tborder-top-right-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-bottom,\n.ui-corner-left,\n.ui-corner-bl {\n\tborder-bottom-left-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-bottom,\n.ui-corner-right,\n.ui-corner-br {\n\tborder-bottom-right-radius: 3px/*{cornerRadius}*/;\n}\n\n/* Overlays */\n.ui-widget-overlay {\n\tbackground: #aaaaaa/*{bgColorOverlay}*/ /*{bgImgUrlOverlay}*/ /*{bgOverlayXPos}*/ /*{bgOverlayYPos}*/ /*{bgOverlayRepeat}*/;\n\topacity: .3/*{opacityOverlay}*/;\n\tfilter: Alpha(Opacity=30)/*{opacityFilterOverlay}*/; /* support: IE8 */\n}\n.ui-widget-shadow {\n\t-webkit-box-shadow: 0/*{offsetLeftShadow}*/ 0/*{offsetTopShadow}*/ 5px/*{thicknessShadow}*/ #666666/*{bgColorShadow}*/;\n\tbox-shadow: 0/*{offsetLeftShadow}*/ 0/*{offsetTopShadow}*/ 5px/*{thicknessShadow}*/ #666666/*{bgColorShadow}*/;\n}\n", ""]);
+exports.push([module.i, "/*!\n * jQuery UI CSS Framework 1.12.1\n * http://jqueryui.com\n *\n * Copyright jQuery Foundation and other contributors\n * Released under the MIT license.\n * http://jquery.org/license\n *\n * http://api.jqueryui.com/category/theming/\n *\n * To view and modify this theme, visit http://jqueryui.com/themeroller/\n */\n\n\n/* Component containers\n----------------------------------*/\n.ui-widget {\n\tfont-family: Arial,Helvetica,sans-serif/*{ffDefault}*/;\n\tfont-size: 1em/*{fsDefault}*/;\n}\n.ui-widget .ui-widget {\n\tfont-size: 1em;\n}\n.ui-widget input,\n.ui-widget select,\n.ui-widget textarea,\n.ui-widget button {\n\tfont-family: Arial,Helvetica,sans-serif/*{ffDefault}*/;\n\tfont-size: 1em;\n}\n.ui-widget.ui-widget-content {\n\tborder: 1px solid #c5c5c5/*{borderColorDefault}*/;\n}\n.ui-widget-content {\n\tborder: 1px solid #dddddd/*{borderColorContent}*/;\n\tbackground: #ffffff/*{bgColorContent}*/ /*{bgImgUrlContent}*/ /*{bgContentXPos}*/ /*{bgContentYPos}*/ /*{bgContentRepeat}*/;\n\tcolor: #333333/*{fcContent}*/;\n}\n.ui-widget-content a {\n\tcolor: #333333/*{fcContent}*/;\n}\n.ui-widget-header {\n\tborder: 1px solid #dddddd/*{borderColorHeader}*/;\n\tbackground: #e9e9e9/*{bgColorHeader}*/ /*{bgImgUrlHeader}*/ /*{bgHeaderXPos}*/ /*{bgHeaderYPos}*/ /*{bgHeaderRepeat}*/;\n\tcolor: #333333/*{fcHeader}*/;\n\tfont-weight: bold;\n}\n.ui-widget-header a {\n\tcolor: #333333/*{fcHeader}*/;\n}\n\n/* Interaction states\n----------------------------------*/\n.ui-state-default,\n.ui-widget-content .ui-state-default,\n.ui-widget-header .ui-state-default,\n.ui-button,\n\n/* We use html here because we need a greater specificity to make sure disabled\nworks properly when clicked or hovered */\nhtml .ui-button.ui-state-disabled:hover,\nhtml .ui-button.ui-state-disabled:active {\n\tborder: 1px solid #c5c5c5/*{borderColorDefault}*/;\n\tbackground: #f6f6f6/*{bgColorDefault}*/ /*{bgImgUrlDefault}*/ /*{bgDefaultXPos}*/ /*{bgDefaultYPos}*/ /*{bgDefaultRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #454545/*{fcDefault}*/;\n}\n.ui-state-default a,\n.ui-state-default a:link,\n.ui-state-default a:visited,\na.ui-button,\na:link.ui-button,\na:visited.ui-button,\n.ui-button {\n\tcolor: #454545/*{fcDefault}*/;\n\ttext-decoration: none;\n}\n.ui-state-hover,\n.ui-widget-content .ui-state-hover,\n.ui-widget-header .ui-state-hover,\n.ui-state-focus,\n.ui-widget-content .ui-state-focus,\n.ui-widget-header .ui-state-focus,\n.ui-button:hover,\n.ui-button:focus {\n\tborder: 1px solid #cccccc/*{borderColorHover}*/;\n\tbackground: #ededed/*{bgColorHover}*/ /*{bgImgUrlHover}*/ /*{bgHoverXPos}*/ /*{bgHoverYPos}*/ /*{bgHoverRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #2b2b2b/*{fcHover}*/;\n}\n.ui-state-hover a,\n.ui-state-hover a:hover,\n.ui-state-hover a:link,\n.ui-state-hover a:visited,\n.ui-state-focus a,\n.ui-state-focus a:hover,\n.ui-state-focus a:link,\n.ui-state-focus a:visited,\na.ui-button:hover,\na.ui-button:focus {\n\tcolor: #2b2b2b/*{fcHover}*/;\n\ttext-decoration: none;\n}\n\n.ui-visual-focus {\n\tbox-shadow: 0 0 3px 1px rgb(94, 158, 214);\n}\n.ui-state-active,\n.ui-widget-content .ui-state-active,\n.ui-widget-header .ui-state-active,\na.ui-button:active,\n.ui-button:active,\n.ui-button.ui-state-active:hover {\n\tborder: 1px solid #003eff/*{borderColorActive}*/;\n\tbackground: #007fff/*{bgColorActive}*/ /*{bgImgUrlActive}*/ /*{bgActiveXPos}*/ /*{bgActiveYPos}*/ /*{bgActiveRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #ffffff/*{fcActive}*/;\n}\n.ui-icon-background,\n.ui-state-active .ui-icon-background {\n\tborder: #003eff/*{borderColorActive}*/;\n\tbackground-color: #ffffff/*{fcActive}*/;\n}\n.ui-state-active a,\n.ui-state-active a:link,\n.ui-state-active a:visited {\n\tcolor: #ffffff/*{fcActive}*/;\n\ttext-decoration: none;\n}\n\n/* Interaction Cues\n----------------------------------*/\n.ui-state-highlight,\n.ui-widget-content .ui-state-highlight,\n.ui-widget-header .ui-state-highlight {\n\tborder: 1px solid #dad55e/*{borderColorHighlight}*/;\n\tbackground: #fffa90/*{bgColorHighlight}*/ /*{bgImgUrlHighlight}*/ /*{bgHighlightXPos}*/ /*{bgHighlightYPos}*/ /*{bgHighlightRepeat}*/;\n\tcolor: #777620/*{fcHighlight}*/;\n}\n.ui-state-checked {\n\tborder: 1px solid #dad55e/*{borderColorHighlight}*/;\n\tbackground: #fffa90/*{bgColorHighlight}*/;\n}\n.ui-state-highlight a,\n.ui-widget-content .ui-state-highlight a,\n.ui-widget-header .ui-state-highlight a {\n\tcolor: #777620/*{fcHighlight}*/;\n}\n.ui-state-error,\n.ui-widget-content .ui-state-error,\n.ui-widget-header .ui-state-error {\n\tborder: 1px solid #f1a899/*{borderColorError}*/;\n\tbackground: #fddfdf/*{bgColorError}*/ /*{bgImgUrlError}*/ /*{bgErrorXPos}*/ /*{bgErrorYPos}*/ /*{bgErrorRepeat}*/;\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-state-error a,\n.ui-widget-content .ui-state-error a,\n.ui-widget-header .ui-state-error a {\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-state-error-text,\n.ui-widget-content .ui-state-error-text,\n.ui-widget-header .ui-state-error-text {\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-priority-primary,\n.ui-widget-content .ui-priority-primary,\n.ui-widget-header .ui-priority-primary {\n\tfont-weight: bold;\n}\n.ui-priority-secondary,\n.ui-widget-content .ui-priority-secondary,\n.ui-widget-header .ui-priority-secondary {\n\topacity: .7;\n\tfilter:Alpha(Opacity=70); /* support: IE8 */\n\tfont-weight: normal;\n}\n.ui-state-disabled,\n.ui-widget-content .ui-state-disabled,\n.ui-widget-header .ui-state-disabled {\n\topacity: .35;\n\tfilter:Alpha(Opacity=35); /* support: IE8 */\n\tbackground-image: none;\n}\n.ui-state-disabled .ui-icon {\n\tfilter:Alpha(Opacity=35); /* support: IE8 - See #6059 */\n}\n\n/* Icons\n----------------------------------*/\n\n/* states and images */\n.ui-icon {\n\twidth: 16px;\n\theight: 16px;\n}\n.ui-icon,\n.ui-widget-content .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(21)) + ");\n}\n.ui-widget-header .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(21)) + ");\n}\n.ui-state-hover .ui-icon,\n.ui-state-focus .ui-icon,\n.ui-button:hover .ui-icon,\n.ui-button:focus .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(60)) + ");\n}\n.ui-state-active .ui-icon,\n.ui-button:active .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(22)) + ");\n}\n.ui-state-highlight .ui-icon,\n.ui-button .ui-state-highlight.ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(61)) + ");\n}\n.ui-state-error .ui-icon,\n.ui-state-error-text .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(62)) + ");\n}\n.ui-button .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(63)) + ");\n}\n\n/* positioning */\n.ui-icon-blank { background-position: 16px 16px; }\n.ui-icon-caret-1-n { background-position: 0 0; }\n.ui-icon-caret-1-ne { background-position: -16px 0; }\n.ui-icon-caret-1-e { background-position: -32px 0; }\n.ui-icon-caret-1-se { background-position: -48px 0; }\n.ui-icon-caret-1-s { background-position: -65px 0; }\n.ui-icon-caret-1-sw { background-position: -80px 0; }\n.ui-icon-caret-1-w { background-position: -96px 0; }\n.ui-icon-caret-1-nw { background-position: -112px 0; }\n.ui-icon-caret-2-n-s { background-position: -128px 0; }\n.ui-icon-caret-2-e-w { background-position: -144px 0; }\n.ui-icon-triangle-1-n { background-position: 0 -16px; }\n.ui-icon-triangle-1-ne { background-position: -16px -16px; }\n.ui-icon-triangle-1-e { background-position: -32px -16px; }\n.ui-icon-triangle-1-se { background-position: -48px -16px; }\n.ui-icon-triangle-1-s { background-position: -65px -16px; }\n.ui-icon-triangle-1-sw { background-position: -80px -16px; }\n.ui-icon-triangle-1-w { background-position: -96px -16px; }\n.ui-icon-triangle-1-nw { background-position: -112px -16px; }\n.ui-icon-triangle-2-n-s { background-position: -128px -16px; }\n.ui-icon-triangle-2-e-w { background-position: -144px -16px; }\n.ui-icon-arrow-1-n { background-position: 0 -32px; }\n.ui-icon-arrow-1-ne { background-position: -16px -32px; }\n.ui-icon-arrow-1-e { background-position: -32px -32px; }\n.ui-icon-arrow-1-se { background-position: -48px -32px; }\n.ui-icon-arrow-1-s { background-position: -65px -32px; }\n.ui-icon-arrow-1-sw { background-position: -80px -32px; }\n.ui-icon-arrow-1-w { background-position: -96px -32px; }\n.ui-icon-arrow-1-nw { background-position: -112px -32px; }\n.ui-icon-arrow-2-n-s { background-position: -128px -32px; }\n.ui-icon-arrow-2-ne-sw { background-position: -144px -32px; }\n.ui-icon-arrow-2-e-w { background-position: -160px -32px; }\n.ui-icon-arrow-2-se-nw { background-position: -176px -32px; }\n.ui-icon-arrowstop-1-n { background-position: -192px -32px; }\n.ui-icon-arrowstop-1-e { background-position: -208px -32px; }\n.ui-icon-arrowstop-1-s { background-position: -224px -32px; }\n.ui-icon-arrowstop-1-w { background-position: -240px -32px; }\n.ui-icon-arrowthick-1-n { background-position: 1px -48px; }\n.ui-icon-arrowthick-1-ne { background-position: -16px -48px; }\n.ui-icon-arrowthick-1-e { background-position: -32px -48px; }\n.ui-icon-arrowthick-1-se { background-position: -48px -48px; }\n.ui-icon-arrowthick-1-s { background-position: -64px -48px; }\n.ui-icon-arrowthick-1-sw { background-position: -80px -48px; }\n.ui-icon-arrowthick-1-w { background-position: -96px -48px; }\n.ui-icon-arrowthick-1-nw { background-position: -112px -48px; }\n.ui-icon-arrowthick-2-n-s { background-position: -128px -48px; }\n.ui-icon-arrowthick-2-ne-sw { background-position: -144px -48px; }\n.ui-icon-arrowthick-2-e-w { background-position: -160px -48px; }\n.ui-icon-arrowthick-2-se-nw { background-position: -176px -48px; }\n.ui-icon-arrowthickstop-1-n { background-position: -192px -48px; }\n.ui-icon-arrowthickstop-1-e { background-position: -208px -48px; }\n.ui-icon-arrowthickstop-1-s { background-position: -224px -48px; }\n.ui-icon-arrowthickstop-1-w { background-position: -240px -48px; }\n.ui-icon-arrowreturnthick-1-w { background-position: 0 -64px; }\n.ui-icon-arrowreturnthick-1-n { background-position: -16px -64px; }\n.ui-icon-arrowreturnthick-1-e { background-position: -32px -64px; }\n.ui-icon-arrowreturnthick-1-s { background-position: -48px -64px; }\n.ui-icon-arrowreturn-1-w { background-position: -64px -64px; }\n.ui-icon-arrowreturn-1-n { background-position: -80px -64px; }\n.ui-icon-arrowreturn-1-e { background-position: -96px -64px; }\n.ui-icon-arrowreturn-1-s { background-position: -112px -64px; }\n.ui-icon-arrowrefresh-1-w { background-position: -128px -64px; }\n.ui-icon-arrowrefresh-1-n { background-position: -144px -64px; }\n.ui-icon-arrowrefresh-1-e { background-position: -160px -64px; }\n.ui-icon-arrowrefresh-1-s { background-position: -176px -64px; }\n.ui-icon-arrow-4 { background-position: 0 -80px; }\n.ui-icon-arrow-4-diag { background-position: -16px -80px; }\n.ui-icon-extlink { background-position: -32px -80px; }\n.ui-icon-newwin { background-position: -48px -80px; }\n.ui-icon-refresh { background-position: -64px -80px; }\n.ui-icon-shuffle { background-position: -80px -80px; }\n.ui-icon-transfer-e-w { background-position: -96px -80px; }\n.ui-icon-transferthick-e-w { background-position: -112px -80px; }\n.ui-icon-folder-collapsed { background-position: 0 -96px; }\n.ui-icon-folder-open { background-position: -16px -96px; }\n.ui-icon-document { background-position: -32px -96px; }\n.ui-icon-document-b { background-position: -48px -96px; }\n.ui-icon-note { background-position: -64px -96px; }\n.ui-icon-mail-closed { background-position: -80px -96px; }\n.ui-icon-mail-open { background-position: -96px -96px; }\n.ui-icon-suitcase { background-position: -112px -96px; }\n.ui-icon-comment { background-position: -128px -96px; }\n.ui-icon-person { background-position: -144px -96px; }\n.ui-icon-print { background-position: -160px -96px; }\n.ui-icon-trash { background-position: -176px -96px; }\n.ui-icon-locked { background-position: -192px -96px; }\n.ui-icon-unlocked { background-position: -208px -96px; }\n.ui-icon-bookmark { background-position: -224px -96px; }\n.ui-icon-tag { background-position: -240px -96px; }\n.ui-icon-home { background-position: 0 -112px; }\n.ui-icon-flag { background-position: -16px -112px; }\n.ui-icon-calendar { background-position: -32px -112px; }\n.ui-icon-cart { background-position: -48px -112px; }\n.ui-icon-pencil { background-position: -64px -112px; }\n.ui-icon-clock { background-position: -80px -112px; }\n.ui-icon-disk { background-position: -96px -112px; }\n.ui-icon-calculator { background-position: -112px -112px; }\n.ui-icon-zoomin { background-position: -128px -112px; }\n.ui-icon-zoomout { background-position: -144px -112px; }\n.ui-icon-search { background-position: -160px -112px; }\n.ui-icon-wrench { background-position: -176px -112px; }\n.ui-icon-gear { background-position: -192px -112px; }\n.ui-icon-heart { background-position: -208px -112px; }\n.ui-icon-star { background-position: -224px -112px; }\n.ui-icon-link { background-position: -240px -112px; }\n.ui-icon-cancel { background-position: 0 -128px; }\n.ui-icon-plus { background-position: -16px -128px; }\n.ui-icon-plusthick { background-position: -32px -128px; }\n.ui-icon-minus { background-position: -48px -128px; }\n.ui-icon-minusthick { background-position: -64px -128px; }\n.ui-icon-close { background-position: -80px -128px; }\n.ui-icon-closethick { background-position: -96px -128px; }\n.ui-icon-key { background-position: -112px -128px; }\n.ui-icon-lightbulb { background-position: -128px -128px; }\n.ui-icon-scissors { background-position: -144px -128px; }\n.ui-icon-clipboard { background-position: -160px -128px; }\n.ui-icon-copy { background-position: -176px -128px; }\n.ui-icon-contact { background-position: -192px -128px; }\n.ui-icon-image { background-position: -208px -128px; }\n.ui-icon-video { background-position: -224px -128px; }\n.ui-icon-script { background-position: -240px -128px; }\n.ui-icon-alert { background-position: 0 -144px; }\n.ui-icon-info { background-position: -16px -144px; }\n.ui-icon-notice { background-position: -32px -144px; }\n.ui-icon-help { background-position: -48px -144px; }\n.ui-icon-check { background-position: -64px -144px; }\n.ui-icon-bullet { background-position: -80px -144px; }\n.ui-icon-radio-on { background-position: -96px -144px; }\n.ui-icon-radio-off { background-position: -112px -144px; }\n.ui-icon-pin-w { background-position: -128px -144px; }\n.ui-icon-pin-s { background-position: -144px -144px; }\n.ui-icon-play { background-position: 0 -160px; }\n.ui-icon-pause { background-position: -16px -160px; }\n.ui-icon-seek-next { background-position: -32px -160px; }\n.ui-icon-seek-prev { background-position: -48px -160px; }\n.ui-icon-seek-end { background-position: -64px -160px; }\n.ui-icon-seek-start { background-position: -80px -160px; }\n/* ui-icon-seek-first is deprecated, use ui-icon-seek-start instead */\n.ui-icon-seek-first { background-position: -80px -160px; }\n.ui-icon-stop { background-position: -96px -160px; }\n.ui-icon-eject { background-position: -112px -160px; }\n.ui-icon-volume-off { background-position: -128px -160px; }\n.ui-icon-volume-on { background-position: -144px -160px; }\n.ui-icon-power { background-position: 0 -176px; }\n.ui-icon-signal-diag { background-position: -16px -176px; }\n.ui-icon-signal { background-position: -32px -176px; }\n.ui-icon-battery-0 { background-position: -48px -176px; }\n.ui-icon-battery-1 { background-position: -64px -176px; }\n.ui-icon-battery-2 { background-position: -80px -176px; }\n.ui-icon-battery-3 { background-position: -96px -176px; }\n.ui-icon-circle-plus { background-position: 0 -192px; }\n.ui-icon-circle-minus { background-position: -16px -192px; }\n.ui-icon-circle-close { background-position: -32px -192px; }\n.ui-icon-circle-triangle-e { background-position: -48px -192px; }\n.ui-icon-circle-triangle-s { background-position: -64px -192px; }\n.ui-icon-circle-triangle-w { background-position: -80px -192px; }\n.ui-icon-circle-triangle-n { background-position: -96px -192px; }\n.ui-icon-circle-arrow-e { background-position: -112px -192px; }\n.ui-icon-circle-arrow-s { background-position: -128px -192px; }\n.ui-icon-circle-arrow-w { background-position: -144px -192px; }\n.ui-icon-circle-arrow-n { background-position: -160px -192px; }\n.ui-icon-circle-zoomin { background-position: -176px -192px; }\n.ui-icon-circle-zoomout { background-position: -192px -192px; }\n.ui-icon-circle-check { background-position: -208px -192px; }\n.ui-icon-circlesmall-plus { background-position: 0 -208px; }\n.ui-icon-circlesmall-minus { background-position: -16px -208px; }\n.ui-icon-circlesmall-close { background-position: -32px -208px; }\n.ui-icon-squaresmall-plus { background-position: -48px -208px; }\n.ui-icon-squaresmall-minus { background-position: -64px -208px; }\n.ui-icon-squaresmall-close { background-position: -80px -208px; }\n.ui-icon-grip-dotted-vertical { background-position: 0 -224px; }\n.ui-icon-grip-dotted-horizontal { background-position: -16px -224px; }\n.ui-icon-grip-solid-vertical { background-position: -32px -224px; }\n.ui-icon-grip-solid-horizontal { background-position: -48px -224px; }\n.ui-icon-gripsmall-diagonal-se { background-position: -64px -224px; }\n.ui-icon-grip-diagonal-se { background-position: -80px -224px; }\n\n\n/* Misc visuals\n----------------------------------*/\n\n/* Corner radius */\n.ui-corner-all,\n.ui-corner-top,\n.ui-corner-left,\n.ui-corner-tl {\n\tborder-top-left-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-top,\n.ui-corner-right,\n.ui-corner-tr {\n\tborder-top-right-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-bottom,\n.ui-corner-left,\n.ui-corner-bl {\n\tborder-bottom-left-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-bottom,\n.ui-corner-right,\n.ui-corner-br {\n\tborder-bottom-right-radius: 3px/*{cornerRadius}*/;\n}\n\n/* Overlays */\n.ui-widget-overlay {\n\tbackground: #aaaaaa/*{bgColorOverlay}*/ /*{bgImgUrlOverlay}*/ /*{bgOverlayXPos}*/ /*{bgOverlayYPos}*/ /*{bgOverlayRepeat}*/;\n\topacity: .3/*{opacityOverlay}*/;\n\tfilter: Alpha(Opacity=30)/*{opacityFilterOverlay}*/; /* support: IE8 */\n}\n.ui-widget-shadow {\n\t-webkit-box-shadow: 0/*{offsetLeftShadow}*/ 0/*{offsetTopShadow}*/ 5px/*{thicknessShadow}*/ #666666/*{bgColorShadow}*/;\n\tbox-shadow: 0/*{offsetLeftShadow}*/ 0/*{offsetTopShadow}*/ 5px/*{thicknessShadow}*/ #666666/*{bgColorShadow}*/;\n}\n", ""]);
 
 // exports
 
 
 /***/ }),
-/* 59 */
+/* 60 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "dist/images/ui-icons_555555_256x240.png";
 
 /***/ }),
-/* 60 */
+/* 61 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "dist/images/ui-icons_777620_256x240.png";
 
 /***/ }),
-/* 61 */
+/* 62 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "dist/images/ui-icons_cc0000_256x240.png";
 
 /***/ }),
-/* 62 */
+/* 63 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "dist/images/ui-icons_777777_256x240.png";
 
 /***/ }),
-/* 63 */
+/* 64 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -24601,7 +24668,7 @@ return jsc.jscolor;
 
 
 /***/ }),
-/* 64 */
+/* 65 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*
@@ -25074,11 +25141,11 @@ var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*
         })();
     }).apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),
 				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-}(__webpack_require__(65)));
+}(__webpack_require__(66)));
 
 
 /***/ }),
-/* 65 */
+/* 66 */
 /***/ (function(module, exports) {
 
 module.exports = function() {
@@ -25087,11 +25154,11 @@ module.exports = function() {
 
 
 /***/ }),
-/* 66 */
+/* 67 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(67);
+var content = __webpack_require__(68);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -25137,7 +25204,7 @@ if(false) {
 }
 
 /***/ }),
-/* 67 */
+/* 68 */
 /***/ (function(module, exports, __webpack_require__) {
 
 exports = module.exports = __webpack_require__(3)(false);
@@ -25151,7 +25218,7 @@ exports.push([module.i, ".toast-title {\n  font-weight: bold; }\n\n.toast-messag
 
 
 /***/ }),
-/* 68 */
+/* 69 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -25166,27 +25233,27 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 var _utils = __webpack_require__(7);
 
-var _rules = __webpack_require__(22);
+var _rules = __webpack_require__(23);
 
 var _rules2 = _interopRequireDefault(_rules);
 
-var _history = __webpack_require__(69);
+var _history = __webpack_require__(70);
 
 var _history2 = _interopRequireDefault(_history);
 
-var _generations = __webpack_require__(70);
+var _generations = __webpack_require__(71);
 
 var _generations2 = _interopRequireDefault(_generations);
 
-var _cellField = __webpack_require__(72);
+var _cellField = __webpack_require__(73);
 
 var _cellField2 = _interopRequireDefault(_cellField);
 
-var _cellFieldView = __webpack_require__(73);
+var _cellFieldView = __webpack_require__(74);
 
 var _cellFieldView2 = _interopRequireDefault(_cellFieldView);
 
-var _config = __webpack_require__(76);
+var _config = __webpack_require__(13);
 
 var _config2 = _interopRequireDefault(_config);
 
@@ -25206,17 +25273,16 @@ var CellularAutomaton = function () {
 
         Object.assign(this, defaultOptions);
 
-        this.cells = new _cellField2.default(options.xSize, options.ySize);
-        this.newCells = this.cells.clone();
-        this.newCells._shift = this.cells._shift; // чтобы не заниматься синхронизацией, просто сделаем объект смещения общим
+        this.cells = {
+            curr: new _cellField2.default(options.xSize, options.ySize)
+        };
+        this.cells.next = this.cells.curr.clone();
+        this.cells.next._shift = this.cells.curr._shift; // чтобы не заниматься синхронизацией, просто сделаем объект смещения общим
 
-        this.view = new _cellFieldView2.default(this.cells, options.view);
+        this.view = new _cellFieldView2.default(this.cells.curr, options.view);
 
         this.generations = new _generations2.default({
-            cells: {
-                curr: this.cells,
-                next: this.newCells
-            },
+            cells: this.cells,
             view: this.view
         });
 
@@ -25234,9 +25300,9 @@ var CellularAutomaton = function () {
             var sizes = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 
             if (!isNaN(sizes.xSize) && !isNaN(sizes.ySize)) {
-                if (this.cells.xSize !== sizes.xSize || this.cells.ySize !== sizes.ySize) {
-                    this.cells.resize(sizes.xSize, sizes.ySize);
-                    this.newCells.resize(sizes.xSize, sizes.ySize);
+                if (this.cells.curr.xSize !== sizes.xSize || this.cells.curr.ySize !== sizes.ySize) {
+                    this.cells.curr.resize(sizes.xSize, sizes.ySize);
+                    this.cells.next.conform(this.cells.curr);
                 }
             }
 
@@ -25253,13 +25319,13 @@ var CellularAutomaton = function () {
                 _ref$copy = _ref.copy,
                 copy = _ref$copy === undefined ? {} : _ref$copy;
 
-            this.cells.invertBitPlane(invert).fillRandom(random).copyBitPlane(copy);
+            this.cells.curr.invertBitPlane(invert).fillRandom(random).copyBitPlane(copy);
             this.view.render();
         }
     }, {
         key: 'clear',
         value: function clear() {
-            this.cells.fill(function () {
+            this.cells.curr.fill(function () {
                 return 0;
             });
             this.view.render();
@@ -25275,6 +25341,20 @@ var CellularAutomaton = function () {
                 this.generations.next(n);
                 this.view.render();
             }
+        }
+    }, {
+        key: 'rotateClockwise',
+        value: function rotateClockwise() {
+            this.cells.curr.rotateClockwise();
+            this.cells.next.conform(this.cells.curr);
+            this.view.resize();
+        }
+    }, {
+        key: 'rotateCounterclockwise',
+        value: function rotateCounterclockwise() {
+            this.cells.curr.rotateCounterclockwise();
+            this.cells.next.conform(this.cells.curr);
+            this.view.resize();
         }
     }, {
         key: 'start',
@@ -25320,7 +25400,7 @@ var CellularAutomaton = function () {
             if (this.history.data) {
                 this.stop();
                 this.history.back();
-                this.view.render();
+                this.view.resize();
             }
         }
     }, {
@@ -25362,7 +25442,7 @@ exports.CellularAutomaton = CellularAutomaton;
 exports.Rules = _rules2.default;
 
 /***/ }),
-/* 69 */
+/* 70 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -25389,7 +25469,7 @@ var History = function () {
         key: "save",
         value: function save() {
             this.data = {
-                cells: this.cells.clone(),
+                cells: this.cells.curr.clone(),
                 time: this.generations.time
             };
         }
@@ -25397,7 +25477,8 @@ var History = function () {
         key: "back",
         value: function back() {
             if (this.data) {
-                this.cells.conform(this.data.cells);
+                this.cells.curr.conform(this.data.cells);
+                this.cells.next.conform(this.data.cells);
                 this.generations.time = this.data.time;
                 this.data = null;
             }
@@ -25410,7 +25491,7 @@ var History = function () {
 exports.default = History;
 
 /***/ }),
-/* 70 */
+/* 71 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -25427,11 +25508,11 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 var _utils = __webpack_require__(7);
 
-var _rules = __webpack_require__(22);
+var _rules = __webpack_require__(23);
 
 var _rules2 = _interopRequireDefault(_rules);
 
-var _neighborhood = __webpack_require__(71);
+var _neighborhood = __webpack_require__(72);
 
 var _neighborhood2 = _interopRequireDefault(_neighborhood);
 
@@ -25665,7 +25746,7 @@ var Generations = (_dec = (0, _utils.logExecutionTime)('new generation'), (_clas
 exports.default = Generations;
 
 /***/ }),
-/* 71 */
+/* 72 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -25705,7 +25786,7 @@ neighborhood.main['Moore-thick'] = neighborhood.main.Moore.map(function (n) {
 exports.default = neighborhood;
 
 /***/ }),
-/* 72 */
+/* 73 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -25720,13 +25801,62 @@ var _extends = Object.assign || function (target) { for (var i = 1; i < argument
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
+var _dec, _dec2, _desc, _value, _class;
+
 var _utils = __webpack_require__(7);
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var CellField = function () {
+function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
+    var desc = {};
+    Object['ke' + 'ys'](descriptor).forEach(function (key) {
+        desc[key] = descriptor[key];
+    });
+    desc.enumerable = !!desc.enumerable;
+    desc.configurable = !!desc.configurable;
+
+    if ('value' in desc || desc.initializer) {
+        desc.writable = true;
+    }
+
+    desc = decorators.slice().reverse().reduce(function (desc, decorator) {
+        return decorator(target, property, desc) || desc;
+    }, desc);
+
+    if (context && desc.initializer !== void 0) {
+        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
+        desc.initializer = undefined;
+    }
+
+    if (desc.initializer === void 0) {
+        Object['define' + 'Property'](target, property, desc);
+        desc = null;
+    }
+
+    return desc;
+}
+
+function rotateField(sizeField) {
+    return function (target, key, descriptor) {
+        var original = descriptor.value;
+
+        descriptor.value = function () {
+            this.data = original(this.data, this._shift, this[sizeField]);
+            var _ref = [this.ySize, this.xSize];
+            this.xSize = _ref[0];
+            this.ySize = _ref[1];
+
+
+            return this;
+        };
+
+        return descriptor;
+    };
+}
+
+var CellField = (_dec = rotateField('ySize'), _dec2 = rotateField('xSize'), (_class = function () {
     function CellField(x, y) {
         _classCallCheck(this, CellField);
 
@@ -25778,6 +25908,26 @@ var CellField = function () {
             return this;
         }
     }, {
+        key: 'rotateClockwise',
+        value: function rotateClockwise(data, shift, size) {
+            Object.assign(shift, { x: (size - shift.y) % size, y: shift.x });
+            return data[0].map(function (cell, y) {
+                return data.map(function (col, x) {
+                    return data[x][size - y - 1];
+                });
+            });
+        }
+    }, {
+        key: 'rotateCounterclockwise',
+        value: function rotateCounterclockwise(data, shift, size) {
+            Object.assign(shift, { x: shift.y, y: (size - shift.x) % size });
+            return data[0].map(function (cell, y) {
+                return data.map(function (col, x) {
+                    return data[size - x - 1][y];
+                });
+            });
+        }
+    }, {
         key: 'clone',
         value: function clone() {
             return new CellField(this.xSize, this.ySize, this._shift).copy(this);
@@ -25785,8 +25935,15 @@ var CellField = function () {
     }, {
         key: 'conform',
         value: function conform(f) {
+            this.data = f.data.map(function (col) {
+                return [].concat(_toConsumableArray(col));
+            });
+            var _ref2 = [f.xSize, f.ySize];
+            this.xSize = _ref2[0];
+            this.ySize = _ref2[1];
+
             Object.assign(this._shift, f._shift);
-            return this.copy(f);
+            return this;
         }
     }, {
         key: 'copy',
@@ -25893,12 +26050,11 @@ var CellField = function () {
     }]);
 
     return CellField;
-}();
-
+}(), (_applyDecoratedDescriptor(_class.prototype, 'rotateClockwise', [_dec], Object.getOwnPropertyDescriptor(_class.prototype, 'rotateClockwise'), _class.prototype), _applyDecoratedDescriptor(_class.prototype, 'rotateCounterclockwise', [_dec2], Object.getOwnPropertyDescriptor(_class.prototype, 'rotateCounterclockwise'), _class.prototype)), _class));
 exports.default = CellField;
 
 /***/ }),
-/* 73 */
+/* 74 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -25917,7 +26073,7 @@ var _extends = Object.assign || function (target) { for (var i = 1; i < argument
 
 var _utils = __webpack_require__(7);
 
-var _config = __webpack_require__(76);
+var _config = __webpack_require__(13);
 
 var _config2 = _interopRequireDefault(_config);
 
@@ -26383,11 +26539,11 @@ var CellFieldView = (_dec = (0, _utils.logExecutionTime)('renderPartial'), _dec2
 exports.default = CellFieldView;
 
 /***/ }),
-/* 74 */
+/* 75 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(75);
+var content = __webpack_require__(76);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -26433,85 +26589,19 @@ if(false) {
 }
 
 /***/ }),
-/* 75 */
+/* 76 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var escape = __webpack_require__(19);
+var escape = __webpack_require__(20);
 exports = module.exports = __webpack_require__(3)(false);
 // imports
 
 
 // module
-exports.push([module.i, "/*-CSS-reset----------------------------------------------------------------*/\nhtml, body, div, span, applet, object, iframe,\nh1, h2, h3, h4, h5, h6, p, blockquote, pre,\na, abbr, acronym, address, big, cite, code,\ndel, dfn, em, img, ins, kbd, q, s, samp,\nsmall, strike, strong, sub, sup, tt, var,\nb, u, i, center,\ndl, dt, dd, ol, ul, li,\nfieldset, form, label, legend,\ntable, caption, tbody, tfoot, thead, tr, th, td,\narticle, aside, canvas, details, embed,\nfigure, figcaption, footer, header, hgroup,\nmenu, nav, output, ruby, section, summary,\ntime, mark, audio, video {\n  margin: 0;\n  padding: 0;\n  border: 0;\n  font-size: 100%;\n  font: inherit;\n  vertical-align: baseline; }\n\narticle, aside, details, figcaption, figure,\nfooter, header, hgroup, menu, nav, section {\n  display: block; }\n\nbody {\n  line-height: 1; }\n\nol, ul {\n  list-style: none; }\n\nblockquote, q {\n  quotes: none; }\n\nblockquote:before, blockquote:after,\nq:before, q:after {\n  content: '';\n  content: none; }\n\ntable {\n  border-collapse: collapse;\n  border-spacing: 0; }\n\n/*--------------------------------------------------------------------------*/\nhtml, body {\n  font-family: sans-serif;\n  height: 100%; }\n\n#toast-container > div {\n  border-radius: 0; }\n\n.content {\n  width: 100%;\n  height: 100%;\n  display: flex;\n  flex-direction: column;\n  box-sizing: border-box; }\n\n.controls {\n  padding: 15px 10px;\n  width: 100%;\n  box-sizing: border-box;\n  flex: 0; }\n  .controls > * {\n    vertical-align: top;\n    margin: 5px 1px 5px 0;\n    display: inline-block; }\n  .controls > .ui-controlgroup > .ui-controlgroup-item {\n    margin-right: -1px; }\n\n.cells-field-wrapper {\n  display: flex;\n  overflow: hidden;\n  padding: 0;\n  flex: 1; }\n  .cells-field-wrapper.scrollable {\n    overflow: scroll;\n    position: relative; }\n  .cells-field-wrapper .cells-field-wrapper-scroll {\n    position: absolute; }\n  .cells-field-wrapper canvas {\n    position: sticky;\n    left: 0;\n    top: 0; }\n    .cells-field-wrapper canvas[data-mode=\"edit\"] {\n      cursor: default; }\n    .cells-field-wrapper canvas[data-mode=\"shift\"] {\n      cursor: move; }\n    .cells-field-wrapper canvas[data-mode=\"scale\"] {\n      cursor: zoom-in; }\n\n.ca-options-table {\n  width: 100%; }\n  .ca-options-table td,\n  .ca-options-table th {\n    padding: 10px 0 10px 15px;\n    vertical-align: middle; }\n  .ca-options-table input[type=\"text\"] {\n    width: 3em; }\n  .ca-options-table input[type=\"checkbox\"] {\n    width: 16px;\n    height: 16px; }\n  .ca-options-table .ca-bit-plane {\n    text-align: center; }\n  .ca-options-table .ca-filling-options .ca-filling-options-note {\n    display: inline-block;\n    width: 5em;\n    vertical-align: middle; }\n  .ca-options-table .ca-filling-options .ui-spinner-input {\n    padding: 6px 6px 4px 6px;\n    margin: 0;\n    margin-right: 2em; }\n  .ca-options-table .ca-filling-options .ca-filling-copy > input {\n    padding: 6px 6px 4px 6px;\n    margin: 0 .4em;\n    vertical-align: middle; }\n    .ca-options-table .ca-filling-options .ca-filling-copy > input[type=\"text\"] {\n      width: 4.5em; }\n  .ca-options-table .ca-filling-options .ca-filling-random > .ui-spinner {\n    margin: 0 .4em; }\n    .ca-options-table .ca-filling-options .ca-filling-random > .ui-spinner > input {\n      width: 2.5em; }\n\n#ca-brush {\n  display: flex;\n  justify-content: space-between; }\n\n.ca-state-select.grid {\n  display: inline-grid;\n  grid: repeat(4, 1fr)/repeat(4, 1fr); }\n  .ca-state-select.grid .ca-state {\n    cursor: pointer; }\n\n.ca-state-select.row {\n  display: flex;\n  flex-flow: row wrap;\n  justify-content: flex-end; }\n  .ca-state-select.row .ca-state {\n    padding: 5px 10px; }\n    .ca-state-select.row .ca-state input.jscolor {\n      width: 6em;\n      text-align: right;\n      font-family: \"Lucida Console\", monospace;\n      padding-right: .2em;\n      box-sizing: border-box; }\n\n.ca-state-select .ca-state {\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n  padding: 5px;\n  border: 1px solid transparent; }\n  .ca-state-select .ca-state .ca-state-name {\n    display: inline-block;\n    font-size: 18px;\n    margin-right: 5px;\n    font-family: \"Lucida Console\", monospace; }\n  .ca-state-select .ca-state .ca-state-color {\n    display: inline-block;\n    vertical-align: top;\n    margin-right: 5px;\n    width: 16px;\n    height: 16px;\n    border: 1px solid black;\n    box-sizing: border-box; }\n\n#ca-rule-code {\n  width: 100%;\n  height: 100%;\n  min-width: 400px;\n  min-height: 300px;\n  padding: 5px;\n  font-family: monospace;\n  box-sizing: border-box;\n  resize: none; }\n\n.predefined-rule {\n  background-color: #eee; }\n\n.matched-text {\n  text-decoration: underline;\n  font-weight: bold; }\n\nbutton,\ninput,\ntextarea,\nselect,\nli,\n.ui-selectmenu-button {\n  outline: 0;\n  border: 1px solid #c5c5c5; }\n\n.ui-button {\n  padding: 6px 6px 4px 6px; }\n\n.ui-autocomplete {\n  max-height: 300px;\n  overflow-x: hidden;\n  overflow-y: auto; }\n\n.ui-menu li,\n.ui-menu .ui-menu-item-wrapper {\n  border: 0; }\n\n.ui-tabs.ui-widget.ui-widget-content {\n  border: 0;\n  padding: 0; }\n\n.ui-tabs .ui-tabs-nav {\n  border: 0;\n  padding-top: 0;\n  background-color: transparent; }\n  .ui-tabs .ui-tabs-nav .ui-tabs-anchor {\n    padding: .2em .4em; }\n\n.ui-tabs .ui-tabs-panel {\n  border-top-width: 1px;\n  padding: .5em 0 0 0; }\n\n.ui-visual-focus,\n.ui-state-focus {\n  box-shadow: none; }\n\n.ui-corner-all, .ui-corner-top, .ui-corner-right, .ui-corner-left, .ui-corner-bottom, .ui-corner-tr {\n  border-top-left-radius: 0;\n  border-top-right-radius: 0;\n  border-bottom-right-radius: 0;\n  border-bottom-left-radius: 0; }\n\n.ui-controlgroup[role=\"toolbar\"] {\n  margin-right: 3px; }\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active, .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active:hover {\n    z-index: 99; }\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active:hover .ui-icon,\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active .ui-icon {\n    background-image: url(" + escape(__webpack_require__(21)) + "); }\n\n.input-with-button {\n  margin-right: 2px;\n  display: inline-flex; }\n  .input-with-button > input {\n    margin: 0;\n    padding: 5px; }\n  .input-with-button > button, .input-with-button > button:hover, .input-with-button > button:focus {\n    margin: 0;\n    border-width: 0;\n    border-left-width: 1px; }\n", ""]);
+exports.push([module.i, "/*-CSS-reset----------------------------------------------------------------*/\nhtml, body, div, span, applet, object, iframe,\nh1, h2, h3, h4, h5, h6, p, blockquote, pre,\na, abbr, acronym, address, big, cite, code,\ndel, dfn, em, img, ins, kbd, q, s, samp,\nsmall, strike, strong, sub, sup, tt, var,\nb, u, i, center,\ndl, dt, dd, ol, ul, li,\nfieldset, form, label, legend,\ntable, caption, tbody, tfoot, thead, tr, th, td,\narticle, aside, canvas, details, embed,\nfigure, figcaption, footer, header, hgroup,\nmenu, nav, output, ruby, section, summary,\ntime, mark, audio, video {\n  margin: 0;\n  padding: 0;\n  border: 0;\n  font-size: 100%;\n  font: inherit;\n  vertical-align: baseline; }\n\narticle, aside, details, figcaption, figure,\nfooter, header, hgroup, menu, nav, section {\n  display: block; }\n\nbody {\n  line-height: 1; }\n\nol, ul {\n  list-style: none; }\n\nblockquote, q {\n  quotes: none; }\n\nblockquote:before, blockquote:after,\nq:before, q:after {\n  content: '';\n  content: none; }\n\ntable {\n  border-collapse: collapse;\n  border-spacing: 0; }\n\n/*--------------------------------------------------------------------------*/\nhtml, body {\n  font-family: sans-serif;\n  height: 100%; }\n\n#toast-container > div {\n  border-radius: 0; }\n\n.content {\n  width: 100%;\n  height: 100%;\n  display: flex;\n  flex-direction: column;\n  box-sizing: border-box; }\n\n.controls {\n  padding: 15px 10px;\n  width: 100%;\n  box-sizing: border-box;\n  flex: 0; }\n  .controls > * {\n    vertical-align: top;\n    margin: 5px 1px 5px 0;\n    display: inline-block; }\n  .controls > .ui-controlgroup > .ui-controlgroup-item {\n    margin-right: -1px; }\n\n.cells-field-wrapper {\n  display: flex;\n  overflow: hidden;\n  padding: 0;\n  flex: 1; }\n  .cells-field-wrapper.scrollable {\n    overflow: scroll;\n    position: relative; }\n  .cells-field-wrapper .cells-field-wrapper-scroll {\n    position: absolute; }\n  .cells-field-wrapper canvas {\n    position: sticky;\n    left: 0;\n    top: 0; }\n    .cells-field-wrapper canvas[data-mode=\"edit\"] {\n      cursor: default; }\n    .cells-field-wrapper canvas[data-mode=\"shift\"] {\n      cursor: move; }\n    .cells-field-wrapper canvas[data-mode=\"scale\"] {\n      cursor: zoom-in; }\n\n.ca-options-table {\n  width: 100%; }\n  .ca-options-table td,\n  .ca-options-table th {\n    padding: 10px 0 10px 15px;\n    vertical-align: middle; }\n  .ca-options-table input[type=\"text\"] {\n    width: 3em; }\n  .ca-options-table input[type=\"checkbox\"] {\n    width: 16px;\n    height: 16px; }\n  .ca-options-table .ca-bit-plane {\n    text-align: center; }\n  .ca-options-table .ca-filling-options .ca-filling-options-note {\n    display: inline-block;\n    width: 5em;\n    vertical-align: middle; }\n  .ca-options-table .ca-filling-options .ui-spinner-input {\n    padding: 6px 6px 4px 6px;\n    margin: 0;\n    margin-right: 2em; }\n  .ca-options-table .ca-filling-options .ca-filling-copy > input {\n    padding: 6px 6px 4px 6px;\n    margin: 0 .4em;\n    vertical-align: middle; }\n    .ca-options-table .ca-filling-options .ca-filling-copy > input[type=\"text\"] {\n      width: 4.5em; }\n  .ca-options-table .ca-filling-options .ca-filling-random > .ui-spinner {\n    margin: 0 .4em; }\n    .ca-options-table .ca-filling-options .ca-filling-random > .ui-spinner > input {\n      width: 2.5em; }\n\n#ca-brush {\n  display: flex;\n  justify-content: space-between; }\n\n.ca-state-select.grid {\n  display: inline-grid;\n  grid: repeat(4, 1fr)/repeat(4, 1fr); }\n  .ca-state-select.grid .ca-state {\n    cursor: pointer; }\n\n.ca-state-select.row {\n  display: flex;\n  flex-flow: row wrap;\n  justify-content: flex-end; }\n  .ca-state-select.row .ca-state {\n    padding: 5px 10px; }\n    .ca-state-select.row .ca-state input.jscolor {\n      width: 6em;\n      text-align: right;\n      font-family: \"Lucida Console\", monospace;\n      padding-right: .2em;\n      box-sizing: border-box; }\n\n.ca-state-select .ca-state {\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n  padding: 5px;\n  border: 1px solid transparent; }\n  .ca-state-select .ca-state .ca-state-name {\n    display: inline-block;\n    font-size: 18px;\n    margin-right: 5px;\n    font-family: \"Lucida Console\", monospace; }\n  .ca-state-select .ca-state .ca-state-color {\n    display: inline-block;\n    vertical-align: top;\n    margin-right: 5px;\n    width: 16px;\n    height: 16px;\n    border: 1px solid black;\n    box-sizing: border-box; }\n\n#ca-rule-code {\n  width: 100%;\n  height: 100%;\n  min-width: 400px;\n  min-height: 300px;\n  padding: 5px;\n  font-family: monospace;\n  box-sizing: border-box;\n  resize: none; }\n\n.predefined-rule {\n  background-color: #eee; }\n\n.matched-text {\n  text-decoration: underline;\n  font-weight: bold; }\n\nbutton,\ninput,\ntextarea,\nselect,\nli,\n.ui-selectmenu-button {\n  outline: 0;\n  border: 1px solid #c5c5c5; }\n\n.ui-button {\n  padding: 6px 6px 4px 6px; }\n\n.ui-autocomplete {\n  max-height: 300px;\n  overflow-x: hidden;\n  overflow-y: auto; }\n\n.ui-menu li,\n.ui-menu .ui-menu-item-wrapper {\n  border: 0; }\n\n.ui-tabs.ui-widget.ui-widget-content {\n  border: 0;\n  padding: 0; }\n\n.ui-tabs .ui-tabs-nav {\n  border: 0;\n  padding-top: 0;\n  background-color: transparent; }\n  .ui-tabs .ui-tabs-nav .ui-tabs-anchor {\n    padding: .2em .4em; }\n\n.ui-tabs .ui-tabs-panel {\n  border-top-width: 1px;\n  padding: .5em 0 0 0; }\n\n.ui-visual-focus,\n.ui-state-focus {\n  box-shadow: none; }\n\n.ui-corner-all, .ui-corner-top, .ui-corner-right, .ui-corner-left, .ui-corner-bottom, .ui-corner-tr {\n  border-top-left-radius: 0;\n  border-top-right-radius: 0;\n  border-bottom-right-radius: 0;\n  border-bottom-left-radius: 0; }\n\n.ui-controlgroup[role=\"toolbar\"] {\n  margin-right: 3px; }\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active, .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active:hover {\n    z-index: 99; }\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active:hover .ui-icon,\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active .ui-icon {\n    background-image: url(" + escape(__webpack_require__(22)) + "); }\n\n.input-with-button {\n  margin-right: 2px;\n  display: inline-flex; }\n  .input-with-button > input {\n    margin: 0;\n    padding: 5px; }\n  .input-with-button > button, .input-with-button > button:hover, .input-with-button > button:focus {\n    margin: 0;\n    border-width: 0;\n    border-left-width: 1px; }\n", ""]);
 
 // exports
 
-
-/***/ }),
-/* 76 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.default = {
-
-  X_SIZE_MIN: 32,
-  Y_SIZE_MIN: 32,
-  X_SIZE_MAX: 1024,
-  Y_SIZE_MAX: 1024,
-
-  CELL_SIDE_MIN: 1,
-  CELL_SIDE_MAX: 20,
-  CELL_BORDER_MIN: 0,
-  CELL_BORDER_MAX: 4,
-
-  BRUSH_SIZE: 11,
-
-  GENERATIONS_PER_STEP_MIN: 1,
-  GENERATIONS_PER_STEP_MAX: 100,
-  GENERATIONS_PER_STEP_CHANGE: 1,
-  STEP_DURATION_MIN: 0,
-  STEP_DURATION_MAX: 5000,
-  STEP_DURATION_CHANGE: 10,
-
-  SKIP_GENERATIONS_MIN: 1,
-  SKIP_GENERATIONS_MAX: 10000,
-
-  MAX_CELL_SIDE_WITH_OWN_RENDER: 20,
-
-  DEFAULT_RULE: "Conway's Life",
-  DEFAULT_X_SIZE: 256,
-  DEFAULT_Y_SIZE: 256,
-  DEFAULT_CELL_SIDE: 7,
-  DEFAULT_CELL_BORDER: 1,
-  DEFAULT_GENERATIONS_PER_STEP: 1,
-  DEFAULT_STEP_DURATION: 30,
-
-  DEFAULT_COLORS: {
-    background: '#505050',
-    0: '#000000',
-    1: '#FFFFFF',
-    2: '#666666',
-    3: '#A8A8A8',
-    4: '#FF0000',
-    5: '#00FF00',
-    6: '#0000FF',
-    7: '#00FFFF',
-    8: '#FF00FF',
-    9: '#FFFF00',
-    10: '#FF8080',
-    11: '#80FF80',
-    12: '#8080FF',
-    13: '#FFFF80',
-    14: '#FF80FF',
-    15: '#80FFFF'
-  }
-
-};
 
 /***/ })
 /******/ ]);
