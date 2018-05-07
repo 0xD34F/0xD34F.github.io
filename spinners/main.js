@@ -873,7 +873,7 @@ var spinners = {
     height: 2em;\n\
     position: relative;\n\
     overflow: hidden;\n\
-    font-family: Arial, sans-serif;\n\
+    line-height: 1;\n\
 }\n\
 .spinner-counter::before,\n\
 .spinner-counter::after {\n\

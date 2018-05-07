@@ -843,7 +843,7 @@
     height: 2em;
     position: relative;
     overflow: hidden;
-    font-family: Arial, sans-serif;
+    line-height: 1;
 }
 .spinner-counter::before,
 .spinner-counter::after {
