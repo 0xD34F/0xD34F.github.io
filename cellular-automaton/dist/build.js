@@ -60,7 +60,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 24);
+/******/ 	return __webpack_require__(__webpack_require__.s = 25);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -10462,6 +10462,470 @@ return $.ui.version = "1.12.1";
 
 /***/ }),
 /* 2 */
+/***/ (function(module, exports) {
+
+/*
+	MIT License http://www.opensource.org/licenses/mit-license.php
+	Author Tobias Koppers @sokra
+*/
+// css base code, injected by the css-loader
+module.exports = function(useSourceMap) {
+	var list = [];
+
+	// return the list of modules as css string
+	list.toString = function toString() {
+		return this.map(function (item) {
+			var content = cssWithMappingToString(item, useSourceMap);
+			if(item[2]) {
+				return "@media " + item[2] + "{" + content + "}";
+			} else {
+				return content;
+			}
+		}).join("");
+	};
+
+	// import a list of modules into the list
+	list.i = function(modules, mediaQuery) {
+		if(typeof modules === "string")
+			modules = [[null, modules, ""]];
+		var alreadyImportedModules = {};
+		for(var i = 0; i < this.length; i++) {
+			var id = this[i][0];
+			if(typeof id === "number")
+				alreadyImportedModules[id] = true;
+		}
+		for(i = 0; i < modules.length; i++) {
+			var item = modules[i];
+			// skip already imported module
+			// this implementation is not 100% perfect for weird media query combinations
+			//  when a module is imported multiple times with different media queries.
+			//  I hope this will never occur (Hey this way we have smaller bundles)
+			if(typeof item[0] !== "number" || !alreadyImportedModules[item[0]]) {
+				if(mediaQuery && !item[2]) {
+					item[2] = mediaQuery;
+				} else if(mediaQuery) {
+					item[2] = "(" + item[2] + ") and (" + mediaQuery + ")";
+				}
+				list.push(item);
+			}
+		}
+	};
+	return list;
+};
+
+function cssWithMappingToString(item, useSourceMap) {
+	var content = item[1] || '';
+	var cssMapping = item[3];
+	if (!cssMapping) {
+		return content;
+	}
+
+	if (useSourceMap && typeof btoa === 'function') {
+		var sourceMapping = toComment(cssMapping);
+		var sourceURLs = cssMapping.sources.map(function (source) {
+			return '/*# sourceURL=' + cssMapping.sourceRoot + source + ' */'
+		});
+
+		return [content].concat(sourceURLs).concat([sourceMapping]).join('\n');
+	}
+
+	return [content].join('\n');
+}
+
+// Adapted from convert-source-map (MIT)
+function toComment(sourceMap) {
+	// eslint-disable-next-line no-undef
+	var base64 = btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap))));
+	var data = 'sourceMappingURL=data:application/json;charset=utf-8;base64,' + base64;
+
+	return '/*# ' + data + ' */';
+}
+
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/*
+	MIT License http://www.opensource.org/licenses/mit-license.php
+	Author Tobias Koppers @sokra
+*/
+
+var stylesInDom = {};
+
+var	memoize = function (fn) {
+	var memo;
+
+	return function () {
+		if (typeof memo === "undefined") memo = fn.apply(this, arguments);
+		return memo;
+	};
+};
+
+var isOldIE = memoize(function () {
+	// Test for IE <= 9 as proposed by Browserhacks
+	// @see http://browserhacks.com/#hack-e71d8692f65334173fee715c222cb805
+	// Tests for existence of standard globals is to allow style-loader
+	// to operate correctly into non-standard environments
+	// @see https://github.com/webpack-contrib/style-loader/issues/177
+	return window && document && document.all && !window.atob;
+});
+
+var getTarget = function (target) {
+  return document.querySelector(target);
+};
+
+var getElement = (function (fn) {
+	var memo = {};
+
+	return function(target) {
+                // If passing function in options, then use it for resolve "head" element.
+                // Useful for Shadow Root style i.e
+                // {
+                //   insertInto: function () { return document.querySelector("#foo").shadowRoot }
+                // }
+                if (typeof target === 'function') {
+                        return target();
+                }
+                if (typeof memo[target] === "undefined") {
+			var styleTarget = getTarget.call(this, target);
+			// Special case to return head of iframe instead of iframe itself
+			if (window.HTMLIFrameElement && styleTarget instanceof window.HTMLIFrameElement) {
+				try {
+					// This will throw an exception if access to iframe is blocked
+					// due to cross-origin restrictions
+					styleTarget = styleTarget.contentDocument.head;
+				} catch(e) {
+					styleTarget = null;
+				}
+			}
+			memo[target] = styleTarget;
+		}
+		return memo[target]
+	};
+})();
+
+var singleton = null;
+var	singletonCounter = 0;
+var	stylesInsertedAtTop = [];
+
+var	fixUrls = __webpack_require__(36);
+
+module.exports = function(list, options) {
+	if (typeof DEBUG !== "undefined" && DEBUG) {
+		if (typeof document !== "object") throw new Error("The style-loader cannot be used in a non-browser environment");
+	}
+
+	options = options || {};
+
+	options.attrs = typeof options.attrs === "object" ? options.attrs : {};
+
+	// Force single-tag solution on IE6-9, which has a hard limit on the # of <style>
+	// tags it will allow on a page
+	if (!options.singleton && typeof options.singleton !== "boolean") options.singleton = isOldIE();
+
+	// By default, add <style> tags to the <head> element
+        if (!options.insertInto) options.insertInto = "head";
+
+	// By default, add <style> tags to the bottom of the target
+	if (!options.insertAt) options.insertAt = "bottom";
+
+	var styles = listToStyles(list, options);
+
+	addStylesToDom(styles, options);
+
+	return function update (newList) {
+		var mayRemove = [];
+
+		for (var i = 0; i < styles.length; i++) {
+			var item = styles[i];
+			var domStyle = stylesInDom[item.id];
+
+			domStyle.refs--;
+			mayRemove.push(domStyle);
+		}
+
+		if(newList) {
+			var newStyles = listToStyles(newList, options);
+			addStylesToDom(newStyles, options);
+		}
+
+		for (var i = 0; i < mayRemove.length; i++) {
+			var domStyle = mayRemove[i];
+
+			if(domStyle.refs === 0) {
+				for (var j = 0; j < domStyle.parts.length; j++) domStyle.parts[j]();
+
+				delete stylesInDom[domStyle.id];
+			}
+		}
+	};
+};
+
+function addStylesToDom (styles, options) {
+	for (var i = 0; i < styles.length; i++) {
+		var item = styles[i];
+		var domStyle = stylesInDom[item.id];
+
+		if(domStyle) {
+			domStyle.refs++;
+
+			for(var j = 0; j < domStyle.parts.length; j++) {
+				domStyle.parts[j](item.parts[j]);
+			}
+
+			for(; j < item.parts.length; j++) {
+				domStyle.parts.push(addStyle(item.parts[j], options));
+			}
+		} else {
+			var parts = [];
+
+			for(var j = 0; j < item.parts.length; j++) {
+				parts.push(addStyle(item.parts[j], options));
+			}
+
+			stylesInDom[item.id] = {id: item.id, refs: 1, parts: parts};
+		}
+	}
+}
+
+function listToStyles (list, options) {
+	var styles = [];
+	var newStyles = {};
+
+	for (var i = 0; i < list.length; i++) {
+		var item = list[i];
+		var id = options.base ? item[0] + options.base : item[0];
+		var css = item[1];
+		var media = item[2];
+		var sourceMap = item[3];
+		var part = {css: css, media: media, sourceMap: sourceMap};
+
+		if(!newStyles[id]) styles.push(newStyles[id] = {id: id, parts: [part]});
+		else newStyles[id].parts.push(part);
+	}
+
+	return styles;
+}
+
+function insertStyleElement (options, style) {
+	var target = getElement(options.insertInto)
+
+	if (!target) {
+		throw new Error("Couldn't find a style target. This probably means that the value for the 'insertInto' parameter is invalid.");
+	}
+
+	var lastStyleElementInsertedAtTop = stylesInsertedAtTop[stylesInsertedAtTop.length - 1];
+
+	if (options.insertAt === "top") {
+		if (!lastStyleElementInsertedAtTop) {
+			target.insertBefore(style, target.firstChild);
+		} else if (lastStyleElementInsertedAtTop.nextSibling) {
+			target.insertBefore(style, lastStyleElementInsertedAtTop.nextSibling);
+		} else {
+			target.appendChild(style);
+		}
+		stylesInsertedAtTop.push(style);
+	} else if (options.insertAt === "bottom") {
+		target.appendChild(style);
+	} else if (typeof options.insertAt === "object" && options.insertAt.before) {
+		var nextSibling = getElement(options.insertInto + " " + options.insertAt.before);
+		target.insertBefore(style, nextSibling);
+	} else {
+		throw new Error("[Style Loader]\n\n Invalid value for parameter 'insertAt' ('options.insertAt') found.\n Must be 'top', 'bottom', or Object.\n (https://github.com/webpack-contrib/style-loader#insertat)\n");
+	}
+}
+
+function removeStyleElement (style) {
+	if (style.parentNode === null) return false;
+	style.parentNode.removeChild(style);
+
+	var idx = stylesInsertedAtTop.indexOf(style);
+	if(idx >= 0) {
+		stylesInsertedAtTop.splice(idx, 1);
+	}
+}
+
+function createStyleElement (options) {
+	var style = document.createElement("style");
+
+	options.attrs.type = "text/css";
+
+	addAttrs(style, options.attrs);
+	insertStyleElement(options, style);
+
+	return style;
+}
+
+function createLinkElement (options) {
+	var link = document.createElement("link");
+
+	options.attrs.type = "text/css";
+	options.attrs.rel = "stylesheet";
+
+	addAttrs(link, options.attrs);
+	insertStyleElement(options, link);
+
+	return link;
+}
+
+function addAttrs (el, attrs) {
+	Object.keys(attrs).forEach(function (key) {
+		el.setAttribute(key, attrs[key]);
+	});
+}
+
+function addStyle (obj, options) {
+	var style, update, remove, result;
+
+	// If a transform function was defined, run it on the css
+	if (options.transform && obj.css) {
+	    result = options.transform(obj.css);
+
+	    if (result) {
+	    	// If transform returns a value, use that instead of the original css.
+	    	// This allows running runtime transformations on the css.
+	    	obj.css = result;
+	    } else {
+	    	// If the transform function returns a falsy value, don't add this css.
+	    	// This allows conditional loading of css
+	    	return function() {
+	    		// noop
+	    	};
+	    }
+	}
+
+	if (options.singleton) {
+		var styleIndex = singletonCounter++;
+
+		style = singleton || (singleton = createStyleElement(options));
+
+		update = applyToSingletonTag.bind(null, style, styleIndex, false);
+		remove = applyToSingletonTag.bind(null, style, styleIndex, true);
+
+	} else if (
+		obj.sourceMap &&
+		typeof URL === "function" &&
+		typeof URL.createObjectURL === "function" &&
+		typeof URL.revokeObjectURL === "function" &&
+		typeof Blob === "function" &&
+		typeof btoa === "function"
+	) {
+		style = createLinkElement(options);
+		update = updateLink.bind(null, style, options);
+		remove = function () {
+			removeStyleElement(style);
+
+			if(style.href) URL.revokeObjectURL(style.href);
+		};
+	} else {
+		style = createStyleElement(options);
+		update = applyToTag.bind(null, style);
+		remove = function () {
+			removeStyleElement(style);
+		};
+	}
+
+	update(obj);
+
+	return function updateStyle (newObj) {
+		if (newObj) {
+			if (
+				newObj.css === obj.css &&
+				newObj.media === obj.media &&
+				newObj.sourceMap === obj.sourceMap
+			) {
+				return;
+			}
+
+			update(obj = newObj);
+		} else {
+			remove();
+		}
+	};
+}
+
+var replaceText = (function () {
+	var textStore = [];
+
+	return function (index, replacement) {
+		textStore[index] = replacement;
+
+		return textStore.filter(Boolean).join('\n');
+	};
+})();
+
+function applyToSingletonTag (style, index, remove, obj) {
+	var css = remove ? "" : obj.css;
+
+	if (style.styleSheet) {
+		style.styleSheet.cssText = replaceText(index, css);
+	} else {
+		var cssNode = document.createTextNode(css);
+		var childNodes = style.childNodes;
+
+		if (childNodes[index]) style.removeChild(childNodes[index]);
+
+		if (childNodes.length) {
+			style.insertBefore(cssNode, childNodes[index]);
+		} else {
+			style.appendChild(cssNode);
+		}
+	}
+}
+
+function applyToTag (style, obj) {
+	var css = obj.css;
+	var media = obj.media;
+
+	if(media) {
+		style.setAttribute("media", media)
+	}
+
+	if(style.styleSheet) {
+		style.styleSheet.cssText = css;
+	} else {
+		while(style.firstChild) {
+			style.removeChild(style.firstChild);
+		}
+
+		style.appendChild(document.createTextNode(css));
+	}
+}
+
+function updateLink (link, options, obj) {
+	var css = obj.css;
+	var sourceMap = obj.sourceMap;
+
+	/*
+		If convertToAbsoluteUrls isn't defined, but sourcemaps are enabled
+		and there is no publicPath defined then lets turn convertToAbsoluteUrls
+		on by default.  Otherwise default to the convertToAbsoluteUrls option
+		directly
+	*/
+	var autoFixUrls = options.convertToAbsoluteUrls === undefined && sourceMap;
+
+	if (options.convertToAbsoluteUrls || autoFixUrls) {
+		css = fixUrls(css);
+	}
+
+	if (sourceMap) {
+		// http://stackoverflow.com/a/26603875
+		css += "\n/*# sourceMappingURL=data:application/json;base64," + btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap)))) + " */";
+	}
+
+	var blob = new Blob([css], { type: "text/css" });
+
+	var oldSrc = link.href;
+
+	link.href = URL.createObjectURL(blob);
+
+	if(oldSrc) URL.revokeObjectURL(oldSrc);
+}
+
+
+/***/ }),
+/* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -11203,471 +11667,119 @@ return $.widget;
 
 
 /***/ }),
-/* 3 */
-/***/ (function(module, exports) {
-
-/*
-	MIT License http://www.opensource.org/licenses/mit-license.php
-	Author Tobias Koppers @sokra
-*/
-// css base code, injected by the css-loader
-module.exports = function(useSourceMap) {
-	var list = [];
-
-	// return the list of modules as css string
-	list.toString = function toString() {
-		return this.map(function (item) {
-			var content = cssWithMappingToString(item, useSourceMap);
-			if(item[2]) {
-				return "@media " + item[2] + "{" + content + "}";
-			} else {
-				return content;
-			}
-		}).join("");
-	};
-
-	// import a list of modules into the list
-	list.i = function(modules, mediaQuery) {
-		if(typeof modules === "string")
-			modules = [[null, modules, ""]];
-		var alreadyImportedModules = {};
-		for(var i = 0; i < this.length; i++) {
-			var id = this[i][0];
-			if(typeof id === "number")
-				alreadyImportedModules[id] = true;
-		}
-		for(i = 0; i < modules.length; i++) {
-			var item = modules[i];
-			// skip already imported module
-			// this implementation is not 100% perfect for weird media query combinations
-			//  when a module is imported multiple times with different media queries.
-			//  I hope this will never occur (Hey this way we have smaller bundles)
-			if(typeof item[0] !== "number" || !alreadyImportedModules[item[0]]) {
-				if(mediaQuery && !item[2]) {
-					item[2] = mediaQuery;
-				} else if(mediaQuery) {
-					item[2] = "(" + item[2] + ") and (" + mediaQuery + ")";
-				}
-				list.push(item);
-			}
-		}
-	};
-	return list;
-};
-
-function cssWithMappingToString(item, useSourceMap) {
-	var content = item[1] || '';
-	var cssMapping = item[3];
-	if (!cssMapping) {
-		return content;
-	}
-
-	if (useSourceMap && typeof btoa === 'function') {
-		var sourceMapping = toComment(cssMapping);
-		var sourceURLs = cssMapping.sources.map(function (source) {
-			return '/*# sourceURL=' + cssMapping.sourceRoot + source + ' */'
-		});
-
-		return [content].concat(sourceURLs).concat([sourceMapping]).join('\n');
-	}
-
-	return [content].join('\n');
-}
-
-// Adapted from convert-source-map (MIT)
-function toComment(sourceMap) {
-	// eslint-disable-next-line no-undef
-	var base64 = btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap))));
-	var data = 'sourceMappingURL=data:application/json;charset=utf-8;base64,' + base64;
-
-	return '/*# ' + data + ' */';
-}
-
-
-/***/ }),
-/* 4 */
+/* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
-/*
-	MIT License http://www.opensource.org/licenses/mit-license.php
-	Author Tobias Koppers @sokra
-*/
+"use strict";
 
-var stylesInDom = {};
 
-var	memoize = function (fn) {
-	var memo;
-
-	return function () {
-		if (typeof memo === "undefined") memo = fn.apply(this, arguments);
-		return memo;
-	};
-};
-
-var isOldIE = memoize(function () {
-	// Test for IE <= 9 as proposed by Browserhacks
-	// @see http://browserhacks.com/#hack-e71d8692f65334173fee715c222cb805
-	// Tests for existence of standard globals is to allow style-loader
-	// to operate correctly into non-standard environments
-	// @see https://github.com/webpack-contrib/style-loader/issues/177
-	return window && document && document.all && !window.atob;
+Object.defineProperty(exports, "__esModule", {
+  value: true
 });
+exports.default = {
 
-var getTarget = function (target) {
-  return document.querySelector(target);
+  X_SIZE_MIN: 32,
+  Y_SIZE_MIN: 32,
+  X_SIZE_MAX: 1024,
+  Y_SIZE_MAX: 1024,
+
+  CELL_SIDE_MIN: 1,
+  CELL_SIDE_MAX: 20,
+  CELL_BORDER_MIN: 0,
+  CELL_BORDER_MAX: 4,
+
+  BRUSH_SIZE: 11,
+
+  GENERATIONS_PER_STEP_MIN: 1,
+  GENERATIONS_PER_STEP_MAX: 100,
+  GENERATIONS_PER_STEP_CHANGE: 1,
+  STEP_DURATION_MIN: 0,
+  STEP_DURATION_MAX: 5000,
+  STEP_DURATION_CHANGE: 10,
+
+  SKIP_GENERATIONS_MIN: 1,
+  SKIP_GENERATIONS_MAX: 10000,
+
+  MAX_CELL_SIDE_WITH_OWN_RENDER: 20,
+
+  DEFAULT_RULE: "Conway's Life",
+  DEFAULT_X_SIZE: 256,
+  DEFAULT_Y_SIZE: 256,
+  DEFAULT_CELL_SIDE: 7,
+  DEFAULT_CELL_BORDER: 1,
+  DEFAULT_GENERATIONS_PER_STEP: 1,
+  DEFAULT_STEP_DURATION: 30,
+  DEFAULT_FILL_DENSITY: 0.5,
+
+  DEFAULT_COLORS: {
+    background: '#505050',
+    0: '#000000',
+    1: '#FFFFFF',
+    2: '#666666',
+    3: '#A8A8A8',
+    4: '#FF0000',
+    5: '#00FF00',
+    6: '#0000FF',
+    7: '#00FFFF',
+    8: '#FF00FF',
+    9: '#FFFF00',
+    10: '#FF8080',
+    11: '#80FF80',
+    12: '#8080FF',
+    13: '#FFFF80',
+    14: '#FF80FF',
+    15: '#80FFFF'
+  }
+
 };
-
-var getElement = (function (fn) {
-	var memo = {};
-
-	return function(target) {
-                // If passing function in options, then use it for resolve "head" element.
-                // Useful for Shadow Root style i.e
-                // {
-                //   insertInto: function () { return document.querySelector("#foo").shadowRoot }
-                // }
-                if (typeof target === 'function') {
-                        return target();
-                }
-                if (typeof memo[target] === "undefined") {
-			var styleTarget = getTarget.call(this, target);
-			// Special case to return head of iframe instead of iframe itself
-			if (window.HTMLIFrameElement && styleTarget instanceof window.HTMLIFrameElement) {
-				try {
-					// This will throw an exception if access to iframe is blocked
-					// due to cross-origin restrictions
-					styleTarget = styleTarget.contentDocument.head;
-				} catch(e) {
-					styleTarget = null;
-				}
-			}
-			memo[target] = styleTarget;
-		}
-		return memo[target]
-	};
-})();
-
-var singleton = null;
-var	singletonCounter = 0;
-var	stylesInsertedAtTop = [];
-
-var	fixUrls = __webpack_require__(43);
-
-module.exports = function(list, options) {
-	if (typeof DEBUG !== "undefined" && DEBUG) {
-		if (typeof document !== "object") throw new Error("The style-loader cannot be used in a non-browser environment");
-	}
-
-	options = options || {};
-
-	options.attrs = typeof options.attrs === "object" ? options.attrs : {};
-
-	// Force single-tag solution on IE6-9, which has a hard limit on the # of <style>
-	// tags it will allow on a page
-	if (!options.singleton && typeof options.singleton !== "boolean") options.singleton = isOldIE();
-
-	// By default, add <style> tags to the <head> element
-        if (!options.insertInto) options.insertInto = "head";
-
-	// By default, add <style> tags to the bottom of the target
-	if (!options.insertAt) options.insertAt = "bottom";
-
-	var styles = listToStyles(list, options);
-
-	addStylesToDom(styles, options);
-
-	return function update (newList) {
-		var mayRemove = [];
-
-		for (var i = 0; i < styles.length; i++) {
-			var item = styles[i];
-			var domStyle = stylesInDom[item.id];
-
-			domStyle.refs--;
-			mayRemove.push(domStyle);
-		}
-
-		if(newList) {
-			var newStyles = listToStyles(newList, options);
-			addStylesToDom(newStyles, options);
-		}
-
-		for (var i = 0; i < mayRemove.length; i++) {
-			var domStyle = mayRemove[i];
-
-			if(domStyle.refs === 0) {
-				for (var j = 0; j < domStyle.parts.length; j++) domStyle.parts[j]();
-
-				delete stylesInDom[domStyle.id];
-			}
-		}
-	};
-};
-
-function addStylesToDom (styles, options) {
-	for (var i = 0; i < styles.length; i++) {
-		var item = styles[i];
-		var domStyle = stylesInDom[item.id];
-
-		if(domStyle) {
-			domStyle.refs++;
-
-			for(var j = 0; j < domStyle.parts.length; j++) {
-				domStyle.parts[j](item.parts[j]);
-			}
-
-			for(; j < item.parts.length; j++) {
-				domStyle.parts.push(addStyle(item.parts[j], options));
-			}
-		} else {
-			var parts = [];
-
-			for(var j = 0; j < item.parts.length; j++) {
-				parts.push(addStyle(item.parts[j], options));
-			}
-
-			stylesInDom[item.id] = {id: item.id, refs: 1, parts: parts};
-		}
-	}
-}
-
-function listToStyles (list, options) {
-	var styles = [];
-	var newStyles = {};
-
-	for (var i = 0; i < list.length; i++) {
-		var item = list[i];
-		var id = options.base ? item[0] + options.base : item[0];
-		var css = item[1];
-		var media = item[2];
-		var sourceMap = item[3];
-		var part = {css: css, media: media, sourceMap: sourceMap};
-
-		if(!newStyles[id]) styles.push(newStyles[id] = {id: id, parts: [part]});
-		else newStyles[id].parts.push(part);
-	}
-
-	return styles;
-}
-
-function insertStyleElement (options, style) {
-	var target = getElement(options.insertInto)
-
-	if (!target) {
-		throw new Error("Couldn't find a style target. This probably means that the value for the 'insertInto' parameter is invalid.");
-	}
-
-	var lastStyleElementInsertedAtTop = stylesInsertedAtTop[stylesInsertedAtTop.length - 1];
-
-	if (options.insertAt === "top") {
-		if (!lastStyleElementInsertedAtTop) {
-			target.insertBefore(style, target.firstChild);
-		} else if (lastStyleElementInsertedAtTop.nextSibling) {
-			target.insertBefore(style, lastStyleElementInsertedAtTop.nextSibling);
-		} else {
-			target.appendChild(style);
-		}
-		stylesInsertedAtTop.push(style);
-	} else if (options.insertAt === "bottom") {
-		target.appendChild(style);
-	} else if (typeof options.insertAt === "object" && options.insertAt.before) {
-		var nextSibling = getElement(options.insertInto + " " + options.insertAt.before);
-		target.insertBefore(style, nextSibling);
-	} else {
-		throw new Error("[Style Loader]\n\n Invalid value for parameter 'insertAt' ('options.insertAt') found.\n Must be 'top', 'bottom', or Object.\n (https://github.com/webpack-contrib/style-loader#insertat)\n");
-	}
-}
-
-function removeStyleElement (style) {
-	if (style.parentNode === null) return false;
-	style.parentNode.removeChild(style);
-
-	var idx = stylesInsertedAtTop.indexOf(style);
-	if(idx >= 0) {
-		stylesInsertedAtTop.splice(idx, 1);
-	}
-}
-
-function createStyleElement (options) {
-	var style = document.createElement("style");
-
-	options.attrs.type = "text/css";
-
-	addAttrs(style, options.attrs);
-	insertStyleElement(options, style);
-
-	return style;
-}
-
-function createLinkElement (options) {
-	var link = document.createElement("link");
-
-	options.attrs.type = "text/css";
-	options.attrs.rel = "stylesheet";
-
-	addAttrs(link, options.attrs);
-	insertStyleElement(options, link);
-
-	return link;
-}
-
-function addAttrs (el, attrs) {
-	Object.keys(attrs).forEach(function (key) {
-		el.setAttribute(key, attrs[key]);
-	});
-}
-
-function addStyle (obj, options) {
-	var style, update, remove, result;
-
-	// If a transform function was defined, run it on the css
-	if (options.transform && obj.css) {
-	    result = options.transform(obj.css);
-
-	    if (result) {
-	    	// If transform returns a value, use that instead of the original css.
-	    	// This allows running runtime transformations on the css.
-	    	obj.css = result;
-	    } else {
-	    	// If the transform function returns a falsy value, don't add this css.
-	    	// This allows conditional loading of css
-	    	return function() {
-	    		// noop
-	    	};
-	    }
-	}
-
-	if (options.singleton) {
-		var styleIndex = singletonCounter++;
-
-		style = singleton || (singleton = createStyleElement(options));
-
-		update = applyToSingletonTag.bind(null, style, styleIndex, false);
-		remove = applyToSingletonTag.bind(null, style, styleIndex, true);
-
-	} else if (
-		obj.sourceMap &&
-		typeof URL === "function" &&
-		typeof URL.createObjectURL === "function" &&
-		typeof URL.revokeObjectURL === "function" &&
-		typeof Blob === "function" &&
-		typeof btoa === "function"
-	) {
-		style = createLinkElement(options);
-		update = updateLink.bind(null, style, options);
-		remove = function () {
-			removeStyleElement(style);
-
-			if(style.href) URL.revokeObjectURL(style.href);
-		};
-	} else {
-		style = createStyleElement(options);
-		update = applyToTag.bind(null, style);
-		remove = function () {
-			removeStyleElement(style);
-		};
-	}
-
-	update(obj);
-
-	return function updateStyle (newObj) {
-		if (newObj) {
-			if (
-				newObj.css === obj.css &&
-				newObj.media === obj.media &&
-				newObj.sourceMap === obj.sourceMap
-			) {
-				return;
-			}
-
-			update(obj = newObj);
-		} else {
-			remove();
-		}
-	};
-}
-
-var replaceText = (function () {
-	var textStore = [];
-
-	return function (index, replacement) {
-		textStore[index] = replacement;
-
-		return textStore.filter(Boolean).join('\n');
-	};
-})();
-
-function applyToSingletonTag (style, index, remove, obj) {
-	var css = remove ? "" : obj.css;
-
-	if (style.styleSheet) {
-		style.styleSheet.cssText = replaceText(index, css);
-	} else {
-		var cssNode = document.createTextNode(css);
-		var childNodes = style.childNodes;
-
-		if (childNodes[index]) style.removeChild(childNodes[index]);
-
-		if (childNodes.length) {
-			style.insertBefore(cssNode, childNodes[index]);
-		} else {
-			style.appendChild(cssNode);
-		}
-	}
-}
-
-function applyToTag (style, obj) {
-	var css = obj.css;
-	var media = obj.media;
-
-	if(media) {
-		style.setAttribute("media", media)
-	}
-
-	if(style.styleSheet) {
-		style.styleSheet.cssText = css;
-	} else {
-		while(style.firstChild) {
-			style.removeChild(style.firstChild);
-		}
-
-		style.appendChild(document.createTextNode(css));
-	}
-}
-
-function updateLink (link, options, obj) {
-	var css = obj.css;
-	var sourceMap = obj.sourceMap;
-
-	/*
-		If convertToAbsoluteUrls isn't defined, but sourcemaps are enabled
-		and there is no publicPath defined then lets turn convertToAbsoluteUrls
-		on by default.  Otherwise default to the convertToAbsoluteUrls option
-		directly
-	*/
-	var autoFixUrls = options.convertToAbsoluteUrls === undefined && sourceMap;
-
-	if (options.convertToAbsoluteUrls || autoFixUrls) {
-		css = fixUrls(css);
-	}
-
-	if (sourceMap) {
-		// http://stackoverflow.com/a/26603875
-		css += "\n/*# sourceMappingURL=data:application/json;base64," + btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap)))) + " */";
-	}
-
-	var blob = new Blob([css], { type: "text/css" });
-
-	var oldSrc = link.href;
-
-	link.href = URL.createObjectURL(blob);
-
-	if(oldSrc) URL.revokeObjectURL(oldSrc);
-}
-
 
 /***/ }),
-/* 5 */
+/* 6 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.CA = undefined;
+
+var _config = __webpack_require__(5);
+
+var _config2 = _interopRequireDefault(_config);
+
+var _ca = __webpack_require__(56);
+
+var CA = _interopRequireWildcard(_ca);
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var ca = new CA.CellularAutomaton({
+  xSize: _config2.default.DEFAULT_X_SIZE,
+  ySize: _config2.default.DEFAULT_Y_SIZE,
+  ruleName: _config2.default.DEFAULT_RULE,
+  view: {
+    wrapper: '#cells-wrapper',
+    zoom: {
+      min: _config2.default.CELL_SIDE_MIN,
+      max: _config2.default.CELL_SIDE_MAX
+    },
+    cellSide: _config2.default.DEFAULT_CELL_SIDE,
+    cellBorder: _config2.default.DEFAULT_CELL_BORDER,
+    brush: new CA.CellField(1).fill(function () {
+      return 1;
+    })
+  }
+});
+
+exports.default = ca;
+exports.CA = CA;
+
+/***/ }),
+/* 7 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -11721,56 +11833,7 @@ return $.ui.keyCode = {
 
 
 /***/ }),
-/* 6 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
-	if ( true ) {
-
-		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	} else {
-
-		// Browser globals
-		factory( jQuery );
-	}
-} ( function( $ ) {
-return $.ui.safeActiveElement = function( document ) {
-	var activeElement;
-
-	// Support: IE 9 only
-	// IE9 throws an "Unspecified error" accessing document.activeElement from an <iframe>
-	try {
-		activeElement = document.activeElement;
-	} catch ( error ) {
-		activeElement = document.body;
-	}
-
-	// Support: IE 9 - 11 only
-	// IE may return null instead of an element
-	// Interestingly, this only seems to occur when NOT in an iframe
-	if ( !activeElement ) {
-		activeElement = document.body;
-	}
-
-	// Support: IE 11 only
-	// IE11 returns a seemingly empty object in some cases when accessing
-	// document.activeElement from an <iframe>
-	if ( !activeElement.nodeName ) {
-		activeElement = document.body;
-	}
-
-	return activeElement;
-};
-
-} ) );
-
-
-/***/ }),
-/* 7 */
+/* 8 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -11785,15 +11848,15 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 function rotateArray(array, rotate) {
     rotate -= array.length * Math.floor(rotate / array.length);
     array.push.apply(array, _toConsumableArray(array.splice(0, rotate)));
-};
+}
 
 function limitation(val, min, max) {
     return Math.min(max, Math.max(min, val >> 0));
-};
+}
 
 function bitMask(size) {
     return Math.pow(2, size) - 1;
-};
+}
 
 function getColorComponents(color) {
     return [1, 3, 5].map(function (n) {
@@ -11866,7 +11929,56 @@ exports.getLineCoord = getLineCoord;
 exports.logExecutionTime = logExecutionTime;
 
 /***/ }),
-/* 8 */
+/* 9 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
+	if ( true ) {
+
+		// AMD. Register as an anonymous module.
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
+				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	} else {
+
+		// Browser globals
+		factory( jQuery );
+	}
+} ( function( $ ) {
+return $.ui.safeActiveElement = function( document ) {
+	var activeElement;
+
+	// Support: IE 9 only
+	// IE9 throws an "Unspecified error" accessing document.activeElement from an <iframe>
+	try {
+		activeElement = document.activeElement;
+	} catch ( error ) {
+		activeElement = document.body;
+	}
+
+	// Support: IE 9 - 11 only
+	// IE may return null instead of an element
+	// Interestingly, this only seems to occur when NOT in an iframe
+	if ( !activeElement ) {
+		activeElement = document.body;
+	}
+
+	// Support: IE 11 only
+	// IE11 returns a seemingly empty object in some cases when accessing
+	// document.activeElement from an <iframe>
+	if ( !activeElement.nodeName ) {
+		activeElement = document.body;
+	}
+
+	return activeElement;
+};
+
+} ) );
+
+
+/***/ }),
+/* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -12373,7 +12485,7 @@ return $.ui.position;
 
 
 /***/ }),
-/* 9 */
+/* 11 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -12431,37 +12543,7 @@ return $.fn.extend( {
 
 
 /***/ }),
-/* 10 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
-	if ( true ) {
-
-		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	} else {
-
-		// Browser globals
-		factory( jQuery );
-	}
-} ( function( $ ) {
-
-// Internal use only
-return $.ui.escapeSelector = ( function() {
-	var selectorEscape = /([!"#$%&'()*+,./:;<=>?@[\]^`{|}~])/g;
-	return function( selector ) {
-		return selector.replace( selectorEscape, "\\$1" );
-	};
-} )();
-
-} ) );
-
-
-/***/ }),
-/* 11 */
+/* 12 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -12491,11 +12573,11 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 
 			// These are only for backcompat
 			// TODO: Remove after 1.12
-			__webpack_require__(27),
-			__webpack_require__(28),
+			__webpack_require__(29),
+			__webpack_require__(30),
 
-			__webpack_require__(5),
-			__webpack_require__(2)
+			__webpack_require__(7),
+			__webpack_require__(4)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
 				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
@@ -12856,7 +12938,37 @@ return $.ui.button;
 
 
 /***/ }),
-/* 12 */
+/* 13 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
+	if ( true ) {
+
+		// AMD. Register as an anonymous module.
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
+				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	} else {
+
+		// Browser globals
+		factory( jQuery );
+	}
+} ( function( $ ) {
+
+// Internal use only
+return $.ui.escapeSelector = ( function() {
+	var selectorEscape = /([!"#$%&'()*+,./:;<=>?@[\]^`{|}~])/g;
+	return function( selector ) {
+		return selector.replace( selectorEscape, "\\$1" );
+	};
+} )();
+
+} ) );
+
+
+/***/ }),
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -12879,9 +12991,9 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(32),
+			__webpack_require__(71),
 			__webpack_require__(1),
-			__webpack_require__(2)
+			__webpack_require__(4)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
 				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
@@ -13091,74 +13203,7 @@ return $.widget( "ui.mouse", {
 
 
 /***/ }),
-/* 13 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.default = {
-
-  X_SIZE_MIN: 32,
-  Y_SIZE_MIN: 32,
-  X_SIZE_MAX: 1024,
-  Y_SIZE_MAX: 1024,
-
-  CELL_SIDE_MIN: 1,
-  CELL_SIDE_MAX: 20,
-  CELL_BORDER_MIN: 0,
-  CELL_BORDER_MAX: 4,
-
-  BRUSH_SIZE: 11,
-
-  GENERATIONS_PER_STEP_MIN: 1,
-  GENERATIONS_PER_STEP_MAX: 100,
-  GENERATIONS_PER_STEP_CHANGE: 1,
-  STEP_DURATION_MIN: 0,
-  STEP_DURATION_MAX: 5000,
-  STEP_DURATION_CHANGE: 10,
-
-  SKIP_GENERATIONS_MIN: 1,
-  SKIP_GENERATIONS_MAX: 10000,
-
-  MAX_CELL_SIDE_WITH_OWN_RENDER: 20,
-
-  DEFAULT_RULE: "Conway's Life",
-  DEFAULT_X_SIZE: 256,
-  DEFAULT_Y_SIZE: 256,
-  DEFAULT_CELL_SIDE: 7,
-  DEFAULT_CELL_BORDER: 1,
-  DEFAULT_GENERATIONS_PER_STEP: 1,
-  DEFAULT_STEP_DURATION: 30,
-  DEFAULT_FILL_DENSITY: 0.5,
-
-  DEFAULT_COLORS: {
-    background: '#505050',
-    0: '#000000',
-    1: '#FFFFFF',
-    2: '#666666',
-    3: '#A8A8A8',
-    4: '#FF0000',
-    5: '#00FF00',
-    6: '#0000FF',
-    7: '#00FFFF',
-    8: '#FF00FF',
-    9: '#FFFF00',
-    10: '#FF8080',
-    11: '#80FF80',
-    12: '#8080FF',
-    13: '#FFFF80',
-    14: '#FF80FF',
-    15: '#80FFFF'
-  }
-
-};
-
-/***/ }),
-/* 14 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -13185,12 +13230,12 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(5),
-			__webpack_require__(8),
-			__webpack_require__(6),
+			__webpack_require__(7),
+			__webpack_require__(10),
 			__webpack_require__(9),
+			__webpack_require__(11),
 			__webpack_require__(1),
-			__webpack_require__(2)
+			__webpack_require__(4)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
 				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
@@ -13840,7 +13885,7 @@ return $.widget( "ui.menu", {
 
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -13863,7 +13908,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(29),
+			__webpack_require__(31),
 			__webpack_require__(1)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
@@ -13926,7 +13971,7 @@ return $.ui.formResetMixin = {
 
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -13947,7 +13992,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 	if ( true ) {
 
 		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1), __webpack_require__(10) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1), __webpack_require__(13) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
 				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
 				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
@@ -13997,7 +14042,209 @@ return $.fn.labels = function() {
 
 
 /***/ }),
-/* 17 */
+/* 18 */
+/***/ (function(module, exports) {
+
+module.exports = function escape(url) {
+    if (typeof url !== 'string') {
+        return url
+    }
+    // If url is already wrapped in quotes, remove them
+    if (/^['"].*['"]$/.test(url)) {
+        url = url.slice(1, -1);
+    }
+    // Should url be wrapped?
+    // See https://drafts.csswg.org/css-values-3/#urls
+    if (/["'() \t\n]/.test(url)) {
+        return '"' + url.replace(/"/g, '\\"').replace(/\n/g, '\\n') + '"'
+    }
+
+    return url
+}
+
+
+/***/ }),
+/* 19 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = __webpack_require__.p + "dist/images/ui-icons_444444_256x240.png";
+
+/***/ }),
+/* 20 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = __webpack_require__.p + "dist/images/ui-icons_ffffff_256x240.png";
+
+/***/ }),
+/* 21 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _utils = __webpack_require__(8);
+
+var _predefined = __webpack_require__(57);
+
+var _predefined2 = _interopRequireDefault(_predefined);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
+var savedRules = null;
+try {
+  savedRules = JSON.parse(localStorage.rules);
+} catch (e) {}
+savedRules = Array.isArray(savedRules) ? savedRules : [];
+
+function _save() {
+  if (savedRules.length) {
+    localStorage.rules = JSON.stringify(savedRules);
+  } else {
+    delete localStorage.rules;
+  }
+}
+
+function isPredefined(name) {
+  return _predefined2.default.some(function (n) {
+    return n.name === name;
+  });
+}
+
+function deleteSaved(name) {
+  var i = savedRules.findIndex(function (n) {
+    return n.name === name;
+  });
+  if (i === -1) {
+    return false;
+  }
+
+  savedRules.splice(i, 1);
+  return true;
+}
+
+function result(status, message) {
+  return { status: status, message: message };
+}
+
+function numberedRule(rule, max) {
+  return function (ruleNumber) {
+    for (var _len = arguments.length, rest = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+      rest[_key - 1] = arguments[_key];
+    }
+
+    return rule.apply(undefined, [(0, _utils.limitation)(ruleNumber, 0, Math.pow(2, max) - 1)].concat(rest));
+  };
+}
+
+var rules = {
+
+  elementary: numberedRule(function (ruleNumber) {
+    return function (n) {
+      var t = ((n.n_west & 1) << 2) + ((n.north & 1) << 1) + (n.n_east & 1);
+
+      return (ruleNumber & 1 << t ? 1 : 0) | n.center;
+    };
+  }, 8),
+
+  totalistic2d5: numberedRule(function (ruleNumber) {
+    var bitPlane = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+    return function (n) {
+      var total = rules.sum(bitPlane, n.north, n.south, n.west, n.east),
+          mask = 1 << bitPlane;
+
+      return ruleNumber & 1 << total * 2 + !!(n.center & mask) ? m : 0;
+    };
+  }, 10),
+
+  totalistic2d9: numberedRule(function (ruleNumber) {
+    var bitPlane = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+    return function (n) {
+      var total = rules.sum(bitPlane, n.north, n.south, n.west, n.east, n.n_west, n.n_east, n.s_west, n.s_east),
+          mask = 1 << bitPlane;
+
+      return ruleNumber & 1 << total * 2 + !!(n.center & mask) ? mask : 0;
+    };
+  }, 18),
+
+  lifeLike: function lifeLike(rule) {
+    if (!rule.match(/^B\d*\/S\d*$/)) {
+      throw 'rules.lifeLike: wrong rule name: ' + rule;
+    }
+
+    var bs = rule.split('/'),
+        ruleNumber = 0;
+
+    bs[0].slice(1).split('').forEach(function (n) {
+      return ruleNumber |= 1 << n * 2;
+    });
+    bs[1].slice(1).split('').forEach(function (n) {
+      return ruleNumber |= 1 << n * 2 + 1;
+    });
+
+    return rules.totalistic2d9(ruleNumber);
+  },
+
+
+  sum: function sum(plane) {
+    for (var _len2 = arguments.length, values = Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
+      values[_key2 - 1] = arguments[_key2];
+    }
+
+    return values.reduce(function (sum, val) {
+      return sum + (val >> plane & 1);
+    }, 0);
+  },
+
+  get: function get(name) {
+    var rules = [].concat(_toConsumableArray(_predefined2.default), _toConsumableArray(savedRules));
+
+    return name ? (rules.find(function (n) {
+      return n.name === name;
+    }) || {}).code || '' : rules.filter(function (n) {
+      return !n.hidden;
+    });
+  },
+  save: function save(name, code) {
+    var err = [!name && 'no rule name', !code && 'no rule code', isPredefined(name) && 'predefined rule ("' + name + '") can not be rewritten'].filter(function (n) {
+      return !!n;
+    });
+
+    if (err.length) {
+      return result(false, err.join('<br>'));
+    }
+
+    deleteSaved(name);
+    savedRules.push({ name: name, code: code });
+
+    _save();
+    return result(true, 'rule "' + name + '" saved');
+  },
+  del: function del(name) {
+    if (!name) {
+      return result(false, 'no rule name');
+    }
+    if (isPredefined(name)) {
+      return result(false, 'predefined rule ("' + name + '") can not be deleted');
+    }
+    if (!deleteSaved(name)) {
+      return result(false, 'rule "' + name + '" not found');
+    }
+
+    _save();
+    return result(true, 'rule "' + name + '" deleted');
+  }
+};
+
+exports.default = rules;
+
+/***/ }),
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
@@ -14050,7 +14297,7 @@ return $.ui.plugin = {
 
 
 /***/ }),
-/* 18 */
+/* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
@@ -14080,7 +14327,7 @@ return $.ui.safeBlur = function( element ) {
 
 
 /***/ }),
-/* 19 */
+/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -14173,261 +14420,7 @@ return $.ui.focusable;
 
 
 /***/ }),
-/* 20 */
-/***/ (function(module, exports) {
-
-module.exports = function escape(url) {
-    if (typeof url !== 'string') {
-        return url
-    }
-    // If url is already wrapped in quotes, remove them
-    if (/^['"].*['"]$/.test(url)) {
-        url = url.slice(1, -1);
-    }
-    // Should url be wrapped?
-    // See https://drafts.csswg.org/css-values-3/#urls
-    if (/["'() \t\n]/.test(url)) {
-        return '"' + url.replace(/"/g, '\\"').replace(/\n/g, '\\n') + '"'
-    }
-
-    return url
-}
-
-
-/***/ }),
-/* 21 */
-/***/ (function(module, exports, __webpack_require__) {
-
-module.exports = __webpack_require__.p + "dist/images/ui-icons_444444_256x240.png";
-
-/***/ }),
-/* 22 */
-/***/ (function(module, exports, __webpack_require__) {
-
-module.exports = __webpack_require__.p + "dist/images/ui-icons_ffffff_256x240.png";
-
-/***/ }),
-/* 23 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-    value: true
-});
-
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
-
-var _utils = __webpack_require__(7);
-
-var predefinedRules = [{
-    name: 'default',
-    code: 'makeTable(n => n.center, n => n.center);',
-    hidden: true
-}, {
-    name: 'Conway\'s Life',
-    code: 'makeTable(function(n) {\n    var s = n.north + n.south + n.west + n.east + n.n_west + n.s_west + n.n_east + n.s_east;\n    return s === 3 ? 1 : (s === 2 ? n.center : 0);\n});\n\n// Same as:\n// makeTable(rules.totalistic2d9(224));\n// or:\n// makeTable(rules.lifeLike(\'B3/S23\'));'
-}, {
-    name: 'Conway\'s Life (trace)',
-    code: 'makeTable(function(n) {\n    var s = n.north + n.south + n.west + n.east + n.n_west + n.s_west + n.n_east + n.s_east,\n        p0 = s === 3 ? 1 : (s === 2 ? n.center : 0),\n        p1 = (+!!n.center) | p0;\n\n    return p0 | (p1 << 1);\n});'
-}, {
-    name: 'Forest fire',
-    code: 'setNeighborhoods({\n    name: \'prob\',\n    data: [ 0.00001, 0.005 ]\n});\n\nview.setColors([ \'000000\', \'FF0000\', \'00FF00\' ], true);\n\nmakeTable(function(n) {\n    var fire = 1 & (n.north | n.south | n.west | n.east | n.n_west | n.n_east | n.s_west | n.s_east),\n        tree = n.center,\n        treeIgnite = n.prob & 1,\n        treeBirth = n.prob & 2;\n\n    if (tree === 2 && (fire || treeIgnite)) {\n        return 1;\n    }\n\n    if (tree === 0 && treeBirth) {\n        return 2;\n    }\n\n    return tree === 1 ? 0 : tree;\n});'
-}, {
-    name: 'Brian\'s brain',
-    code: 'var ready = n => n.center ? 0 : 1,\n    stimulus = rules.totalistic2d9(48);\n\nmakeTable(n => (stimulus(n) & ready(n)) | ((n.center & 1) << 1));'
-}, {
-    name: 'Wireworld',
-    code: 'setNeighborhoods(\'Moore-thick\');\n\nmakeTable(function(n) {\n    var s = (n.north === 1) + (n.south === 1) + (n.west === 1) + (n.east === 1) + (n.n_west === 1) + (n.s_west === 1) + (n.n_east === 1) + (n.s_east === 1);\n\n    return [ 0, 2, 3, s === 1 || s === 2 ? 1 : 3 ][n.center];\n});'
-}, {
-    name: 'Life-like',
-    code: '// see also: https://en.wikipedia.org/wiki/Life-like_cellular_automaton\n\nvar ruleCode = \n\n/* Replicator         */ // \'B1357/S1357\'\n/* Seeds              */ // \'B2/S\'\n/* Life without death */ // \'B3/S01234567\'\n/* Life               */ // \'B3/S23\'\n/* 34 Life            */ // \'B34/S34\'\n/* Diamoeba           */ // \'B35678/S5678\'\n/* 2x2                */  \'B36/S125\'\n/* Highlife           */ // \'B36/S23\'\n/* Day & Night        */ // \'B3678/S34678\'\n/* Morley             */ // \'B368/S245\'\n/* Anneal             */ // \'B4678/S35678\'\n\nmakeTable(rules.lifeLike(ruleCode))'
-}, {
-    name: 'Elementary',
-    code: '// see also: https://en.wikipedia.org/wiki/Elementary_cellular_automaton\n\nvar ruleID = 102;\n\nmakeTable(rules.elementary(ruleID));'
-}, {
-    name: 'Parity',
-    code: 'setNeighborhoods(\'Neumann\');\n\nmakeTable(function(n) {\n    return n.north ^ n.south ^ n.west ^ n.east ^ n.center;\n});\n\n// Same rule, for one bit plane:\n// makeTable(rules.totalistic2d5(614));'
-}, {
-    name: 'Anneal x 2',
-    code: 'setNeighborhoods(\'Moore-thick\');\n\nview.setColors([ \'000000\', \'FF0000\', \'00FF00\', \'FFFF00\' ], true);\n\nvar ruleID = 260480,\n    p0 = rules.totalistic2d9(ruleID, 0),\n    p1 = rules.totalistic2d9(ruleID, 1);\n\nmakeTable(n => p0(n) | p1(n));'
-}, {
-    name: 'Rand anneal',
-    code: 'setNeighborhoods(\'Neumann\');\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.north, n.south, n.west, n.east),\n        r = (+!!(2 & n.center & n.north & n.south & n.west & n.east)) ^ 1,\n        p0 = [ 0, 0, r, +!r, 1, 1 ][s],\n        p1 = 2 & (n.center ^ n.north ^ n.south ^ n.west ^ n.east);\n\n    return p0 | p1;\n});'
-}, {
-    name: 'Time tunnel',
-    code: 'makeTable(function(n) {\n    var s = (n.center & 1) + n.north + n.south + n.west + n.east,\n        p0 = (s === 0 || s === 5 ? 0 : 1) ^ ((n.center & 2) >> 1),\n        p1 = n.center & 1;\n\n    return p0 | (p1 << 1);\n});'
-}, {
-    name: 'Border / hollow',
-    code: 'setNeighborhoods(\'phase\');\n\nfunction border(n) {\n    return 1 & (n.center | n.north | n.south | n.west | n.east | n.n_west | n.n_east | n.s_west | n.s_east);\n}\n\nfunction hollow(n) {\n    var t = 1 & n.north & n.south & n.west & n.east & n.n_west & n.n_east & n.s_west & n.s_east;\n    return t ? 0 : n.center;\n}\n\nmakeTable(function(n) {\n    return (n.phase & 1) ? hollow(n) : border(n);\n});'
-}, {
-    name: 'Safe / pass',
-    code: 'setNeighborhoods(\'Neumann\');\n\nmakeTable(function(n) {\n    var p0 = n.center & 1,\n        p1 = n.center & 2;\n\n    if (!p0) {\n        if (!p1 && (n.north & 1)) {\n            p0 = 1;\n        }\n    } else {\n        if (!n.south) {\n            p0 = 0;\n        }\n    }\n\n    return p0 | p1;\n});'
-}, {
-    name: 'Critters',
-    code: 'setNeighborhoods(\'Margolus\');\n\non.beforeNewGeneration = function() {\n    view.setColors(this.time & 1 ? [ \'000000\', \'FFFFFF\' ] : [ \'FFFFFF\', \'000000\' ]);\n};\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.cw, n.ccw, n.opp),\n        c = n.center ^ 1;\n\n    return [ c, c, n.center & 1, n.opp ^ 1, c ][s];\n});'
-}, {
-    name: 'Tron',
-    code: 'setNeighborhoods(\'Margolus\');\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.cw, n.ccw, n.opp),\n        c = n.center;\n\n    return [ 1, c, c, c, 0 ][s];\n});'
-}, {
-    name: 'Tube worms',
-    code: 'setNeighborhoods(\'_center\', \'_center\');\n\nmakeTable(function(n) {\n    var s = n.north + n.south + n.west + n.east + n.n_west + n.s_west + n.n_east + n.s_east,\n        alarm = [ 0, 0, 0, 1, 1, 1, 1, 1, 1 ][s];\n\n    return ([ 1, 0, 0, 0 ][n._center]) | (alarm << 1);\n},  function(n) {\n    return n._center === 3 ? 3 : ([ 0, 0, 1, 2 ][n.center]);\n});'
-}, {
-    name: 'Brownian',
-    code: 'setNeighborhoods(\'Margolus\', \'_center\');\n\nmakeTable(function(n) {\n    var p1 = 2 & (n.ccw & n.opp ^ n.cw ^ n.center),\n        rand = 2 & (n.ccw ^ n.opp ^ n.cw ^ n.center);\n\n    return ((rand ? n.cw : n.ccw) & 1) | p1;\n},  function(n) {\n    return (n._center & 1) | n.center;\n});'
-}, {
-    name: 'Cyclic',
-    code: 'view.setColors(view.gradient(\'#FF0000\', \'#FFFF00\'), true);\n\nmain = function(n) {\n    var t = (n.center + 1) & 15,\n        s = (n.north === t) + (n.south === t) + (n.west === t) + (n.east === t) + (n.n_west === t) + (n.n_east === t) + (n.s_west === t) + (n.s_east === t);\n\n    return s ? t : n.center;\n}'
-}].map(function (n) {
-    return _extends({}, n, { predefined: true });
-});
-
-var savedRules = null;
-try {
-    savedRules = JSON.parse(localStorage.rules);
-} catch (e) {}
-savedRules = Array.isArray(savedRules) ? savedRules : [];
-
-function _save() {
-    if (savedRules.length) {
-        localStorage.rules = JSON.stringify(savedRules);
-    } else {
-        delete localStorage.rules;
-    }
-}
-
-function isPredefined(name) {
-    return predefinedRules.some(function (n) {
-        return n.name === name;
-    });
-}
-
-function deleteSaved(name) {
-    var i = savedRules.findIndex(function (n) {
-        return n.name === name;
-    });
-    if (i === -1) {
-        return false;
-    }
-
-    savedRules.splice(i, 1);
-    return true;
-}
-
-function result(status, message) {
-    return { status: status, message: message };
-}
-
-function numberedRule(rule, max) {
-    return function (ruleNumber) {
-        for (var _len = arguments.length, rest = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-            rest[_key - 1] = arguments[_key];
-        }
-
-        return rule.apply(undefined, [(0, _utils.limitation)(ruleNumber, 0, Math.pow(2, max) - 1)].concat(rest));
-    };
-}
-
-var rules = {
-    elementary: numberedRule(function (ruleNumber) {
-        return function (n) {
-            var t = ((n.n_west & 1) << 2) + ((n.north & 1) << 1) + (n.n_east & 1);
-            return (ruleNumber & 1 << t ? 1 : 0) | n.center;
-        };
-    }, 8),
-    totalistic2d5: numberedRule(function (ruleNumber) {
-        var bitPlane = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
-        return function (n) {
-            var s = rules.sum(bitPlane, n.north, n.south, n.west, n.east),
-                m = 1 << bitPlane;
-
-            return ruleNumber & 1 << s * 2 + !!(n.center & m) ? m : 0;
-        };
-    }, 10),
-    totalistic2d9: numberedRule(function (ruleNumber) {
-        var bitPlane = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
-        return function (n) {
-            var s = rules.sum(bitPlane, n.north, n.south, n.west, n.east, n.n_west, n.n_east, n.s_west, n.s_east),
-                m = 1 << bitPlane;
-
-            return ruleNumber & 1 << s * 2 + !!(n.center & m) ? m : 0;
-        };
-    }, 18),
-    lifeLike: function lifeLike(rule) {
-        var bs = rule.split('/'),
-            ruleNumber = 0;
-
-        bs[0].slice(1).split('').forEach(function (n) {
-            return ruleNumber |= 1 << n * 2;
-        });
-        bs[1].slice(1).split('').forEach(function (n) {
-            return ruleNumber |= 1 << n * 2 + 1;
-        });
-
-        return rules.totalistic2d9(ruleNumber);
-    },
-    sum: function sum(plane) {
-        for (var _len2 = arguments.length, values = Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
-            values[_key2 - 1] = arguments[_key2];
-        }
-
-        return values.reduce(function (p, c) {
-            return p + (c >> plane & 1);
-        }, 0);
-    },
-    get: function get(name) {
-        var rules = predefinedRules.concat(savedRules);
-
-        return name ? (rules.find(function (n) {
-            return n.name === name;
-        }) || {}).code || '' : rules.filter(function (n) {
-            return !n.hidden;
-        });
-    },
-    save: function save(name, code) {
-        var err = [];
-        if (!name) {
-            err.push('no rule name');
-        }
-        if (!code) {
-            err.push('no rule code');
-        }
-        if (isPredefined(name)) {
-            err.push('predefined rule ("' + name + '") can not be rewritten');
-        }
-        if (err.length) {
-            return result(false, err.join('<br>'));
-        }
-
-        deleteSaved(name);
-
-        savedRules.push({ name: name, code: code });
-
-        _save();
-        return result(true, 'rule "' + name + '" saved');
-    },
-    del: function del(name) {
-        if (!name) {
-            return result(false, 'no rule name');
-        }
-        if (isPredefined(name)) {
-            return result(false, 'predefined rule ("' + name + '") can not be deleted');
-        }
-
-        if (!deleteSaved(name)) {
-            return result(false, 'rule "' + name + '" not found');
-        }
-
-        _save();
-        return result(true, 'rule "' + name + '" deleted');
-    }
-};
-
-exports.default = rules;
-
-/***/ }),
-/* 24 */
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -14437,483 +14430,156 @@ var _jquery = __webpack_require__(0);
 
 var _jquery2 = _interopRequireDefault(_jquery);
 
-__webpack_require__(25);
-
 __webpack_require__(26);
 
-__webpack_require__(11);
+var _ca = __webpack_require__(6);
 
-__webpack_require__(30);
+var _ca2 = _interopRequireDefault(_ca);
 
-__webpack_require__(38);
+__webpack_require__(99);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+(0, _jquery2.default)(window).on('resize', function () {
+  _ca2.default.view.resize();
+});
+
+(0, _jquery2.default)(document).ready(function () {
+  (0, _jquery2.default)(document).trigger('ca-stop');
+
+  (0, _jquery2.default)('.ui-helper-hidden').removeClass('ui-helper-hidden');
+
+  _ca2.default.view.resize();
+});
+
+/***/ }),
+/* 26 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var _jquery = __webpack_require__(0);
+
+var _jquery2 = _interopRequireDefault(_jquery);
+
+__webpack_require__(27);
+
+__webpack_require__(28);
+
+__webpack_require__(12);
+
+__webpack_require__(32);
+
+__webpack_require__(33);
+
+__webpack_require__(34);
+
+__webpack_require__(37);
 
 __webpack_require__(39);
 
-__webpack_require__(40);
-
 __webpack_require__(41);
 
-__webpack_require__(44);
+__webpack_require__(43);
 
-__webpack_require__(46);
+__webpack_require__(45);
 
-__webpack_require__(48);
+__webpack_require__(47);
 
-__webpack_require__(50);
-
-__webpack_require__(52);
+__webpack_require__(53);
 
 __webpack_require__(54);
 
-__webpack_require__(56);
+var _ca = __webpack_require__(6);
 
-__webpack_require__(58);
+var _ca2 = _interopRequireDefault(_ca);
 
-__webpack_require__(64);
-
-var _toastr = __webpack_require__(65);
-
-var _toastr2 = _interopRequireDefault(_toastr);
-
-__webpack_require__(67);
-
-var _utils = __webpack_require__(7);
-
-var _ca = __webpack_require__(69);
-
-var _config = __webpack_require__(13);
+var _config = __webpack_require__(5);
 
 var _config2 = _interopRequireDefault(_config);
 
-__webpack_require__(75);
+var _utils = __webpack_require__(8);
+
+__webpack_require__(65);
+
+var _dialogs = __webpack_require__(68);
+
+var _dialogs2 = _interopRequireDefault(_dialogs);
+
+var _cellFieldMode = __webpack_require__(98);
+
+var _cellFieldMode2 = _interopRequireDefault(_cellFieldMode);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 _jquery2.default.extend(_jquery2.default.ui.autocomplete.prototype.options, {
-    delay: 0,
-    minLength: 0,
-    create: function create() {
-        (0, _jquery2.default)(this).click(function () {
-            (0, _jquery2.default)(this).autocomplete('search');
-        });
-    }
+  delay: 0,
+  minLength: 0,
+  create: function create() {
+    (0, _jquery2.default)(this).click(function () {
+      (0, _jquery2.default)(this).autocomplete('search');
+    });
+  }
 });
 
 _jquery2.default.widget('ui.spinner', _jquery2.default.ui.spinner, {
-    _create: function _create() {
-        this.element.attr('maxlength', this.options.max.toString(10).length);
+  _create: function _create() {
+    var element = this.element,
+        options = this.options;
 
-        return this._super();
-    }
+
+    element.on('input', function () {
+      element.val((0, _utils.limitation)(parseInt(element.val(), 10), options.min, options.max));
+    });
+
+    return this._super();
+  }
 });
-
-_jquery2.default.widget('ui.confirmDialog', _jquery2.default.ui.dialog, {
-    options: {
-        modal: true,
-        autoOpen: false,
-        resizable: false
-    },
-    _closeDialog: function _closeDialog(f) {
-        return function () {
-            var $this = (0, _jquery2.default)(this),
-                run = f instanceof Function ? f.apply($this, arguments) : true;
-
-            _jquery2.default.when(run).always(function (result) {
-                if (result !== false) {
-                    $this.confirmDialog('close');
-                }
-            });
-        };
-    },
-    _create: function _create() {
-        this.options.buttons = {
-            OK: this._closeDialog(this.options.ok || null),
-            Cancel: this._closeDialog(this.options.cancel || null)
-        };
-
-        return this._super();
-    },
-    open: function open() {
-        var _this = this;
-
-        this._super();
-        this.overlay.on('click', function () {
-            return _this.element.confirmDialog('close');
-        });
-
-        return this;
-    }
-});
-
-var templates = {
-    fieldFilling: function fieldFilling(bitPlanes) {
-        return '\n<table class="ca-options-table" style="table-layout: fixed;">\n    <tr><th width="65px">Bit plane</th><th width="100px">Method</th><th width="185px"></th><th width="35px">Fill</th></tr>\n' + bitPlanes.map(function (n) {
-            return '\n    <tr data-bit-plane="' + n + '">\n        <td class="ca-bit-plane">' + n + '</td>\n        <td>\n            <select class="ca-filling-method" dir="rtl">\n                <option value="random">Random</option>\n                <option value="copy">Copy</option>\n                <option value="invert">Invert</option>\n                <option value="all1">All 1</option>\n                <option value="all0">All 0</option>\n            </select>\n        </td>\n        <td class="ca-filling-options">\n            <div class="ca-filling-random"><span class="ca-filling-options-note">density, \u2030</span><input type="text"></div>\n            <div class="ca-filling-copy"><span class="ca-filling-options-note">from plane</span><input type="text" readonly="readonly"></div>\n        </td>\n        <td class="ca-bit-plane">\n            <input type="checkbox" id="ca-filling-fill-plane-' + n + '" class="ca-bit-plane-cb"><label for="ca-filling-fill-plane-' + n + '"></label>\n        </td>\n    </tr>\n';
-        }).join('') + '\n</table>';
-    },
-
-    colorSetting: function colorSetting(colors) {
-        return '\n<div class="ca-state-select row">\n' + colors.map(function (n) {
-            return '\n    <div class="ca-state"><div><span class="ca-state-name">' + n.label + '</span><input type="text" class="jscolor" color-name="' + n.color + '" readonly="readonly"></div></div>\n';
-        }).join('') + '\n</div>';
-    },
-
-    bitPlanesShow: function bitPlanesShow(bitPlanes) {
-        return '\n<table class="ca-options-table">\n    <tr><th>Bit plane</th><th>Show</th></tr>\n' + bitPlanes.map(function (n) {
-            return '\n    <tr>\n        <td class="ca-bit-plane">' + n + '</td>\n        <td class="ca-bit-plane"><input type="checkbox" id="ca-show-plane-' + n + '" class="ca-bit-plane-cb"><label for="ca-show-plane-' + n + '"></label></td>\n    </tr>\n';
-        }).join('') + '\n</table>';
-    },
-
-    brushColorSelect: function brushColorSelect(colors) {
-        return colors.map(function (n) {
-            return '\n<div class="ca-state" ca-state="' + n.state + '"><div><span class="ca-state-name">' + n.label + '</span><span class="ca-state-color" style="background-color: ' + n.color + '"></span></div></div>\n    ';
-        }).join('');
-    }
-};
 
 (0, _jquery2.default)(document).ready(function () {
-    var X_SIZE_MIN = _config2.default.X_SIZE_MIN,
-        Y_SIZE_MIN = _config2.default.Y_SIZE_MIN,
-        X_SIZE_MAX = _config2.default.X_SIZE_MAX,
-        Y_SIZE_MAX = _config2.default.Y_SIZE_MAX,
-        CELL_SIDE_MIN = _config2.default.CELL_SIDE_MIN,
-        CELL_SIDE_MAX = _config2.default.CELL_SIDE_MAX,
-        CELL_BORDER_MIN = _config2.default.CELL_BORDER_MIN,
-        CELL_BORDER_MAX = _config2.default.CELL_BORDER_MAX,
-        BRUSH_SIZE = _config2.default.BRUSH_SIZE;
+  _dialogs2.default.init();
+  _cellFieldMode2.default.init();
 
+  (0, _jquery2.default)('.toolbar').buttonset();
 
-    var caBrush = new _ca.CellFieldView(new _ca.CellField(BRUSH_SIZE), {
-        wrapper: '#brush-wrapper',
-        cellSide: 12,
-        cellBorder: 1,
-        brush: new _ca.CellField(1).fill(function () {
-            return 1;
-        })
-    });
-    caBrush.field.data[Math.floor(BRUSH_SIZE / 2)][Math.floor(BRUSH_SIZE / 2)] = 1;
+  (0, _jquery2.default)('.content > .controls').find('button').button().end().on('click.ca-dialog', '[data-dialog]', function () {
+    (0, _jquery2.default)('#' + (0, _jquery2.default)(this).attr('data-dialog')).confirmDialog('open');
+  }).on('click.ca-action', '[data-action]', function () {
+    _ca2.default[(0, _jquery2.default)(this).attr('data-action')]();
+  });
 
-    var ca = window.ca = new _ca.CellularAutomaton({
-        xSize: _config2.default.DEFAULT_X_SIZE,
-        ySize: _config2.default.DEFAULT_Y_SIZE,
-        ruleName: _config2.default.DEFAULT_RULE,
-        view: {
-            wrapper: '#cells-wrapper',
-            scaling: {
-                min: CELL_SIDE_MIN,
-                max: CELL_SIDE_MAX
-            },
-            cellSide: _config2.default.DEFAULT_CELL_SIDE,
-            cellBorder: _config2.default.DEFAULT_CELL_BORDER,
-            brush: caBrush.field.clone()
-        }
-    });
+  (0, _jquery2.default)('#save-as-image').click(function () {
+    _ca2.default.view.download();
+  });
 
-    (0, _jquery2.default)('#ca-brush').confirmDialog({
-        width: 380,
-        create: function create() {
-            (0, _jquery2.default)(this).find('.ca-state-select').on('click', '.ca-state', function () {
-                var $this = (0, _jquery2.default)(this);
-                $this.parent().find('.ui-state-active').removeClass('ui-state-active');
-                $this.addClass('ui-state-active');
-                caBrush.brush.data[0][0] = +$this.attr('ca-state');
-            });
-        },
-        open: function open() {
-            caBrush.setColors(ca.view.colors);
-            caBrush.field.copy(ca.view.brush);
-            caBrush.render();
+  (0, _jquery2.default)('#skip').inputWithButton({
+    icon: 'ui-icon-seek-next',
+    value: _config2.default.SKIP_GENERATIONS_MIN,
+    click: function click() {
+      _ca2.default.newGeneration((0, _jquery2.default)(this).inputWithButton('value'));
+    }
+  }).find('input').width(50).on('input', function () {
+    var $this = (0, _jquery2.default)(this),
+        val = parseInt($this.val(), 10);
 
-            (0, _jquery2.default)(this).find('.ca-state-select').html(templates.brushColorSelect(_jquery2.default.map(caBrush.colors, function (n, i) {
-                return isNaN(i) ? null : {
-                    label: (+i).toString(16).toUpperCase(),
-                    state: i,
-                    color: n
-                };
-            }))).find('[ca-state="' + caBrush.brush.data[0][0] + '"]').addClass('ui-state-active');
-        },
-        ok: function ok() {
-            ca.view.brush.copy(caBrush.field);
-        }
-    });
-
-    (0, _jquery2.default)('#ca-filling').confirmDialog({
-        width: 480,
-        create: function create() {
-            var planesList = ca.cells.curr.getBitPlanes(),
-                planesHTML = templates.fieldFilling(planesList);
-
-            var max = ca.cells.curr.randomFillDensityDescritization;
-            (0, _jquery2.default)(this).append(planesHTML).find('.ca-filling-random > input').spinner({
-                min: 0,
-                max: max,
-                step: 1
-            }).val(max * _config2.default.DEFAULT_FILL_DENSITY | 0).end().find('select').selectmenu({
-                width: 100
-            }).on('selectmenuchange', function (e, ui) {
-                (0, _jquery2.default)(this).closest('tr').find('.ca-filling-options').find('>').hide().end().find('.ca-filling-' + (ui ? ui.item.value : this.value)).show();
-            }).trigger('selectmenuchange').end().find('.ca-filling-copy > input').autocomplete({
-                source: function source(request, response) {
-                    var ownPlane = +this.element.closest('tr').attr('data-bit-plane');
-
-                    response(planesList.filter(function (n) {
-                        return n !== ownPlane;
-                    }).map(function (n) {
-                        return n.toString();
-                    }));
-                }
-            }).end().find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
-        },
-        ok: function ok() {
-            var invert = [],
-                random = {},
-                copy = {};
-
-            this.find('.ca-bit-plane-cb:checked').each(function () {
-                var $tr = (0, _jquery2.default)(this).closest('tr'),
-                    plane = $tr.attr('data-bit-plane');
-
-                switch ($tr.find('.ca-filling-method').val()) {
-                    case 'invert':
-                        invert.push(plane);break;
-                    case 'all1':
-                        random[plane] = ca.cells.curr.randomFillDensityDescritization;break;
-                    case 'all0':
-                        random[plane] = 0;break;
-                    case 'random':
-                        random[plane] = $tr.find('.ca-filling-random input').val();break;
-                    case 'copy':
-                        copy[plane] = $tr.find('.ca-filling-copy input').val();break;
-                }
-            });
-
-            ca.fill({ invert: invert, random: random, copy: copy });
-        }
-    });
-
-    (0, _jquery2.default)('#ca-field-settings').tabs();
-
-    (0, _jquery2.default)('#ca-field').confirmDialog({
-        width: 320,
-        height: 460,
-        create: function create() {
-            var $this = (0, _jquery2.default)(this);
-
-            [['#ca-field-x-size', X_SIZE_MIN, X_SIZE_MAX], ['#ca-field-y-size', Y_SIZE_MIN, Y_SIZE_MAX], ['#ca-field-cell-side', CELL_SIDE_MIN, CELL_SIDE_MAX], ['#ca-field-cell-border', CELL_BORDER_MIN, CELL_BORDER_MAX]].forEach(function (n) {
-                return $this.find(n[0]).spinner({
-                    min: n[1],
-                    max: n[2],
-                    step: 1
-                });
-            });
-
-            $this.find('#ca-field-colors').append(templates.colorSetting(_jquery2.default.map(ca.view.colors, function (n, i) {
-                return {
-                    color: i,
-                    label: isNaN(i) ? i : (+i).toString(16).toUpperCase()
-                };
-            }))).find('.jscolor').each(function () {
-                this.jscolor = new jscolor(this, {
-                    hash: true
-                });
-            });
-
-            $this.find('#ca-field-planes').append(templates.bitPlanesShow(ca.cells.curr.getBitPlanes())).find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
-        },
-        open: function open() {
-            (0, _jquery2.default)(this).find('#ca-field-x-size').val(ca.cells.curr.xSize).end().find('#ca-field-y-size').val(ca.cells.curr.ySize).end().find('#ca-field-cell-side').val(ca.view.cellSide).end().find('#ca-field-cell-border').val(ca.view.cellBorder).end().find('.jscolor').each(function () {
-                var $this = (0, _jquery2.default)(this);
-                $this.val(ca.view.colors[$this.attr('color-name')]);
-                this.jscolor.importColor();
-            }).end().find('.ca-bit-plane-cb').each(function (i) {
-                this.checked = !!(ca.view.showBitPlanes & 1 << i);
-            }).change();
-        },
-        ok: function ok() {
-            var newColors = {};
-            this.find('.jscolor').each(function () {
-                var $this = (0, _jquery2.default)(this);
-                newColors[$this.attr('color-name')] = $this.val();
-            });
-            ca.view.setColors(newColors);
-
-            ca.view.showBitPlanes = this.find('.ca-bit-plane-cb').toArray().reduce(function (planes, cb, i) {
-                return planes | cb.checked << i;
-            }, 0);
-
-            ca.resize({
-                xSize: (0, _utils.limitation)(this.find('#ca-field-x-size').val(), X_SIZE_MIN, X_SIZE_MAX),
-                ySize: (0, _utils.limitation)(this.find('#ca-field-y-size').val(), Y_SIZE_MIN, Y_SIZE_MAX),
-                cellSide: (0, _utils.limitation)(this.find('#ca-field-cell-side').val(), CELL_SIDE_MIN, CELL_SIDE_MAX),
-                cellBorder: (0, _utils.limitation)(this.find('#ca-field-cell-border').val(), CELL_BORDER_MIN, CELL_BORDER_MAX)
-            });
-        }
-    });
-
-    (0, _jquery2.default)('#ca-rule').confirmDialog({
-        width: '80%',
-        create: function create() {
-            var $this = (0, _jquery2.default)(this);
-
-            $this.find('#ca-rule-name-clear').click(function () {
-                (0, _jquery2.default)('#ca-rule-name').val('');
-            });
-
-            $this.find('#ca-rule-name').autocomplete({
-                source: function source(request, response) {
-                    var term = request.term.toLowerCase();
-
-                    response(_ca.Rules.get().filter(function (n) {
-                        return !!n.name.toLowerCase().match(term);
-                    }).map(function (n) {
-                        return {
-                            matched: n.name.replace(new RegExp('(' + request.term + ')', 'i'), '<span class="matched-text">$1</span>'),
-                            label: n.name,
-                            value: n.code,
-                            predefined: n.predefined
-                        };
-                    }));
-                },
-                select: function select(e, ui) {
-                    (0, _jquery2.default)(this).val(ui.item.label);
-                    (0, _jquery2.default)('#ca-rule-code').val(ui.item.value);
-
-                    return false;
-                }
-            }).data('ui-autocomplete')._renderItem = function (ul, item) {
-                var $item = (0, _jquery2.default)('<div></div>').html(item.matched);
-                if (item.predefined) {
-                    $item.addClass('predefined-rule');
-                }
-
-                return (0, _jquery2.default)('<li></li>').data('item.autocomplete', item).append($item).appendTo(ul);
-            };
-
-            $this.find('#ca-rule-save').button().click(function () {
-                var result = _ca.Rules.save((0, _jquery2.default)('#ca-rule-name').val(), (0, _jquery2.default)('#ca-rule-code').val());
-                _toastr2.default[result.status ? 'success' : 'error'](result.message);
-            }).end().find('#ca-rule-delete').button().click(function () {
-                var result = _ca.Rules.del((0, _jquery2.default)('#ca-rule-name').val());
-                _toastr2.default[result.status ? 'success' : 'error'](result.message);
-            });
-
-            $this.find('#ca-rule-code').keydown(function (e) {
-                if (e.keyCode === 9) {
-                    var start = this.selectionStart,
-                        end = this.selectionEnd,
-                        $this = (0, _jquery2.default)(this),
-                        value = $this.val(),
-                        tab = '    ';
-
-                    $this.val(value.substring(0, start) + tab + value.substring(end));
-
-                    this.selectionStart = this.selectionEnd = start + tab.length;
-
-                    e.preventDefault();
-                }
-            });
-        },
-        open: function open() {
-            (0, _jquery2.default)('#ca-rule-code').val(ca.rule);
-        },
-        ok: function ok() {
-            try {
-                ca.rule = (0, _jquery2.default)('#ca-rule-code').val();
-            } catch (e) {
-                _toastr2.default.error(e.message);
-                return false;
-            }
-        }
-    });
-
-    (0, _jquery2.default)('#ca-speed').confirmDialog({
-        width: 320,
-        create: function create() {
-            (0, _jquery2.default)(this).find('#generations-per-step').spinner({
-                min: _config2.default.GENERATIONS_PER_STEP_MIN,
-                max: _config2.default.GENERATIONS_PER_STEP_MAX,
-                step: _config2.default.GENERATIONS_PER_STEP_CHANGE
-            }).end().find('#step-duration').spinner({
-                min: _config2.default.STEP_DURATION_MIN,
-                max: _config2.default.STEP_DURATION_MAX,
-                step: _config2.default.STEP_DURATION_CHANGE
-            });
-        },
-        open: function open() {
-            (0, _jquery2.default)(this).find('#generations-per-step').val(ca.generationsPerStep).end().find('#step-duration').val(ca.stepDuration);
-        },
-        ok: function ok() {
-            ca.generationsPerStep = this.find('#generations-per-step').val();
-            ca.stepDuration = this.find('#step-duration').val();
-        }
-    });
-
-    (0, _jquery2.default)('#cell-field-mode').buttonset({
-        items: 'input'
-    }).find('.ui-checkboxradio-radio-label').removeClass('ui-checkboxradio-radio-label').end().click(function (e) {
-        var mode = (0, _jquery2.default)(e.target).val();
-        if (mode && ca.view.mode !== mode) {
-            ca.view.mode = mode;
-        }
-    }).find('[for="mode-' + ca.view.mode + '"]').click();
-
-    (0, _jquery2.default)('.content > .controls').find('button').button().end().on('click.ca-dialog', '[data-dialog]', function () {
-        (0, _jquery2.default)('#' + (0, _jquery2.default)(this).attr('data-dialog')).confirmDialog('open');
-    }).on('click.ca-action', '[data-action]', function () {
-        ca[(0, _jquery2.default)(this).attr('data-action')]();
-    });
-
-    (0, _jquery2.default)('.toolbar').buttonset();
-
-    (0, _jquery2.default)(window).on({
-        'resize': function resize() {
-            ca.view.resize();
-        }
-    });
-
-    (0, _jquery2.default)(document).on({
-        'ca-start': function caStart() {
-            (0, _jquery2.default)('.ca-start-disable').addClass('ui-state-disabled');
-            (0, _jquery2.default)('.ca-start-hide').hide();
-            (0, _jquery2.default)('.ca-start-show').show();
-
-            if (ca.view.mode === 'edit') {
-                ca.view.mode = 'shift';
-            }
-        },
-        'ca-stop': function caStop() {
-            (0, _jquery2.default)('.ca-start-disable').removeClass('ui-state-disabled');
-            (0, _jquery2.default)('.ca-start-hide').show();
-            (0, _jquery2.default)('.ca-start-show').hide();
-
-            ca.view.mode = 'edit';
-        }
-    }).trigger('ca-stop');
-
-    (0, _jquery2.default)(ca.view.canvas).on('cell-field-mode', function () {
-        (0, _jquery2.default)('#cell-field-mode').find('[for="mode-' + ca.view.mode + '"]').click();
-    });
-
-    (0, _jquery2.default)('#skip').click(function () {
-        ca.newGeneration((0, _jquery2.default)(this).parent().find('input').val());
-    }).parent().find('input').width(50).on('input', function () {
-        var $this = (0, _jquery2.default)(this),
-            val = parseInt($this.val(), 10);
-
-        $this.val((0, _utils.limitation)(val, _config2.default.SKIP_GENERATIONS_MIN, _config2.default.SKIP_GENERATIONS_MAX));
-    }).val(_config2.default.SKIP_GENERATIONS_MIN);
-
-    (0, _jquery2.default)('#save-as-image').click(function () {
-        ca.view.download();
-    });
-
-    (0, _jquery2.default)('.ui-helper-hidden').removeClass('ui-helper-hidden');
-
-    ca.view.resize();
+    $this.val((0, _utils.limitation)(val, _config2.default.SKIP_GENERATIONS_MIN, _config2.default.SKIP_GENERATIONS_MAX));
+  });
+}).on({
+  'ca-start': function caStart() {
+    (0, _jquery2.default)('.ca-start-disable').addClass('ui-state-disabled');
+    (0, _jquery2.default)('.ca-start-hide').hide();
+    (0, _jquery2.default)('.ca-start-show').show();
+  },
+  'ca-stop': function caStop() {
+    (0, _jquery2.default)('.ca-start-disable').removeClass('ui-state-disabled');
+    (0, _jquery2.default)('.ca-start-hide').show();
+    (0, _jquery2.default)('.ca-start-show').hide();
+  }
 });
 
 /***/ }),
-/* 25 */
+/* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;// This file is deprecated in 1.12.0 to be removed in 1.13
@@ -14944,7 +14610,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;// This file i
 
 
 /***/ }),
-/* 26 */
+/* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -14971,12 +14637,12 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(14),
-			__webpack_require__(5),
-			__webpack_require__(8),
-			__webpack_require__(6),
+			__webpack_require__(15),
+			__webpack_require__(7),
+			__webpack_require__(10),
+			__webpack_require__(9),
 			__webpack_require__(1),
-			__webpack_require__(2)
+			__webpack_require__(4)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
 				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
@@ -15635,7 +15301,7 @@ return $.ui.autocomplete;
 
 
 /***/ }),
-/* 27 */
+/* 29 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -15662,7 +15328,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(2)
+			__webpack_require__(4)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
 				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
@@ -15942,7 +15608,7 @@ return $.widget( "ui.controlgroup", {
 
 
 /***/ }),
-/* 28 */
+/* 30 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -15970,10 +15636,10 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(10),
-			__webpack_require__(15),
+			__webpack_require__(13),
 			__webpack_require__(16),
-			__webpack_require__(2)
+			__webpack_require__(17),
+			__webpack_require__(4)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
 				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
@@ -16237,7 +15903,7 @@ return $.ui.checkboxradio;
 
 
 /***/ }),
-/* 29 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
@@ -16266,3650 +15932,7 @@ return $.fn.form = function() {
 
 
 /***/ }),
-/* 30 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
- * jQuery UI Dialog 1.12.1
- * http://jqueryui.com
- *
- * Copyright jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- */
-
-//>>label: Dialog
-//>>group: Widgets
-//>>description: Displays customizable dialog windows.
-//>>docs: http://api.jqueryui.com/dialog/
-//>>demos: http://jqueryui.com/dialog/
-//>>css.structure: ../../themes/base/core.css
-//>>css.structure: ../../themes/base/dialog.css
-//>>css.theme: ../../themes/base/theme.css
-
-( function( factory ) {
-	if ( true ) {
-
-		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
-			__webpack_require__(0),
-			__webpack_require__(11),
-			__webpack_require__(31),
-			__webpack_require__(12),
-			__webpack_require__(35),
-			__webpack_require__(19),
-			__webpack_require__(5),
-			__webpack_require__(8),
-			__webpack_require__(6),
-			__webpack_require__(18),
-			__webpack_require__(37),
-			__webpack_require__(9),
-			__webpack_require__(1),
-			__webpack_require__(2)
-		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	} else {
-
-		// Browser globals
-		factory( jQuery );
-	}
-}( function( $ ) {
-
-$.widget( "ui.dialog", {
-	version: "1.12.1",
-	options: {
-		appendTo: "body",
-		autoOpen: true,
-		buttons: [],
-		classes: {
-			"ui-dialog": "ui-corner-all",
-			"ui-dialog-titlebar": "ui-corner-all"
-		},
-		closeOnEscape: true,
-		closeText: "Close",
-		draggable: true,
-		hide: null,
-		height: "auto",
-		maxHeight: null,
-		maxWidth: null,
-		minHeight: 150,
-		minWidth: 150,
-		modal: false,
-		position: {
-			my: "center",
-			at: "center",
-			of: window,
-			collision: "fit",
-
-			// Ensure the titlebar is always visible
-			using: function( pos ) {
-				var topOffset = $( this ).css( pos ).offset().top;
-				if ( topOffset < 0 ) {
-					$( this ).css( "top", pos.top - topOffset );
-				}
-			}
-		},
-		resizable: true,
-		show: null,
-		title: null,
-		width: 300,
-
-		// Callbacks
-		beforeClose: null,
-		close: null,
-		drag: null,
-		dragStart: null,
-		dragStop: null,
-		focus: null,
-		open: null,
-		resize: null,
-		resizeStart: null,
-		resizeStop: null
-	},
-
-	sizeRelatedOptions: {
-		buttons: true,
-		height: true,
-		maxHeight: true,
-		maxWidth: true,
-		minHeight: true,
-		minWidth: true,
-		width: true
-	},
-
-	resizableRelatedOptions: {
-		maxHeight: true,
-		maxWidth: true,
-		minHeight: true,
-		minWidth: true
-	},
-
-	_create: function() {
-		this.originalCss = {
-			display: this.element[ 0 ].style.display,
-			width: this.element[ 0 ].style.width,
-			minHeight: this.element[ 0 ].style.minHeight,
-			maxHeight: this.element[ 0 ].style.maxHeight,
-			height: this.element[ 0 ].style.height
-		};
-		this.originalPosition = {
-			parent: this.element.parent(),
-			index: this.element.parent().children().index( this.element )
-		};
-		this.originalTitle = this.element.attr( "title" );
-		if ( this.options.title == null && this.originalTitle != null ) {
-			this.options.title = this.originalTitle;
-		}
-
-		// Dialogs can't be disabled
-		if ( this.options.disabled ) {
-			this.options.disabled = false;
-		}
-
-		this._createWrapper();
-
-		this.element
-			.show()
-			.removeAttr( "title" )
-			.appendTo( this.uiDialog );
-
-		this._addClass( "ui-dialog-content", "ui-widget-content" );
-
-		this._createTitlebar();
-		this._createButtonPane();
-
-		if ( this.options.draggable && $.fn.draggable ) {
-			this._makeDraggable();
-		}
-		if ( this.options.resizable && $.fn.resizable ) {
-			this._makeResizable();
-		}
-
-		this._isOpen = false;
-
-		this._trackFocus();
-	},
-
-	_init: function() {
-		if ( this.options.autoOpen ) {
-			this.open();
-		}
-	},
-
-	_appendTo: function() {
-		var element = this.options.appendTo;
-		if ( element && ( element.jquery || element.nodeType ) ) {
-			return $( element );
-		}
-		return this.document.find( element || "body" ).eq( 0 );
-	},
-
-	_destroy: function() {
-		var next,
-			originalPosition = this.originalPosition;
-
-		this._untrackInstance();
-		this._destroyOverlay();
-
-		this.element
-			.removeUniqueId()
-			.css( this.originalCss )
-
-			// Without detaching first, the following becomes really slow
-			.detach();
-
-		this.uiDialog.remove();
-
-		if ( this.originalTitle ) {
-			this.element.attr( "title", this.originalTitle );
-		}
-
-		next = originalPosition.parent.children().eq( originalPosition.index );
-
-		// Don't try to place the dialog next to itself (#8613)
-		if ( next.length && next[ 0 ] !== this.element[ 0 ] ) {
-			next.before( this.element );
-		} else {
-			originalPosition.parent.append( this.element );
-		}
-	},
-
-	widget: function() {
-		return this.uiDialog;
-	},
-
-	disable: $.noop,
-	enable: $.noop,
-
-	close: function( event ) {
-		var that = this;
-
-		if ( !this._isOpen || this._trigger( "beforeClose", event ) === false ) {
-			return;
-		}
-
-		this._isOpen = false;
-		this._focusedElement = null;
-		this._destroyOverlay();
-		this._untrackInstance();
-
-		if ( !this.opener.filter( ":focusable" ).trigger( "focus" ).length ) {
-
-			// Hiding a focused element doesn't trigger blur in WebKit
-			// so in case we have nothing to focus on, explicitly blur the active element
-			// https://bugs.webkit.org/show_bug.cgi?id=47182
-			$.ui.safeBlur( $.ui.safeActiveElement( this.document[ 0 ] ) );
-		}
-
-		this._hide( this.uiDialog, this.options.hide, function() {
-			that._trigger( "close", event );
-		} );
-	},
-
-	isOpen: function() {
-		return this._isOpen;
-	},
-
-	moveToTop: function() {
-		this._moveToTop();
-	},
-
-	_moveToTop: function( event, silent ) {
-		var moved = false,
-			zIndices = this.uiDialog.siblings( ".ui-front:visible" ).map( function() {
-				return +$( this ).css( "z-index" );
-			} ).get(),
-			zIndexMax = Math.max.apply( null, zIndices );
-
-		if ( zIndexMax >= +this.uiDialog.css( "z-index" ) ) {
-			this.uiDialog.css( "z-index", zIndexMax + 1 );
-			moved = true;
-		}
-
-		if ( moved && !silent ) {
-			this._trigger( "focus", event );
-		}
-		return moved;
-	},
-
-	open: function() {
-		var that = this;
-		if ( this._isOpen ) {
-			if ( this._moveToTop() ) {
-				this._focusTabbable();
-			}
-			return;
-		}
-
-		this._isOpen = true;
-		this.opener = $( $.ui.safeActiveElement( this.document[ 0 ] ) );
-
-		this._size();
-		this._position();
-		this._createOverlay();
-		this._moveToTop( null, true );
-
-		// Ensure the overlay is moved to the top with the dialog, but only when
-		// opening. The overlay shouldn't move after the dialog is open so that
-		// modeless dialogs opened after the modal dialog stack properly.
-		if ( this.overlay ) {
-			this.overlay.css( "z-index", this.uiDialog.css( "z-index" ) - 1 );
-		}
-
-		this._show( this.uiDialog, this.options.show, function() {
-			that._focusTabbable();
-			that._trigger( "focus" );
-		} );
-
-		// Track the dialog immediately upon openening in case a focus event
-		// somehow occurs outside of the dialog before an element inside the
-		// dialog is focused (#10152)
-		this._makeFocusTarget();
-
-		this._trigger( "open" );
-	},
-
-	_focusTabbable: function() {
-
-		// Set focus to the first match:
-		// 1. An element that was focused previously
-		// 2. First element inside the dialog matching [autofocus]
-		// 3. Tabbable element inside the content element
-		// 4. Tabbable element inside the buttonpane
-		// 5. The close button
-		// 6. The dialog itself
-		var hasFocus = this._focusedElement;
-		if ( !hasFocus ) {
-			hasFocus = this.element.find( "[autofocus]" );
-		}
-		if ( !hasFocus.length ) {
-			hasFocus = this.element.find( ":tabbable" );
-		}
-		if ( !hasFocus.length ) {
-			hasFocus = this.uiDialogButtonPane.find( ":tabbable" );
-		}
-		if ( !hasFocus.length ) {
-			hasFocus = this.uiDialogTitlebarClose.filter( ":tabbable" );
-		}
-		if ( !hasFocus.length ) {
-			hasFocus = this.uiDialog;
-		}
-		hasFocus.eq( 0 ).trigger( "focus" );
-	},
-
-	_keepFocus: function( event ) {
-		function checkFocus() {
-			var activeElement = $.ui.safeActiveElement( this.document[ 0 ] ),
-				isActive = this.uiDialog[ 0 ] === activeElement ||
-					$.contains( this.uiDialog[ 0 ], activeElement );
-			if ( !isActive ) {
-				this._focusTabbable();
-			}
-		}
-		event.preventDefault();
-		checkFocus.call( this );
-
-		// support: IE
-		// IE <= 8 doesn't prevent moving focus even with event.preventDefault()
-		// so we check again later
-		this._delay( checkFocus );
-	},
-
-	_createWrapper: function() {
-		this.uiDialog = $( "<div>" )
-			.hide()
-			.attr( {
-
-				// Setting tabIndex makes the div focusable
-				tabIndex: -1,
-				role: "dialog"
-			} )
-			.appendTo( this._appendTo() );
-
-		this._addClass( this.uiDialog, "ui-dialog", "ui-widget ui-widget-content ui-front" );
-		this._on( this.uiDialog, {
-			keydown: function( event ) {
-				if ( this.options.closeOnEscape && !event.isDefaultPrevented() && event.keyCode &&
-						event.keyCode === $.ui.keyCode.ESCAPE ) {
-					event.preventDefault();
-					this.close( event );
-					return;
-				}
-
-				// Prevent tabbing out of dialogs
-				if ( event.keyCode !== $.ui.keyCode.TAB || event.isDefaultPrevented() ) {
-					return;
-				}
-				var tabbables = this.uiDialog.find( ":tabbable" ),
-					first = tabbables.filter( ":first" ),
-					last = tabbables.filter( ":last" );
-
-				if ( ( event.target === last[ 0 ] || event.target === this.uiDialog[ 0 ] ) &&
-						!event.shiftKey ) {
-					this._delay( function() {
-						first.trigger( "focus" );
-					} );
-					event.preventDefault();
-				} else if ( ( event.target === first[ 0 ] ||
-						event.target === this.uiDialog[ 0 ] ) && event.shiftKey ) {
-					this._delay( function() {
-						last.trigger( "focus" );
-					} );
-					event.preventDefault();
-				}
-			},
-			mousedown: function( event ) {
-				if ( this._moveToTop( event ) ) {
-					this._focusTabbable();
-				}
-			}
-		} );
-
-		// We assume that any existing aria-describedby attribute means
-		// that the dialog content is marked up properly
-		// otherwise we brute force the content as the description
-		if ( !this.element.find( "[aria-describedby]" ).length ) {
-			this.uiDialog.attr( {
-				"aria-describedby": this.element.uniqueId().attr( "id" )
-			} );
-		}
-	},
-
-	_createTitlebar: function() {
-		var uiDialogTitle;
-
-		this.uiDialogTitlebar = $( "<div>" );
-		this._addClass( this.uiDialogTitlebar,
-			"ui-dialog-titlebar", "ui-widget-header ui-helper-clearfix" );
-		this._on( this.uiDialogTitlebar, {
-			mousedown: function( event ) {
-
-				// Don't prevent click on close button (#8838)
-				// Focusing a dialog that is partially scrolled out of view
-				// causes the browser to scroll it into view, preventing the click event
-				if ( !$( event.target ).closest( ".ui-dialog-titlebar-close" ) ) {
-
-					// Dialog isn't getting focus when dragging (#8063)
-					this.uiDialog.trigger( "focus" );
-				}
-			}
-		} );
-
-		// Support: IE
-		// Use type="button" to prevent enter keypresses in textboxes from closing the
-		// dialog in IE (#9312)
-		this.uiDialogTitlebarClose = $( "<button type='button'></button>" )
-			.button( {
-				label: $( "<a>" ).text( this.options.closeText ).html(),
-				icon: "ui-icon-closethick",
-				showLabel: false
-			} )
-			.appendTo( this.uiDialogTitlebar );
-
-		this._addClass( this.uiDialogTitlebarClose, "ui-dialog-titlebar-close" );
-		this._on( this.uiDialogTitlebarClose, {
-			click: function( event ) {
-				event.preventDefault();
-				this.close( event );
-			}
-		} );
-
-		uiDialogTitle = $( "<span>" ).uniqueId().prependTo( this.uiDialogTitlebar );
-		this._addClass( uiDialogTitle, "ui-dialog-title" );
-		this._title( uiDialogTitle );
-
-		this.uiDialogTitlebar.prependTo( this.uiDialog );
-
-		this.uiDialog.attr( {
-			"aria-labelledby": uiDialogTitle.attr( "id" )
-		} );
-	},
-
-	_title: function( title ) {
-		if ( this.options.title ) {
-			title.text( this.options.title );
-		} else {
-			title.html( "&#160;" );
-		}
-	},
-
-	_createButtonPane: function() {
-		this.uiDialogButtonPane = $( "<div>" );
-		this._addClass( this.uiDialogButtonPane, "ui-dialog-buttonpane",
-			"ui-widget-content ui-helper-clearfix" );
-
-		this.uiButtonSet = $( "<div>" )
-			.appendTo( this.uiDialogButtonPane );
-		this._addClass( this.uiButtonSet, "ui-dialog-buttonset" );
-
-		this._createButtons();
-	},
-
-	_createButtons: function() {
-		var that = this,
-			buttons = this.options.buttons;
-
-		// If we already have a button pane, remove it
-		this.uiDialogButtonPane.remove();
-		this.uiButtonSet.empty();
-
-		if ( $.isEmptyObject( buttons ) || ( $.isArray( buttons ) && !buttons.length ) ) {
-			this._removeClass( this.uiDialog, "ui-dialog-buttons" );
-			return;
-		}
-
-		$.each( buttons, function( name, props ) {
-			var click, buttonOptions;
-			props = $.isFunction( props ) ?
-				{ click: props, text: name } :
-				props;
-
-			// Default to a non-submitting button
-			props = $.extend( { type: "button" }, props );
-
-			// Change the context for the click callback to be the main element
-			click = props.click;
-			buttonOptions = {
-				icon: props.icon,
-				iconPosition: props.iconPosition,
-				showLabel: props.showLabel,
-
-				// Deprecated options
-				icons: props.icons,
-				text: props.text
-			};
-
-			delete props.click;
-			delete props.icon;
-			delete props.iconPosition;
-			delete props.showLabel;
-
-			// Deprecated options
-			delete props.icons;
-			if ( typeof props.text === "boolean" ) {
-				delete props.text;
-			}
-
-			$( "<button></button>", props )
-				.button( buttonOptions )
-				.appendTo( that.uiButtonSet )
-				.on( "click", function() {
-					click.apply( that.element[ 0 ], arguments );
-				} );
-		} );
-		this._addClass( this.uiDialog, "ui-dialog-buttons" );
-		this.uiDialogButtonPane.appendTo( this.uiDialog );
-	},
-
-	_makeDraggable: function() {
-		var that = this,
-			options = this.options;
-
-		function filteredUi( ui ) {
-			return {
-				position: ui.position,
-				offset: ui.offset
-			};
-		}
-
-		this.uiDialog.draggable( {
-			cancel: ".ui-dialog-content, .ui-dialog-titlebar-close",
-			handle: ".ui-dialog-titlebar",
-			containment: "document",
-			start: function( event, ui ) {
-				that._addClass( $( this ), "ui-dialog-dragging" );
-				that._blockFrames();
-				that._trigger( "dragStart", event, filteredUi( ui ) );
-			},
-			drag: function( event, ui ) {
-				that._trigger( "drag", event, filteredUi( ui ) );
-			},
-			stop: function( event, ui ) {
-				var left = ui.offset.left - that.document.scrollLeft(),
-					top = ui.offset.top - that.document.scrollTop();
-
-				options.position = {
-					my: "left top",
-					at: "left" + ( left >= 0 ? "+" : "" ) + left + " " +
-						"top" + ( top >= 0 ? "+" : "" ) + top,
-					of: that.window
-				};
-				that._removeClass( $( this ), "ui-dialog-dragging" );
-				that._unblockFrames();
-				that._trigger( "dragStop", event, filteredUi( ui ) );
-			}
-		} );
-	},
-
-	_makeResizable: function() {
-		var that = this,
-			options = this.options,
-			handles = options.resizable,
-
-			// .ui-resizable has position: relative defined in the stylesheet
-			// but dialogs have to use absolute or fixed positioning
-			position = this.uiDialog.css( "position" ),
-			resizeHandles = typeof handles === "string" ?
-				handles :
-				"n,e,s,w,se,sw,ne,nw";
-
-		function filteredUi( ui ) {
-			return {
-				originalPosition: ui.originalPosition,
-				originalSize: ui.originalSize,
-				position: ui.position,
-				size: ui.size
-			};
-		}
-
-		this.uiDialog.resizable( {
-			cancel: ".ui-dialog-content",
-			containment: "document",
-			alsoResize: this.element,
-			maxWidth: options.maxWidth,
-			maxHeight: options.maxHeight,
-			minWidth: options.minWidth,
-			minHeight: this._minHeight(),
-			handles: resizeHandles,
-			start: function( event, ui ) {
-				that._addClass( $( this ), "ui-dialog-resizing" );
-				that._blockFrames();
-				that._trigger( "resizeStart", event, filteredUi( ui ) );
-			},
-			resize: function( event, ui ) {
-				that._trigger( "resize", event, filteredUi( ui ) );
-			},
-			stop: function( event, ui ) {
-				var offset = that.uiDialog.offset(),
-					left = offset.left - that.document.scrollLeft(),
-					top = offset.top - that.document.scrollTop();
-
-				options.height = that.uiDialog.height();
-				options.width = that.uiDialog.width();
-				options.position = {
-					my: "left top",
-					at: "left" + ( left >= 0 ? "+" : "" ) + left + " " +
-						"top" + ( top >= 0 ? "+" : "" ) + top,
-					of: that.window
-				};
-				that._removeClass( $( this ), "ui-dialog-resizing" );
-				that._unblockFrames();
-				that._trigger( "resizeStop", event, filteredUi( ui ) );
-			}
-		} )
-			.css( "position", position );
-	},
-
-	_trackFocus: function() {
-		this._on( this.widget(), {
-			focusin: function( event ) {
-				this._makeFocusTarget();
-				this._focusedElement = $( event.target );
-			}
-		} );
-	},
-
-	_makeFocusTarget: function() {
-		this._untrackInstance();
-		this._trackingInstances().unshift( this );
-	},
-
-	_untrackInstance: function() {
-		var instances = this._trackingInstances(),
-			exists = $.inArray( this, instances );
-		if ( exists !== -1 ) {
-			instances.splice( exists, 1 );
-		}
-	},
-
-	_trackingInstances: function() {
-		var instances = this.document.data( "ui-dialog-instances" );
-		if ( !instances ) {
-			instances = [];
-			this.document.data( "ui-dialog-instances", instances );
-		}
-		return instances;
-	},
-
-	_minHeight: function() {
-		var options = this.options;
-
-		return options.height === "auto" ?
-			options.minHeight :
-			Math.min( options.minHeight, options.height );
-	},
-
-	_position: function() {
-
-		// Need to show the dialog to get the actual offset in the position plugin
-		var isVisible = this.uiDialog.is( ":visible" );
-		if ( !isVisible ) {
-			this.uiDialog.show();
-		}
-		this.uiDialog.position( this.options.position );
-		if ( !isVisible ) {
-			this.uiDialog.hide();
-		}
-	},
-
-	_setOptions: function( options ) {
-		var that = this,
-			resize = false,
-			resizableOptions = {};
-
-		$.each( options, function( key, value ) {
-			that._setOption( key, value );
-
-			if ( key in that.sizeRelatedOptions ) {
-				resize = true;
-			}
-			if ( key in that.resizableRelatedOptions ) {
-				resizableOptions[ key ] = value;
-			}
-		} );
-
-		if ( resize ) {
-			this._size();
-			this._position();
-		}
-		if ( this.uiDialog.is( ":data(ui-resizable)" ) ) {
-			this.uiDialog.resizable( "option", resizableOptions );
-		}
-	},
-
-	_setOption: function( key, value ) {
-		var isDraggable, isResizable,
-			uiDialog = this.uiDialog;
-
-		if ( key === "disabled" ) {
-			return;
-		}
-
-		this._super( key, value );
-
-		if ( key === "appendTo" ) {
-			this.uiDialog.appendTo( this._appendTo() );
-		}
-
-		if ( key === "buttons" ) {
-			this._createButtons();
-		}
-
-		if ( key === "closeText" ) {
-			this.uiDialogTitlebarClose.button( {
-
-				// Ensure that we always pass a string
-				label: $( "<a>" ).text( "" + this.options.closeText ).html()
-			} );
-		}
-
-		if ( key === "draggable" ) {
-			isDraggable = uiDialog.is( ":data(ui-draggable)" );
-			if ( isDraggable && !value ) {
-				uiDialog.draggable( "destroy" );
-			}
-
-			if ( !isDraggable && value ) {
-				this._makeDraggable();
-			}
-		}
-
-		if ( key === "position" ) {
-			this._position();
-		}
-
-		if ( key === "resizable" ) {
-
-			// currently resizable, becoming non-resizable
-			isResizable = uiDialog.is( ":data(ui-resizable)" );
-			if ( isResizable && !value ) {
-				uiDialog.resizable( "destroy" );
-			}
-
-			// Currently resizable, changing handles
-			if ( isResizable && typeof value === "string" ) {
-				uiDialog.resizable( "option", "handles", value );
-			}
-
-			// Currently non-resizable, becoming resizable
-			if ( !isResizable && value !== false ) {
-				this._makeResizable();
-			}
-		}
-
-		if ( key === "title" ) {
-			this._title( this.uiDialogTitlebar.find( ".ui-dialog-title" ) );
-		}
-	},
-
-	_size: function() {
-
-		// If the user has resized the dialog, the .ui-dialog and .ui-dialog-content
-		// divs will both have width and height set, so we need to reset them
-		var nonContentHeight, minContentHeight, maxContentHeight,
-			options = this.options;
-
-		// Reset content sizing
-		this.element.show().css( {
-			width: "auto",
-			minHeight: 0,
-			maxHeight: "none",
-			height: 0
-		} );
-
-		if ( options.minWidth > options.width ) {
-			options.width = options.minWidth;
-		}
-
-		// Reset wrapper sizing
-		// determine the height of all the non-content elements
-		nonContentHeight = this.uiDialog.css( {
-			height: "auto",
-			width: options.width
-		} )
-			.outerHeight();
-		minContentHeight = Math.max( 0, options.minHeight - nonContentHeight );
-		maxContentHeight = typeof options.maxHeight === "number" ?
-			Math.max( 0, options.maxHeight - nonContentHeight ) :
-			"none";
-
-		if ( options.height === "auto" ) {
-			this.element.css( {
-				minHeight: minContentHeight,
-				maxHeight: maxContentHeight,
-				height: "auto"
-			} );
-		} else {
-			this.element.height( Math.max( 0, options.height - nonContentHeight ) );
-		}
-
-		if ( this.uiDialog.is( ":data(ui-resizable)" ) ) {
-			this.uiDialog.resizable( "option", "minHeight", this._minHeight() );
-		}
-	},
-
-	_blockFrames: function() {
-		this.iframeBlocks = this.document.find( "iframe" ).map( function() {
-			var iframe = $( this );
-
-			return $( "<div>" )
-				.css( {
-					position: "absolute",
-					width: iframe.outerWidth(),
-					height: iframe.outerHeight()
-				} )
-				.appendTo( iframe.parent() )
-				.offset( iframe.offset() )[ 0 ];
-		} );
-	},
-
-	_unblockFrames: function() {
-		if ( this.iframeBlocks ) {
-			this.iframeBlocks.remove();
-			delete this.iframeBlocks;
-		}
-	},
-
-	_allowInteraction: function( event ) {
-		if ( $( event.target ).closest( ".ui-dialog" ).length ) {
-			return true;
-		}
-
-		// TODO: Remove hack when datepicker implements
-		// the .ui-front logic (#8989)
-		return !!$( event.target ).closest( ".ui-datepicker" ).length;
-	},
-
-	_createOverlay: function() {
-		if ( !this.options.modal ) {
-			return;
-		}
-
-		// We use a delay in case the overlay is created from an
-		// event that we're going to be cancelling (#2804)
-		var isOpening = true;
-		this._delay( function() {
-			isOpening = false;
-		} );
-
-		if ( !this.document.data( "ui-dialog-overlays" ) ) {
-
-			// Prevent use of anchors and inputs
-			// Using _on() for an event handler shared across many instances is
-			// safe because the dialogs stack and must be closed in reverse order
-			this._on( this.document, {
-				focusin: function( event ) {
-					if ( isOpening ) {
-						return;
-					}
-
-					if ( !this._allowInteraction( event ) ) {
-						event.preventDefault();
-						this._trackingInstances()[ 0 ]._focusTabbable();
-					}
-				}
-			} );
-		}
-
-		this.overlay = $( "<div>" )
-			.appendTo( this._appendTo() );
-
-		this._addClass( this.overlay, null, "ui-widget-overlay ui-front" );
-		this._on( this.overlay, {
-			mousedown: "_keepFocus"
-		} );
-		this.document.data( "ui-dialog-overlays",
-			( this.document.data( "ui-dialog-overlays" ) || 0 ) + 1 );
-	},
-
-	_destroyOverlay: function() {
-		if ( !this.options.modal ) {
-			return;
-		}
-
-		if ( this.overlay ) {
-			var overlays = this.document.data( "ui-dialog-overlays" ) - 1;
-
-			if ( !overlays ) {
-				this._off( this.document, "focusin" );
-				this.document.removeData( "ui-dialog-overlays" );
-			} else {
-				this.document.data( "ui-dialog-overlays", overlays );
-			}
-
-			this.overlay.remove();
-			this.overlay = null;
-		}
-	}
-} );
-
-// DEPRECATED
-// TODO: switch return back to widget declaration at top of file when this is removed
-if ( $.uiBackCompat !== false ) {
-
-	// Backcompat for dialogClass option
-	$.widget( "ui.dialog", $.ui.dialog, {
-		options: {
-			dialogClass: ""
-		},
-		_createWrapper: function() {
-			this._super();
-			this.uiDialog.addClass( this.options.dialogClass );
-		},
-		_setOption: function( key, value ) {
-			if ( key === "dialogClass" ) {
-				this.uiDialog
-					.removeClass( this.options.dialogClass )
-					.addClass( value );
-			}
-			this._superApply( arguments );
-		}
-	} );
-}
-
-return $.ui.dialog;
-
-} ) );
-
-
-/***/ }),
-/* 31 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
- * jQuery UI Draggable 1.12.1
- * http://jqueryui.com
- *
- * Copyright jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- */
-
-//>>label: Draggable
-//>>group: Interactions
-//>>description: Enables dragging functionality for any element.
-//>>docs: http://api.jqueryui.com/draggable/
-//>>demos: http://jqueryui.com/draggable/
-//>>css.structure: ../../themes/base/draggable.css
-
-( function( factory ) {
-	if ( true ) {
-
-		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
-			__webpack_require__(0),
-			__webpack_require__(12),
-			__webpack_require__(33),
-			__webpack_require__(17),
-			__webpack_require__(6),
-			__webpack_require__(18),
-			__webpack_require__(34),
-			__webpack_require__(1),
-			__webpack_require__(2)
-		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	} else {
-
-		// Browser globals
-		factory( jQuery );
-	}
-}( function( $ ) {
-
-$.widget( "ui.draggable", $.ui.mouse, {
-	version: "1.12.1",
-	widgetEventPrefix: "drag",
-	options: {
-		addClasses: true,
-		appendTo: "parent",
-		axis: false,
-		connectToSortable: false,
-		containment: false,
-		cursor: "auto",
-		cursorAt: false,
-		grid: false,
-		handle: false,
-		helper: "original",
-		iframeFix: false,
-		opacity: false,
-		refreshPositions: false,
-		revert: false,
-		revertDuration: 500,
-		scope: "default",
-		scroll: true,
-		scrollSensitivity: 20,
-		scrollSpeed: 20,
-		snap: false,
-		snapMode: "both",
-		snapTolerance: 20,
-		stack: false,
-		zIndex: false,
-
-		// Callbacks
-		drag: null,
-		start: null,
-		stop: null
-	},
-	_create: function() {
-
-		if ( this.options.helper === "original" ) {
-			this._setPositionRelative();
-		}
-		if ( this.options.addClasses ) {
-			this._addClass( "ui-draggable" );
-		}
-		this._setHandleClassName();
-
-		this._mouseInit();
-	},
-
-	_setOption: function( key, value ) {
-		this._super( key, value );
-		if ( key === "handle" ) {
-			this._removeHandleClassName();
-			this._setHandleClassName();
-		}
-	},
-
-	_destroy: function() {
-		if ( ( this.helper || this.element ).is( ".ui-draggable-dragging" ) ) {
-			this.destroyOnClear = true;
-			return;
-		}
-		this._removeHandleClassName();
-		this._mouseDestroy();
-	},
-
-	_mouseCapture: function( event ) {
-		var o = this.options;
-
-		// Among others, prevent a drag on a resizable-handle
-		if ( this.helper || o.disabled ||
-				$( event.target ).closest( ".ui-resizable-handle" ).length > 0 ) {
-			return false;
-		}
-
-		//Quit if we're not on a valid handle
-		this.handle = this._getHandle( event );
-		if ( !this.handle ) {
-			return false;
-		}
-
-		this._blurActiveElement( event );
-
-		this._blockFrames( o.iframeFix === true ? "iframe" : o.iframeFix );
-
-		return true;
-
-	},
-
-	_blockFrames: function( selector ) {
-		this.iframeBlocks = this.document.find( selector ).map( function() {
-			var iframe = $( this );
-
-			return $( "<div>" )
-				.css( "position", "absolute" )
-				.appendTo( iframe.parent() )
-				.outerWidth( iframe.outerWidth() )
-				.outerHeight( iframe.outerHeight() )
-				.offset( iframe.offset() )[ 0 ];
-		} );
-	},
-
-	_unblockFrames: function() {
-		if ( this.iframeBlocks ) {
-			this.iframeBlocks.remove();
-			delete this.iframeBlocks;
-		}
-	},
-
-	_blurActiveElement: function( event ) {
-		var activeElement = $.ui.safeActiveElement( this.document[ 0 ] ),
-			target = $( event.target );
-
-		// Don't blur if the event occurred on an element that is within
-		// the currently focused element
-		// See #10527, #12472
-		if ( target.closest( activeElement ).length ) {
-			return;
-		}
-
-		// Blur any element that currently has focus, see #4261
-		$.ui.safeBlur( activeElement );
-	},
-
-	_mouseStart: function( event ) {
-
-		var o = this.options;
-
-		//Create and append the visible helper
-		this.helper = this._createHelper( event );
-
-		this._addClass( this.helper, "ui-draggable-dragging" );
-
-		//Cache the helper size
-		this._cacheHelperProportions();
-
-		//If ddmanager is used for droppables, set the global draggable
-		if ( $.ui.ddmanager ) {
-			$.ui.ddmanager.current = this;
-		}
-
-		/*
-		 * - Position generation -
-		 * This block generates everything position related - it's the core of draggables.
-		 */
-
-		//Cache the margins of the original element
-		this._cacheMargins();
-
-		//Store the helper's css position
-		this.cssPosition = this.helper.css( "position" );
-		this.scrollParent = this.helper.scrollParent( true );
-		this.offsetParent = this.helper.offsetParent();
-		this.hasFixedAncestor = this.helper.parents().filter( function() {
-				return $( this ).css( "position" ) === "fixed";
-			} ).length > 0;
-
-		//The element's absolute position on the page minus margins
-		this.positionAbs = this.element.offset();
-		this._refreshOffsets( event );
-
-		//Generate the original position
-		this.originalPosition = this.position = this._generatePosition( event, false );
-		this.originalPageX = event.pageX;
-		this.originalPageY = event.pageY;
-
-		//Adjust the mouse offset relative to the helper if "cursorAt" is supplied
-		( o.cursorAt && this._adjustOffsetFromHelper( o.cursorAt ) );
-
-		//Set a containment if given in the options
-		this._setContainment();
-
-		//Trigger event + callbacks
-		if ( this._trigger( "start", event ) === false ) {
-			this._clear();
-			return false;
-		}
-
-		//Recache the helper size
-		this._cacheHelperProportions();
-
-		//Prepare the droppable offsets
-		if ( $.ui.ddmanager && !o.dropBehaviour ) {
-			$.ui.ddmanager.prepareOffsets( this, event );
-		}
-
-		// Execute the drag once - this causes the helper not to be visible before getting its
-		// correct position
-		this._mouseDrag( event, true );
-
-		// If the ddmanager is used for droppables, inform the manager that dragging has started
-		// (see #5003)
-		if ( $.ui.ddmanager ) {
-			$.ui.ddmanager.dragStart( this, event );
-		}
-
-		return true;
-	},
-
-	_refreshOffsets: function( event ) {
-		this.offset = {
-			top: this.positionAbs.top - this.margins.top,
-			left: this.positionAbs.left - this.margins.left,
-			scroll: false,
-			parent: this._getParentOffset(),
-			relative: this._getRelativeOffset()
-		};
-
-		this.offset.click = {
-			left: event.pageX - this.offset.left,
-			top: event.pageY - this.offset.top
-		};
-	},
-
-	_mouseDrag: function( event, noPropagation ) {
-
-		// reset any necessary cached properties (see #5009)
-		if ( this.hasFixedAncestor ) {
-			this.offset.parent = this._getParentOffset();
-		}
-
-		//Compute the helpers position
-		this.position = this._generatePosition( event, true );
-		this.positionAbs = this._convertPositionTo( "absolute" );
-
-		//Call plugins and callbacks and use the resulting position if something is returned
-		if ( !noPropagation ) {
-			var ui = this._uiHash();
-			if ( this._trigger( "drag", event, ui ) === false ) {
-				this._mouseUp( new $.Event( "mouseup", event ) );
-				return false;
-			}
-			this.position = ui.position;
-		}
-
-		this.helper[ 0 ].style.left = this.position.left + "px";
-		this.helper[ 0 ].style.top = this.position.top + "px";
-
-		if ( $.ui.ddmanager ) {
-			$.ui.ddmanager.drag( this, event );
-		}
-
-		return false;
-	},
-
-	_mouseStop: function( event ) {
-
-		//If we are using droppables, inform the manager about the drop
-		var that = this,
-			dropped = false;
-		if ( $.ui.ddmanager && !this.options.dropBehaviour ) {
-			dropped = $.ui.ddmanager.drop( this, event );
-		}
-
-		//if a drop comes from outside (a sortable)
-		if ( this.dropped ) {
-			dropped = this.dropped;
-			this.dropped = false;
-		}
-
-		if ( ( this.options.revert === "invalid" && !dropped ) ||
-				( this.options.revert === "valid" && dropped ) ||
-				this.options.revert === true || ( $.isFunction( this.options.revert ) &&
-				this.options.revert.call( this.element, dropped ) )
-		) {
-			$( this.helper ).animate(
-				this.originalPosition,
-				parseInt( this.options.revertDuration, 10 ),
-				function() {
-					if ( that._trigger( "stop", event ) !== false ) {
-						that._clear();
-					}
-				}
-			);
-		} else {
-			if ( this._trigger( "stop", event ) !== false ) {
-				this._clear();
-			}
-		}
-
-		return false;
-	},
-
-	_mouseUp: function( event ) {
-		this._unblockFrames();
-
-		// If the ddmanager is used for droppables, inform the manager that dragging has stopped
-		// (see #5003)
-		if ( $.ui.ddmanager ) {
-			$.ui.ddmanager.dragStop( this, event );
-		}
-
-		// Only need to focus if the event occurred on the draggable itself, see #10527
-		if ( this.handleElement.is( event.target ) ) {
-
-			// The interaction is over; whether or not the click resulted in a drag,
-			// focus the element
-			this.element.trigger( "focus" );
-		}
-
-		return $.ui.mouse.prototype._mouseUp.call( this, event );
-	},
-
-	cancel: function() {
-
-		if ( this.helper.is( ".ui-draggable-dragging" ) ) {
-			this._mouseUp( new $.Event( "mouseup", { target: this.element[ 0 ] } ) );
-		} else {
-			this._clear();
-		}
-
-		return this;
-
-	},
-
-	_getHandle: function( event ) {
-		return this.options.handle ?
-			!!$( event.target ).closest( this.element.find( this.options.handle ) ).length :
-			true;
-	},
-
-	_setHandleClassName: function() {
-		this.handleElement = this.options.handle ?
-			this.element.find( this.options.handle ) : this.element;
-		this._addClass( this.handleElement, "ui-draggable-handle" );
-	},
-
-	_removeHandleClassName: function() {
-		this._removeClass( this.handleElement, "ui-draggable-handle" );
-	},
-
-	_createHelper: function( event ) {
-
-		var o = this.options,
-			helperIsFunction = $.isFunction( o.helper ),
-			helper = helperIsFunction ?
-				$( o.helper.apply( this.element[ 0 ], [ event ] ) ) :
-				( o.helper === "clone" ?
-					this.element.clone().removeAttr( "id" ) :
-					this.element );
-
-		if ( !helper.parents( "body" ).length ) {
-			helper.appendTo( ( o.appendTo === "parent" ?
-				this.element[ 0 ].parentNode :
-				o.appendTo ) );
-		}
-
-		// Http://bugs.jqueryui.com/ticket/9446
-		// a helper function can return the original element
-		// which wouldn't have been set to relative in _create
-		if ( helperIsFunction && helper[ 0 ] === this.element[ 0 ] ) {
-			this._setPositionRelative();
-		}
-
-		if ( helper[ 0 ] !== this.element[ 0 ] &&
-				!( /(fixed|absolute)/ ).test( helper.css( "position" ) ) ) {
-			helper.css( "position", "absolute" );
-		}
-
-		return helper;
-
-	},
-
-	_setPositionRelative: function() {
-		if ( !( /^(?:r|a|f)/ ).test( this.element.css( "position" ) ) ) {
-			this.element[ 0 ].style.position = "relative";
-		}
-	},
-
-	_adjustOffsetFromHelper: function( obj ) {
-		if ( typeof obj === "string" ) {
-			obj = obj.split( " " );
-		}
-		if ( $.isArray( obj ) ) {
-			obj = { left: +obj[ 0 ], top: +obj[ 1 ] || 0 };
-		}
-		if ( "left" in obj ) {
-			this.offset.click.left = obj.left + this.margins.left;
-		}
-		if ( "right" in obj ) {
-			this.offset.click.left = this.helperProportions.width - obj.right + this.margins.left;
-		}
-		if ( "top" in obj ) {
-			this.offset.click.top = obj.top + this.margins.top;
-		}
-		if ( "bottom" in obj ) {
-			this.offset.click.top = this.helperProportions.height - obj.bottom + this.margins.top;
-		}
-	},
-
-	_isRootNode: function( element ) {
-		return ( /(html|body)/i ).test( element.tagName ) || element === this.document[ 0 ];
-	},
-
-	_getParentOffset: function() {
-
-		//Get the offsetParent and cache its position
-		var po = this.offsetParent.offset(),
-			document = this.document[ 0 ];
-
-		// This is a special case where we need to modify a offset calculated on start, since the
-		// following happened:
-		// 1. The position of the helper is absolute, so it's position is calculated based on the
-		// next positioned parent
-		// 2. The actual offset parent is a child of the scroll parent, and the scroll parent isn't
-		// the document, which means that the scroll is included in the initial calculation of the
-		// offset of the parent, and never recalculated upon drag
-		if ( this.cssPosition === "absolute" && this.scrollParent[ 0 ] !== document &&
-				$.contains( this.scrollParent[ 0 ], this.offsetParent[ 0 ] ) ) {
-			po.left += this.scrollParent.scrollLeft();
-			po.top += this.scrollParent.scrollTop();
-		}
-
-		if ( this._isRootNode( this.offsetParent[ 0 ] ) ) {
-			po = { top: 0, left: 0 };
-		}
-
-		return {
-			top: po.top + ( parseInt( this.offsetParent.css( "borderTopWidth" ), 10 ) || 0 ),
-			left: po.left + ( parseInt( this.offsetParent.css( "borderLeftWidth" ), 10 ) || 0 )
-		};
-
-	},
-
-	_getRelativeOffset: function() {
-		if ( this.cssPosition !== "relative" ) {
-			return { top: 0, left: 0 };
-		}
-
-		var p = this.element.position(),
-			scrollIsRootNode = this._isRootNode( this.scrollParent[ 0 ] );
-
-		return {
-			top: p.top - ( parseInt( this.helper.css( "top" ), 10 ) || 0 ) +
-				( !scrollIsRootNode ? this.scrollParent.scrollTop() : 0 ),
-			left: p.left - ( parseInt( this.helper.css( "left" ), 10 ) || 0 ) +
-				( !scrollIsRootNode ? this.scrollParent.scrollLeft() : 0 )
-		};
-
-	},
-
-	_cacheMargins: function() {
-		this.margins = {
-			left: ( parseInt( this.element.css( "marginLeft" ), 10 ) || 0 ),
-			top: ( parseInt( this.element.css( "marginTop" ), 10 ) || 0 ),
-			right: ( parseInt( this.element.css( "marginRight" ), 10 ) || 0 ),
-			bottom: ( parseInt( this.element.css( "marginBottom" ), 10 ) || 0 )
-		};
-	},
-
-	_cacheHelperProportions: function() {
-		this.helperProportions = {
-			width: this.helper.outerWidth(),
-			height: this.helper.outerHeight()
-		};
-	},
-
-	_setContainment: function() {
-
-		var isUserScrollable, c, ce,
-			o = this.options,
-			document = this.document[ 0 ];
-
-		this.relativeContainer = null;
-
-		if ( !o.containment ) {
-			this.containment = null;
-			return;
-		}
-
-		if ( o.containment === "window" ) {
-			this.containment = [
-				$( window ).scrollLeft() - this.offset.relative.left - this.offset.parent.left,
-				$( window ).scrollTop() - this.offset.relative.top - this.offset.parent.top,
-				$( window ).scrollLeft() + $( window ).width() -
-					this.helperProportions.width - this.margins.left,
-				$( window ).scrollTop() +
-					( $( window ).height() || document.body.parentNode.scrollHeight ) -
-					this.helperProportions.height - this.margins.top
-			];
-			return;
-		}
-
-		if ( o.containment === "document" ) {
-			this.containment = [
-				0,
-				0,
-				$( document ).width() - this.helperProportions.width - this.margins.left,
-				( $( document ).height() || document.body.parentNode.scrollHeight ) -
-					this.helperProportions.height - this.margins.top
-			];
-			return;
-		}
-
-		if ( o.containment.constructor === Array ) {
-			this.containment = o.containment;
-			return;
-		}
-
-		if ( o.containment === "parent" ) {
-			o.containment = this.helper[ 0 ].parentNode;
-		}
-
-		c = $( o.containment );
-		ce = c[ 0 ];
-
-		if ( !ce ) {
-			return;
-		}
-
-		isUserScrollable = /(scroll|auto)/.test( c.css( "overflow" ) );
-
-		this.containment = [
-			( parseInt( c.css( "borderLeftWidth" ), 10 ) || 0 ) +
-				( parseInt( c.css( "paddingLeft" ), 10 ) || 0 ),
-			( parseInt( c.css( "borderTopWidth" ), 10 ) || 0 ) +
-				( parseInt( c.css( "paddingTop" ), 10 ) || 0 ),
-			( isUserScrollable ? Math.max( ce.scrollWidth, ce.offsetWidth ) : ce.offsetWidth ) -
-				( parseInt( c.css( "borderRightWidth" ), 10 ) || 0 ) -
-				( parseInt( c.css( "paddingRight" ), 10 ) || 0 ) -
-				this.helperProportions.width -
-				this.margins.left -
-				this.margins.right,
-			( isUserScrollable ? Math.max( ce.scrollHeight, ce.offsetHeight ) : ce.offsetHeight ) -
-				( parseInt( c.css( "borderBottomWidth" ), 10 ) || 0 ) -
-				( parseInt( c.css( "paddingBottom" ), 10 ) || 0 ) -
-				this.helperProportions.height -
-				this.margins.top -
-				this.margins.bottom
-		];
-		this.relativeContainer = c;
-	},
-
-	_convertPositionTo: function( d, pos ) {
-
-		if ( !pos ) {
-			pos = this.position;
-		}
-
-		var mod = d === "absolute" ? 1 : -1,
-			scrollIsRootNode = this._isRootNode( this.scrollParent[ 0 ] );
-
-		return {
-			top: (
-
-				// The absolute mouse position
-				pos.top	+
-
-				// Only for relative positioned nodes: Relative offset from element to offset parent
-				this.offset.relative.top * mod +
-
-				// The offsetParent's offset without borders (offset + border)
-				this.offset.parent.top * mod -
-				( ( this.cssPosition === "fixed" ?
-					-this.offset.scroll.top :
-					( scrollIsRootNode ? 0 : this.offset.scroll.top ) ) * mod )
-			),
-			left: (
-
-				// The absolute mouse position
-				pos.left +
-
-				// Only for relative positioned nodes: Relative offset from element to offset parent
-				this.offset.relative.left * mod +
-
-				// The offsetParent's offset without borders (offset + border)
-				this.offset.parent.left * mod	-
-				( ( this.cssPosition === "fixed" ?
-					-this.offset.scroll.left :
-					( scrollIsRootNode ? 0 : this.offset.scroll.left ) ) * mod )
-			)
-		};
-
-	},
-
-	_generatePosition: function( event, constrainPosition ) {
-
-		var containment, co, top, left,
-			o = this.options,
-			scrollIsRootNode = this._isRootNode( this.scrollParent[ 0 ] ),
-			pageX = event.pageX,
-			pageY = event.pageY;
-
-		// Cache the scroll
-		if ( !scrollIsRootNode || !this.offset.scroll ) {
-			this.offset.scroll = {
-				top: this.scrollParent.scrollTop(),
-				left: this.scrollParent.scrollLeft()
-			};
-		}
-
-		/*
-		 * - Position constraining -
-		 * Constrain the position to a mix of grid, containment.
-		 */
-
-		// If we are not dragging yet, we won't check for options
-		if ( constrainPosition ) {
-			if ( this.containment ) {
-				if ( this.relativeContainer ) {
-					co = this.relativeContainer.offset();
-					containment = [
-						this.containment[ 0 ] + co.left,
-						this.containment[ 1 ] + co.top,
-						this.containment[ 2 ] + co.left,
-						this.containment[ 3 ] + co.top
-					];
-				} else {
-					containment = this.containment;
-				}
-
-				if ( event.pageX - this.offset.click.left < containment[ 0 ] ) {
-					pageX = containment[ 0 ] + this.offset.click.left;
-				}
-				if ( event.pageY - this.offset.click.top < containment[ 1 ] ) {
-					pageY = containment[ 1 ] + this.offset.click.top;
-				}
-				if ( event.pageX - this.offset.click.left > containment[ 2 ] ) {
-					pageX = containment[ 2 ] + this.offset.click.left;
-				}
-				if ( event.pageY - this.offset.click.top > containment[ 3 ] ) {
-					pageY = containment[ 3 ] + this.offset.click.top;
-				}
-			}
-
-			if ( o.grid ) {
-
-				//Check for grid elements set to 0 to prevent divide by 0 error causing invalid
-				// argument errors in IE (see ticket #6950)
-				top = o.grid[ 1 ] ? this.originalPageY + Math.round( ( pageY -
-					this.originalPageY ) / o.grid[ 1 ] ) * o.grid[ 1 ] : this.originalPageY;
-				pageY = containment ? ( ( top - this.offset.click.top >= containment[ 1 ] ||
-					top - this.offset.click.top > containment[ 3 ] ) ?
-						top :
-						( ( top - this.offset.click.top >= containment[ 1 ] ) ?
-							top - o.grid[ 1 ] : top + o.grid[ 1 ] ) ) : top;
-
-				left = o.grid[ 0 ] ? this.originalPageX +
-					Math.round( ( pageX - this.originalPageX ) / o.grid[ 0 ] ) * o.grid[ 0 ] :
-					this.originalPageX;
-				pageX = containment ? ( ( left - this.offset.click.left >= containment[ 0 ] ||
-					left - this.offset.click.left > containment[ 2 ] ) ?
-						left :
-						( ( left - this.offset.click.left >= containment[ 0 ] ) ?
-							left - o.grid[ 0 ] : left + o.grid[ 0 ] ) ) : left;
-			}
-
-			if ( o.axis === "y" ) {
-				pageX = this.originalPageX;
-			}
-
-			if ( o.axis === "x" ) {
-				pageY = this.originalPageY;
-			}
-		}
-
-		return {
-			top: (
-
-				// The absolute mouse position
-				pageY -
-
-				// Click offset (relative to the element)
-				this.offset.click.top -
-
-				// Only for relative positioned nodes: Relative offset from element to offset parent
-				this.offset.relative.top -
-
-				// The offsetParent's offset without borders (offset + border)
-				this.offset.parent.top +
-				( this.cssPosition === "fixed" ?
-					-this.offset.scroll.top :
-					( scrollIsRootNode ? 0 : this.offset.scroll.top ) )
-			),
-			left: (
-
-				// The absolute mouse position
-				pageX -
-
-				// Click offset (relative to the element)
-				this.offset.click.left -
-
-				// Only for relative positioned nodes: Relative offset from element to offset parent
-				this.offset.relative.left -
-
-				// The offsetParent's offset without borders (offset + border)
-				this.offset.parent.left +
-				( this.cssPosition === "fixed" ?
-					-this.offset.scroll.left :
-					( scrollIsRootNode ? 0 : this.offset.scroll.left ) )
-			)
-		};
-
-	},
-
-	_clear: function() {
-		this._removeClass( this.helper, "ui-draggable-dragging" );
-		if ( this.helper[ 0 ] !== this.element[ 0 ] && !this.cancelHelperRemoval ) {
-			this.helper.remove();
-		}
-		this.helper = null;
-		this.cancelHelperRemoval = false;
-		if ( this.destroyOnClear ) {
-			this.destroy();
-		}
-	},
-
-	// From now on bulk stuff - mainly helpers
-
-	_trigger: function( type, event, ui ) {
-		ui = ui || this._uiHash();
-		$.ui.plugin.call( this, type, [ event, ui, this ], true );
-
-		// Absolute position and offset (see #6884 ) have to be recalculated after plugins
-		if ( /^(drag|start|stop)/.test( type ) ) {
-			this.positionAbs = this._convertPositionTo( "absolute" );
-			ui.offset = this.positionAbs;
-		}
-		return $.Widget.prototype._trigger.call( this, type, event, ui );
-	},
-
-	plugins: {},
-
-	_uiHash: function() {
-		return {
-			helper: this.helper,
-			position: this.position,
-			originalPosition: this.originalPosition,
-			offset: this.positionAbs
-		};
-	}
-
-} );
-
-$.ui.plugin.add( "draggable", "connectToSortable", {
-	start: function( event, ui, draggable ) {
-		var uiSortable = $.extend( {}, ui, {
-			item: draggable.element
-		} );
-
-		draggable.sortables = [];
-		$( draggable.options.connectToSortable ).each( function() {
-			var sortable = $( this ).sortable( "instance" );
-
-			if ( sortable && !sortable.options.disabled ) {
-				draggable.sortables.push( sortable );
-
-				// RefreshPositions is called at drag start to refresh the containerCache
-				// which is used in drag. This ensures it's initialized and synchronized
-				// with any changes that might have happened on the page since initialization.
-				sortable.refreshPositions();
-				sortable._trigger( "activate", event, uiSortable );
-			}
-		} );
-	},
-	stop: function( event, ui, draggable ) {
-		var uiSortable = $.extend( {}, ui, {
-			item: draggable.element
-		} );
-
-		draggable.cancelHelperRemoval = false;
-
-		$.each( draggable.sortables, function() {
-			var sortable = this;
-
-			if ( sortable.isOver ) {
-				sortable.isOver = 0;
-
-				// Allow this sortable to handle removing the helper
-				draggable.cancelHelperRemoval = true;
-				sortable.cancelHelperRemoval = false;
-
-				// Use _storedCSS To restore properties in the sortable,
-				// as this also handles revert (#9675) since the draggable
-				// may have modified them in unexpected ways (#8809)
-				sortable._storedCSS = {
-					position: sortable.placeholder.css( "position" ),
-					top: sortable.placeholder.css( "top" ),
-					left: sortable.placeholder.css( "left" )
-				};
-
-				sortable._mouseStop( event );
-
-				// Once drag has ended, the sortable should return to using
-				// its original helper, not the shared helper from draggable
-				sortable.options.helper = sortable.options._helper;
-			} else {
-
-				// Prevent this Sortable from removing the helper.
-				// However, don't set the draggable to remove the helper
-				// either as another connected Sortable may yet handle the removal.
-				sortable.cancelHelperRemoval = true;
-
-				sortable._trigger( "deactivate", event, uiSortable );
-			}
-		} );
-	},
-	drag: function( event, ui, draggable ) {
-		$.each( draggable.sortables, function() {
-			var innermostIntersecting = false,
-				sortable = this;
-
-			// Copy over variables that sortable's _intersectsWith uses
-			sortable.positionAbs = draggable.positionAbs;
-			sortable.helperProportions = draggable.helperProportions;
-			sortable.offset.click = draggable.offset.click;
-
-			if ( sortable._intersectsWith( sortable.containerCache ) ) {
-				innermostIntersecting = true;
-
-				$.each( draggable.sortables, function() {
-
-					// Copy over variables that sortable's _intersectsWith uses
-					this.positionAbs = draggable.positionAbs;
-					this.helperProportions = draggable.helperProportions;
-					this.offset.click = draggable.offset.click;
-
-					if ( this !== sortable &&
-							this._intersectsWith( this.containerCache ) &&
-							$.contains( sortable.element[ 0 ], this.element[ 0 ] ) ) {
-						innermostIntersecting = false;
-					}
-
-					return innermostIntersecting;
-				} );
-			}
-
-			if ( innermostIntersecting ) {
-
-				// If it intersects, we use a little isOver variable and set it once,
-				// so that the move-in stuff gets fired only once.
-				if ( !sortable.isOver ) {
-					sortable.isOver = 1;
-
-					// Store draggable's parent in case we need to reappend to it later.
-					draggable._parent = ui.helper.parent();
-
-					sortable.currentItem = ui.helper
-						.appendTo( sortable.element )
-						.data( "ui-sortable-item", true );
-
-					// Store helper option to later restore it
-					sortable.options._helper = sortable.options.helper;
-
-					sortable.options.helper = function() {
-						return ui.helper[ 0 ];
-					};
-
-					// Fire the start events of the sortable with our passed browser event,
-					// and our own helper (so it doesn't create a new one)
-					event.target = sortable.currentItem[ 0 ];
-					sortable._mouseCapture( event, true );
-					sortable._mouseStart( event, true, true );
-
-					// Because the browser event is way off the new appended portlet,
-					// modify necessary variables to reflect the changes
-					sortable.offset.click.top = draggable.offset.click.top;
-					sortable.offset.click.left = draggable.offset.click.left;
-					sortable.offset.parent.left -= draggable.offset.parent.left -
-						sortable.offset.parent.left;
-					sortable.offset.parent.top -= draggable.offset.parent.top -
-						sortable.offset.parent.top;
-
-					draggable._trigger( "toSortable", event );
-
-					// Inform draggable that the helper is in a valid drop zone,
-					// used solely in the revert option to handle "valid/invalid".
-					draggable.dropped = sortable.element;
-
-					// Need to refreshPositions of all sortables in the case that
-					// adding to one sortable changes the location of the other sortables (#9675)
-					$.each( draggable.sortables, function() {
-						this.refreshPositions();
-					} );
-
-					// Hack so receive/update callbacks work (mostly)
-					draggable.currentItem = draggable.element;
-					sortable.fromOutside = draggable;
-				}
-
-				if ( sortable.currentItem ) {
-					sortable._mouseDrag( event );
-
-					// Copy the sortable's position because the draggable's can potentially reflect
-					// a relative position, while sortable is always absolute, which the dragged
-					// element has now become. (#8809)
-					ui.position = sortable.position;
-				}
-			} else {
-
-				// If it doesn't intersect with the sortable, and it intersected before,
-				// we fake the drag stop of the sortable, but make sure it doesn't remove
-				// the helper by using cancelHelperRemoval.
-				if ( sortable.isOver ) {
-
-					sortable.isOver = 0;
-					sortable.cancelHelperRemoval = true;
-
-					// Calling sortable's mouseStop would trigger a revert,
-					// so revert must be temporarily false until after mouseStop is called.
-					sortable.options._revert = sortable.options.revert;
-					sortable.options.revert = false;
-
-					sortable._trigger( "out", event, sortable._uiHash( sortable ) );
-					sortable._mouseStop( event, true );
-
-					// Restore sortable behaviors that were modfied
-					// when the draggable entered the sortable area (#9481)
-					sortable.options.revert = sortable.options._revert;
-					sortable.options.helper = sortable.options._helper;
-
-					if ( sortable.placeholder ) {
-						sortable.placeholder.remove();
-					}
-
-					// Restore and recalculate the draggable's offset considering the sortable
-					// may have modified them in unexpected ways. (#8809, #10669)
-					ui.helper.appendTo( draggable._parent );
-					draggable._refreshOffsets( event );
-					ui.position = draggable._generatePosition( event, true );
-
-					draggable._trigger( "fromSortable", event );
-
-					// Inform draggable that the helper is no longer in a valid drop zone
-					draggable.dropped = false;
-
-					// Need to refreshPositions of all sortables just in case removing
-					// from one sortable changes the location of other sortables (#9675)
-					$.each( draggable.sortables, function() {
-						this.refreshPositions();
-					} );
-				}
-			}
-		} );
-	}
-} );
-
-$.ui.plugin.add( "draggable", "cursor", {
-	start: function( event, ui, instance ) {
-		var t = $( "body" ),
-			o = instance.options;
-
-		if ( t.css( "cursor" ) ) {
-			o._cursor = t.css( "cursor" );
-		}
-		t.css( "cursor", o.cursor );
-	},
-	stop: function( event, ui, instance ) {
-		var o = instance.options;
-		if ( o._cursor ) {
-			$( "body" ).css( "cursor", o._cursor );
-		}
-	}
-} );
-
-$.ui.plugin.add( "draggable", "opacity", {
-	start: function( event, ui, instance ) {
-		var t = $( ui.helper ),
-			o = instance.options;
-		if ( t.css( "opacity" ) ) {
-			o._opacity = t.css( "opacity" );
-		}
-		t.css( "opacity", o.opacity );
-	},
-	stop: function( event, ui, instance ) {
-		var o = instance.options;
-		if ( o._opacity ) {
-			$( ui.helper ).css( "opacity", o._opacity );
-		}
-	}
-} );
-
-$.ui.plugin.add( "draggable", "scroll", {
-	start: function( event, ui, i ) {
-		if ( !i.scrollParentNotHidden ) {
-			i.scrollParentNotHidden = i.helper.scrollParent( false );
-		}
-
-		if ( i.scrollParentNotHidden[ 0 ] !== i.document[ 0 ] &&
-				i.scrollParentNotHidden[ 0 ].tagName !== "HTML" ) {
-			i.overflowOffset = i.scrollParentNotHidden.offset();
-		}
-	},
-	drag: function( event, ui, i  ) {
-
-		var o = i.options,
-			scrolled = false,
-			scrollParent = i.scrollParentNotHidden[ 0 ],
-			document = i.document[ 0 ];
-
-		if ( scrollParent !== document && scrollParent.tagName !== "HTML" ) {
-			if ( !o.axis || o.axis !== "x" ) {
-				if ( ( i.overflowOffset.top + scrollParent.offsetHeight ) - event.pageY <
-						o.scrollSensitivity ) {
-					scrollParent.scrollTop = scrolled = scrollParent.scrollTop + o.scrollSpeed;
-				} else if ( event.pageY - i.overflowOffset.top < o.scrollSensitivity ) {
-					scrollParent.scrollTop = scrolled = scrollParent.scrollTop - o.scrollSpeed;
-				}
-			}
-
-			if ( !o.axis || o.axis !== "y" ) {
-				if ( ( i.overflowOffset.left + scrollParent.offsetWidth ) - event.pageX <
-						o.scrollSensitivity ) {
-					scrollParent.scrollLeft = scrolled = scrollParent.scrollLeft + o.scrollSpeed;
-				} else if ( event.pageX - i.overflowOffset.left < o.scrollSensitivity ) {
-					scrollParent.scrollLeft = scrolled = scrollParent.scrollLeft - o.scrollSpeed;
-				}
-			}
-
-		} else {
-
-			if ( !o.axis || o.axis !== "x" ) {
-				if ( event.pageY - $( document ).scrollTop() < o.scrollSensitivity ) {
-					scrolled = $( document ).scrollTop( $( document ).scrollTop() - o.scrollSpeed );
-				} else if ( $( window ).height() - ( event.pageY - $( document ).scrollTop() ) <
-						o.scrollSensitivity ) {
-					scrolled = $( document ).scrollTop( $( document ).scrollTop() + o.scrollSpeed );
-				}
-			}
-
-			if ( !o.axis || o.axis !== "y" ) {
-				if ( event.pageX - $( document ).scrollLeft() < o.scrollSensitivity ) {
-					scrolled = $( document ).scrollLeft(
-						$( document ).scrollLeft() - o.scrollSpeed
-					);
-				} else if ( $( window ).width() - ( event.pageX - $( document ).scrollLeft() ) <
-						o.scrollSensitivity ) {
-					scrolled = $( document ).scrollLeft(
-						$( document ).scrollLeft() + o.scrollSpeed
-					);
-				}
-			}
-
-		}
-
-		if ( scrolled !== false && $.ui.ddmanager && !o.dropBehaviour ) {
-			$.ui.ddmanager.prepareOffsets( i, event );
-		}
-
-	}
-} );
-
-$.ui.plugin.add( "draggable", "snap", {
-	start: function( event, ui, i ) {
-
-		var o = i.options;
-
-		i.snapElements = [];
-
-		$( o.snap.constructor !== String ? ( o.snap.items || ":data(ui-draggable)" ) : o.snap )
-			.each( function() {
-				var $t = $( this ),
-					$o = $t.offset();
-				if ( this !== i.element[ 0 ] ) {
-					i.snapElements.push( {
-						item: this,
-						width: $t.outerWidth(), height: $t.outerHeight(),
-						top: $o.top, left: $o.left
-					} );
-				}
-			} );
-
-	},
-	drag: function( event, ui, inst ) {
-
-		var ts, bs, ls, rs, l, r, t, b, i, first,
-			o = inst.options,
-			d = o.snapTolerance,
-			x1 = ui.offset.left, x2 = x1 + inst.helperProportions.width,
-			y1 = ui.offset.top, y2 = y1 + inst.helperProportions.height;
-
-		for ( i = inst.snapElements.length - 1; i >= 0; i-- ) {
-
-			l = inst.snapElements[ i ].left - inst.margins.left;
-			r = l + inst.snapElements[ i ].width;
-			t = inst.snapElements[ i ].top - inst.margins.top;
-			b = t + inst.snapElements[ i ].height;
-
-			if ( x2 < l - d || x1 > r + d || y2 < t - d || y1 > b + d ||
-					!$.contains( inst.snapElements[ i ].item.ownerDocument,
-					inst.snapElements[ i ].item ) ) {
-				if ( inst.snapElements[ i ].snapping ) {
-					( inst.options.snap.release &&
-						inst.options.snap.release.call(
-							inst.element,
-							event,
-							$.extend( inst._uiHash(), { snapItem: inst.snapElements[ i ].item } )
-						) );
-				}
-				inst.snapElements[ i ].snapping = false;
-				continue;
-			}
-
-			if ( o.snapMode !== "inner" ) {
-				ts = Math.abs( t - y2 ) <= d;
-				bs = Math.abs( b - y1 ) <= d;
-				ls = Math.abs( l - x2 ) <= d;
-				rs = Math.abs( r - x1 ) <= d;
-				if ( ts ) {
-					ui.position.top = inst._convertPositionTo( "relative", {
-						top: t - inst.helperProportions.height,
-						left: 0
-					} ).top;
-				}
-				if ( bs ) {
-					ui.position.top = inst._convertPositionTo( "relative", {
-						top: b,
-						left: 0
-					} ).top;
-				}
-				if ( ls ) {
-					ui.position.left = inst._convertPositionTo( "relative", {
-						top: 0,
-						left: l - inst.helperProportions.width
-					} ).left;
-				}
-				if ( rs ) {
-					ui.position.left = inst._convertPositionTo( "relative", {
-						top: 0,
-						left: r
-					} ).left;
-				}
-			}
-
-			first = ( ts || bs || ls || rs );
-
-			if ( o.snapMode !== "outer" ) {
-				ts = Math.abs( t - y1 ) <= d;
-				bs = Math.abs( b - y2 ) <= d;
-				ls = Math.abs( l - x1 ) <= d;
-				rs = Math.abs( r - x2 ) <= d;
-				if ( ts ) {
-					ui.position.top = inst._convertPositionTo( "relative", {
-						top: t,
-						left: 0
-					} ).top;
-				}
-				if ( bs ) {
-					ui.position.top = inst._convertPositionTo( "relative", {
-						top: b - inst.helperProportions.height,
-						left: 0
-					} ).top;
-				}
-				if ( ls ) {
-					ui.position.left = inst._convertPositionTo( "relative", {
-						top: 0,
-						left: l
-					} ).left;
-				}
-				if ( rs ) {
-					ui.position.left = inst._convertPositionTo( "relative", {
-						top: 0,
-						left: r - inst.helperProportions.width
-					} ).left;
-				}
-			}
-
-			if ( !inst.snapElements[ i ].snapping && ( ts || bs || ls || rs || first ) ) {
-				( inst.options.snap.snap &&
-					inst.options.snap.snap.call(
-						inst.element,
-						event,
-						$.extend( inst._uiHash(), {
-							snapItem: inst.snapElements[ i ].item
-						} ) ) );
-			}
-			inst.snapElements[ i ].snapping = ( ts || bs || ls || rs || first );
-
-		}
-
-	}
-} );
-
-$.ui.plugin.add( "draggable", "stack", {
-	start: function( event, ui, instance ) {
-		var min,
-			o = instance.options,
-			group = $.makeArray( $( o.stack ) ).sort( function( a, b ) {
-				return ( parseInt( $( a ).css( "zIndex" ), 10 ) || 0 ) -
-					( parseInt( $( b ).css( "zIndex" ), 10 ) || 0 );
-			} );
-
-		if ( !group.length ) { return; }
-
-		min = parseInt( $( group[ 0 ] ).css( "zIndex" ), 10 ) || 0;
-		$( group ).each( function( i ) {
-			$( this ).css( "zIndex", min + i );
-		} );
-		this.css( "zIndex", ( min + group.length ) );
-	}
-} );
-
-$.ui.plugin.add( "draggable", "zIndex", {
-	start: function( event, ui, instance ) {
-		var t = $( ui.helper ),
-			o = instance.options;
-
-		if ( t.css( "zIndex" ) ) {
-			o._zIndex = t.css( "zIndex" );
-		}
-		t.css( "zIndex", o.zIndex );
-	},
-	stop: function( event, ui, instance ) {
-		var o = instance.options;
-
-		if ( o._zIndex ) {
-			$( ui.helper ).css( "zIndex", o._zIndex );
-		}
-	}
-} );
-
-return $.ui.draggable;
-
-} ) );
-
-
-/***/ }),
 /* 32 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
-	if ( true ) {
-
-		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	} else {
-
-		// Browser globals
-		factory( jQuery );
-	}
-} ( function( $ ) {
-
-// This file is deprecated
-return $.ui.ie = !!/msie [\w.]+/.exec( navigator.userAgent.toLowerCase() );
-} ) );
-
-
-/***/ }),
-/* 33 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
- * jQuery UI :data 1.12.1
- * http://jqueryui.com
- *
- * Copyright jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- */
-
-//>>label: :data Selector
-//>>group: Core
-//>>description: Selects elements which have data stored under the specified key.
-//>>docs: http://api.jqueryui.com/data-selector/
-
-( function( factory ) {
-	if ( true ) {
-
-		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	} else {
-
-		// Browser globals
-		factory( jQuery );
-	}
-} ( function( $ ) {
-return $.extend( $.expr[ ":" ], {
-	data: $.expr.createPseudo ?
-		$.expr.createPseudo( function( dataName ) {
-			return function( elem ) {
-				return !!$.data( elem, dataName );
-			};
-		} ) :
-
-		// Support: jQuery <1.8
-		function( elem, i, match ) {
-			return !!$.data( elem, match[ 3 ] );
-		}
-} );
-} ) );
-
-
-/***/ }),
-/* 34 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
- * jQuery UI Scroll Parent 1.12.1
- * http://jqueryui.com
- *
- * Copyright jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- */
-
-//>>label: scrollParent
-//>>group: Core
-//>>description: Get the closest ancestor element that is scrollable.
-//>>docs: http://api.jqueryui.com/scrollParent/
-
-( function( factory ) {
-	if ( true ) {
-
-		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	} else {
-
-		// Browser globals
-		factory( jQuery );
-	}
-} ( function( $ ) {
-
-return $.fn.scrollParent = function( includeHidden ) {
-	var position = this.css( "position" ),
-		excludeStaticParent = position === "absolute",
-		overflowRegex = includeHidden ? /(auto|scroll|hidden)/ : /(auto|scroll)/,
-		scrollParent = this.parents().filter( function() {
-			var parent = $( this );
-			if ( excludeStaticParent && parent.css( "position" ) === "static" ) {
-				return false;
-			}
-			return overflowRegex.test( parent.css( "overflow" ) + parent.css( "overflow-y" ) +
-				parent.css( "overflow-x" ) );
-		} ).eq( 0 );
-
-	return position === "fixed" || !scrollParent.length ?
-		$( this[ 0 ].ownerDocument || document ) :
-		scrollParent;
-};
-
-} ) );
-
-
-/***/ }),
-/* 35 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
- * jQuery UI Resizable 1.12.1
- * http://jqueryui.com
- *
- * Copyright jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- */
-
-//>>label: Resizable
-//>>group: Interactions
-//>>description: Enables resize functionality for any element.
-//>>docs: http://api.jqueryui.com/resizable/
-//>>demos: http://jqueryui.com/resizable/
-//>>css.structure: ../../themes/base/core.css
-//>>css.structure: ../../themes/base/resizable.css
-//>>css.theme: ../../themes/base/theme.css
-
-( function( factory ) {
-	if ( true ) {
-
-		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
-			__webpack_require__(0),
-			__webpack_require__(12),
-			__webpack_require__(36),
-			__webpack_require__(17),
-			__webpack_require__(1),
-			__webpack_require__(2)
-		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	} else {
-
-		// Browser globals
-		factory( jQuery );
-	}
-}( function( $ ) {
-
-$.widget( "ui.resizable", $.ui.mouse, {
-	version: "1.12.1",
-	widgetEventPrefix: "resize",
-	options: {
-		alsoResize: false,
-		animate: false,
-		animateDuration: "slow",
-		animateEasing: "swing",
-		aspectRatio: false,
-		autoHide: false,
-		classes: {
-			"ui-resizable-se": "ui-icon ui-icon-gripsmall-diagonal-se"
-		},
-		containment: false,
-		ghost: false,
-		grid: false,
-		handles: "e,s,se",
-		helper: false,
-		maxHeight: null,
-		maxWidth: null,
-		minHeight: 10,
-		minWidth: 10,
-
-		// See #7960
-		zIndex: 90,
-
-		// Callbacks
-		resize: null,
-		start: null,
-		stop: null
-	},
-
-	_num: function( value ) {
-		return parseFloat( value ) || 0;
-	},
-
-	_isNumber: function( value ) {
-		return !isNaN( parseFloat( value ) );
-	},
-
-	_hasScroll: function( el, a ) {
-
-		if ( $( el ).css( "overflow" ) === "hidden" ) {
-			return false;
-		}
-
-		var scroll = ( a && a === "left" ) ? "scrollLeft" : "scrollTop",
-			has = false;
-
-		if ( el[ scroll ] > 0 ) {
-			return true;
-		}
-
-		// TODO: determine which cases actually cause this to happen
-		// if the element doesn't have the scroll set, see if it's possible to
-		// set the scroll
-		el[ scroll ] = 1;
-		has = ( el[ scroll ] > 0 );
-		el[ scroll ] = 0;
-		return has;
-	},
-
-	_create: function() {
-
-		var margins,
-			o = this.options,
-			that = this;
-		this._addClass( "ui-resizable" );
-
-		$.extend( this, {
-			_aspectRatio: !!( o.aspectRatio ),
-			aspectRatio: o.aspectRatio,
-			originalElement: this.element,
-			_proportionallyResizeElements: [],
-			_helper: o.helper || o.ghost || o.animate ? o.helper || "ui-resizable-helper" : null
-		} );
-
-		// Wrap the element if it cannot hold child nodes
-		if ( this.element[ 0 ].nodeName.match( /^(canvas|textarea|input|select|button|img)$/i ) ) {
-
-			this.element.wrap(
-				$( "<div class='ui-wrapper' style='overflow: hidden;'></div>" ).css( {
-					position: this.element.css( "position" ),
-					width: this.element.outerWidth(),
-					height: this.element.outerHeight(),
-					top: this.element.css( "top" ),
-					left: this.element.css( "left" )
-				} )
-			);
-
-			this.element = this.element.parent().data(
-				"ui-resizable", this.element.resizable( "instance" )
-			);
-
-			this.elementIsWrapper = true;
-
-			margins = {
-				marginTop: this.originalElement.css( "marginTop" ),
-				marginRight: this.originalElement.css( "marginRight" ),
-				marginBottom: this.originalElement.css( "marginBottom" ),
-				marginLeft: this.originalElement.css( "marginLeft" )
-			};
-
-			this.element.css( margins );
-			this.originalElement.css( "margin", 0 );
-
-			// support: Safari
-			// Prevent Safari textarea resize
-			this.originalResizeStyle = this.originalElement.css( "resize" );
-			this.originalElement.css( "resize", "none" );
-
-			this._proportionallyResizeElements.push( this.originalElement.css( {
-				position: "static",
-				zoom: 1,
-				display: "block"
-			} ) );
-
-			// Support: IE9
-			// avoid IE jump (hard set the margin)
-			this.originalElement.css( margins );
-
-			this._proportionallyResize();
-		}
-
-		this._setupHandles();
-
-		if ( o.autoHide ) {
-			$( this.element )
-				.on( "mouseenter", function() {
-					if ( o.disabled ) {
-						return;
-					}
-					that._removeClass( "ui-resizable-autohide" );
-					that._handles.show();
-				} )
-				.on( "mouseleave", function() {
-					if ( o.disabled ) {
-						return;
-					}
-					if ( !that.resizing ) {
-						that._addClass( "ui-resizable-autohide" );
-						that._handles.hide();
-					}
-				} );
-		}
-
-		this._mouseInit();
-	},
-
-	_destroy: function() {
-
-		this._mouseDestroy();
-
-		var wrapper,
-			_destroy = function( exp ) {
-				$( exp )
-					.removeData( "resizable" )
-					.removeData( "ui-resizable" )
-					.off( ".resizable" )
-					.find( ".ui-resizable-handle" )
-						.remove();
-			};
-
-		// TODO: Unwrap at same DOM position
-		if ( this.elementIsWrapper ) {
-			_destroy( this.element );
-			wrapper = this.element;
-			this.originalElement.css( {
-				position: wrapper.css( "position" ),
-				width: wrapper.outerWidth(),
-				height: wrapper.outerHeight(),
-				top: wrapper.css( "top" ),
-				left: wrapper.css( "left" )
-			} ).insertAfter( wrapper );
-			wrapper.remove();
-		}
-
-		this.originalElement.css( "resize", this.originalResizeStyle );
-		_destroy( this.originalElement );
-
-		return this;
-	},
-
-	_setOption: function( key, value ) {
-		this._super( key, value );
-
-		switch ( key ) {
-		case "handles":
-			this._removeHandles();
-			this._setupHandles();
-			break;
-		default:
-			break;
-		}
-	},
-
-	_setupHandles: function() {
-		var o = this.options, handle, i, n, hname, axis, that = this;
-		this.handles = o.handles ||
-			( !$( ".ui-resizable-handle", this.element ).length ?
-				"e,s,se" : {
-					n: ".ui-resizable-n",
-					e: ".ui-resizable-e",
-					s: ".ui-resizable-s",
-					w: ".ui-resizable-w",
-					se: ".ui-resizable-se",
-					sw: ".ui-resizable-sw",
-					ne: ".ui-resizable-ne",
-					nw: ".ui-resizable-nw"
-				} );
-
-		this._handles = $();
-		if ( this.handles.constructor === String ) {
-
-			if ( this.handles === "all" ) {
-				this.handles = "n,e,s,w,se,sw,ne,nw";
-			}
-
-			n = this.handles.split( "," );
-			this.handles = {};
-
-			for ( i = 0; i < n.length; i++ ) {
-
-				handle = $.trim( n[ i ] );
-				hname = "ui-resizable-" + handle;
-				axis = $( "<div>" );
-				this._addClass( axis, "ui-resizable-handle " + hname );
-
-				axis.css( { zIndex: o.zIndex } );
-
-				this.handles[ handle ] = ".ui-resizable-" + handle;
-				this.element.append( axis );
-			}
-
-		}
-
-		this._renderAxis = function( target ) {
-
-			var i, axis, padPos, padWrapper;
-
-			target = target || this.element;
-
-			for ( i in this.handles ) {
-
-				if ( this.handles[ i ].constructor === String ) {
-					this.handles[ i ] = this.element.children( this.handles[ i ] ).first().show();
-				} else if ( this.handles[ i ].jquery || this.handles[ i ].nodeType ) {
-					this.handles[ i ] = $( this.handles[ i ] );
-					this._on( this.handles[ i ], { "mousedown": that._mouseDown } );
-				}
-
-				if ( this.elementIsWrapper &&
-						this.originalElement[ 0 ]
-							.nodeName
-							.match( /^(textarea|input|select|button)$/i ) ) {
-					axis = $( this.handles[ i ], this.element );
-
-					padWrapper = /sw|ne|nw|se|n|s/.test( i ) ?
-						axis.outerHeight() :
-						axis.outerWidth();
-
-					padPos = [ "padding",
-						/ne|nw|n/.test( i ) ? "Top" :
-						/se|sw|s/.test( i ) ? "Bottom" :
-						/^e$/.test( i ) ? "Right" : "Left" ].join( "" );
-
-					target.css( padPos, padWrapper );
-
-					this._proportionallyResize();
-				}
-
-				this._handles = this._handles.add( this.handles[ i ] );
-			}
-		};
-
-		// TODO: make renderAxis a prototype function
-		this._renderAxis( this.element );
-
-		this._handles = this._handles.add( this.element.find( ".ui-resizable-handle" ) );
-		this._handles.disableSelection();
-
-		this._handles.on( "mouseover", function() {
-			if ( !that.resizing ) {
-				if ( this.className ) {
-					axis = this.className.match( /ui-resizable-(se|sw|ne|nw|n|e|s|w)/i );
-				}
-				that.axis = axis && axis[ 1 ] ? axis[ 1 ] : "se";
-			}
-		} );
-
-		if ( o.autoHide ) {
-			this._handles.hide();
-			this._addClass( "ui-resizable-autohide" );
-		}
-	},
-
-	_removeHandles: function() {
-		this._handles.remove();
-	},
-
-	_mouseCapture: function( event ) {
-		var i, handle,
-			capture = false;
-
-		for ( i in this.handles ) {
-			handle = $( this.handles[ i ] )[ 0 ];
-			if ( handle === event.target || $.contains( handle, event.target ) ) {
-				capture = true;
-			}
-		}
-
-		return !this.options.disabled && capture;
-	},
-
-	_mouseStart: function( event ) {
-
-		var curleft, curtop, cursor,
-			o = this.options,
-			el = this.element;
-
-		this.resizing = true;
-
-		this._renderProxy();
-
-		curleft = this._num( this.helper.css( "left" ) );
-		curtop = this._num( this.helper.css( "top" ) );
-
-		if ( o.containment ) {
-			curleft += $( o.containment ).scrollLeft() || 0;
-			curtop += $( o.containment ).scrollTop() || 0;
-		}
-
-		this.offset = this.helper.offset();
-		this.position = { left: curleft, top: curtop };
-
-		this.size = this._helper ? {
-				width: this.helper.width(),
-				height: this.helper.height()
-			} : {
-				width: el.width(),
-				height: el.height()
-			};
-
-		this.originalSize = this._helper ? {
-				width: el.outerWidth(),
-				height: el.outerHeight()
-			} : {
-				width: el.width(),
-				height: el.height()
-			};
-
-		this.sizeDiff = {
-			width: el.outerWidth() - el.width(),
-			height: el.outerHeight() - el.height()
-		};
-
-		this.originalPosition = { left: curleft, top: curtop };
-		this.originalMousePosition = { left: event.pageX, top: event.pageY };
-
-		this.aspectRatio = ( typeof o.aspectRatio === "number" ) ?
-			o.aspectRatio :
-			( ( this.originalSize.width / this.originalSize.height ) || 1 );
-
-		cursor = $( ".ui-resizable-" + this.axis ).css( "cursor" );
-		$( "body" ).css( "cursor", cursor === "auto" ? this.axis + "-resize" : cursor );
-
-		this._addClass( "ui-resizable-resizing" );
-		this._propagate( "start", event );
-		return true;
-	},
-
-	_mouseDrag: function( event ) {
-
-		var data, props,
-			smp = this.originalMousePosition,
-			a = this.axis,
-			dx = ( event.pageX - smp.left ) || 0,
-			dy = ( event.pageY - smp.top ) || 0,
-			trigger = this._change[ a ];
-
-		this._updatePrevProperties();
-
-		if ( !trigger ) {
-			return false;
-		}
-
-		data = trigger.apply( this, [ event, dx, dy ] );
-
-		this._updateVirtualBoundaries( event.shiftKey );
-		if ( this._aspectRatio || event.shiftKey ) {
-			data = this._updateRatio( data, event );
-		}
-
-		data = this._respectSize( data, event );
-
-		this._updateCache( data );
-
-		this._propagate( "resize", event );
-
-		props = this._applyChanges();
-
-		if ( !this._helper && this._proportionallyResizeElements.length ) {
-			this._proportionallyResize();
-		}
-
-		if ( !$.isEmptyObject( props ) ) {
-			this._updatePrevProperties();
-			this._trigger( "resize", event, this.ui() );
-			this._applyChanges();
-		}
-
-		return false;
-	},
-
-	_mouseStop: function( event ) {
-
-		this.resizing = false;
-		var pr, ista, soffseth, soffsetw, s, left, top,
-			o = this.options, that = this;
-
-		if ( this._helper ) {
-
-			pr = this._proportionallyResizeElements;
-			ista = pr.length && ( /textarea/i ).test( pr[ 0 ].nodeName );
-			soffseth = ista && this._hasScroll( pr[ 0 ], "left" ) ? 0 : that.sizeDiff.height;
-			soffsetw = ista ? 0 : that.sizeDiff.width;
-
-			s = {
-				width: ( that.helper.width()  - soffsetw ),
-				height: ( that.helper.height() - soffseth )
-			};
-			left = ( parseFloat( that.element.css( "left" ) ) +
-				( that.position.left - that.originalPosition.left ) ) || null;
-			top = ( parseFloat( that.element.css( "top" ) ) +
-				( that.position.top - that.originalPosition.top ) ) || null;
-
-			if ( !o.animate ) {
-				this.element.css( $.extend( s, { top: top, left: left } ) );
-			}
-
-			that.helper.height( that.size.height );
-			that.helper.width( that.size.width );
-
-			if ( this._helper && !o.animate ) {
-				this._proportionallyResize();
-			}
-		}
-
-		$( "body" ).css( "cursor", "auto" );
-
-		this._removeClass( "ui-resizable-resizing" );
-
-		this._propagate( "stop", event );
-
-		if ( this._helper ) {
-			this.helper.remove();
-		}
-
-		return false;
-
-	},
-
-	_updatePrevProperties: function() {
-		this.prevPosition = {
-			top: this.position.top,
-			left: this.position.left
-		};
-		this.prevSize = {
-			width: this.size.width,
-			height: this.size.height
-		};
-	},
-
-	_applyChanges: function() {
-		var props = {};
-
-		if ( this.position.top !== this.prevPosition.top ) {
-			props.top = this.position.top + "px";
-		}
-		if ( this.position.left !== this.prevPosition.left ) {
-			props.left = this.position.left + "px";
-		}
-		if ( this.size.width !== this.prevSize.width ) {
-			props.width = this.size.width + "px";
-		}
-		if ( this.size.height !== this.prevSize.height ) {
-			props.height = this.size.height + "px";
-		}
-
-		this.helper.css( props );
-
-		return props;
-	},
-
-	_updateVirtualBoundaries: function( forceAspectRatio ) {
-		var pMinWidth, pMaxWidth, pMinHeight, pMaxHeight, b,
-			o = this.options;
-
-		b = {
-			minWidth: this._isNumber( o.minWidth ) ? o.minWidth : 0,
-			maxWidth: this._isNumber( o.maxWidth ) ? o.maxWidth : Infinity,
-			minHeight: this._isNumber( o.minHeight ) ? o.minHeight : 0,
-			maxHeight: this._isNumber( o.maxHeight ) ? o.maxHeight : Infinity
-		};
-
-		if ( this._aspectRatio || forceAspectRatio ) {
-			pMinWidth = b.minHeight * this.aspectRatio;
-			pMinHeight = b.minWidth / this.aspectRatio;
-			pMaxWidth = b.maxHeight * this.aspectRatio;
-			pMaxHeight = b.maxWidth / this.aspectRatio;
-
-			if ( pMinWidth > b.minWidth ) {
-				b.minWidth = pMinWidth;
-			}
-			if ( pMinHeight > b.minHeight ) {
-				b.minHeight = pMinHeight;
-			}
-			if ( pMaxWidth < b.maxWidth ) {
-				b.maxWidth = pMaxWidth;
-			}
-			if ( pMaxHeight < b.maxHeight ) {
-				b.maxHeight = pMaxHeight;
-			}
-		}
-		this._vBoundaries = b;
-	},
-
-	_updateCache: function( data ) {
-		this.offset = this.helper.offset();
-		if ( this._isNumber( data.left ) ) {
-			this.position.left = data.left;
-		}
-		if ( this._isNumber( data.top ) ) {
-			this.position.top = data.top;
-		}
-		if ( this._isNumber( data.height ) ) {
-			this.size.height = data.height;
-		}
-		if ( this._isNumber( data.width ) ) {
-			this.size.width = data.width;
-		}
-	},
-
-	_updateRatio: function( data ) {
-
-		var cpos = this.position,
-			csize = this.size,
-			a = this.axis;
-
-		if ( this._isNumber( data.height ) ) {
-			data.width = ( data.height * this.aspectRatio );
-		} else if ( this._isNumber( data.width ) ) {
-			data.height = ( data.width / this.aspectRatio );
-		}
-
-		if ( a === "sw" ) {
-			data.left = cpos.left + ( csize.width - data.width );
-			data.top = null;
-		}
-		if ( a === "nw" ) {
-			data.top = cpos.top + ( csize.height - data.height );
-			data.left = cpos.left + ( csize.width - data.width );
-		}
-
-		return data;
-	},
-
-	_respectSize: function( data ) {
-
-		var o = this._vBoundaries,
-			a = this.axis,
-			ismaxw = this._isNumber( data.width ) && o.maxWidth && ( o.maxWidth < data.width ),
-			ismaxh = this._isNumber( data.height ) && o.maxHeight && ( o.maxHeight < data.height ),
-			isminw = this._isNumber( data.width ) && o.minWidth && ( o.minWidth > data.width ),
-			isminh = this._isNumber( data.height ) && o.minHeight && ( o.minHeight > data.height ),
-			dw = this.originalPosition.left + this.originalSize.width,
-			dh = this.originalPosition.top + this.originalSize.height,
-			cw = /sw|nw|w/.test( a ), ch = /nw|ne|n/.test( a );
-		if ( isminw ) {
-			data.width = o.minWidth;
-		}
-		if ( isminh ) {
-			data.height = o.minHeight;
-		}
-		if ( ismaxw ) {
-			data.width = o.maxWidth;
-		}
-		if ( ismaxh ) {
-			data.height = o.maxHeight;
-		}
-
-		if ( isminw && cw ) {
-			data.left = dw - o.minWidth;
-		}
-		if ( ismaxw && cw ) {
-			data.left = dw - o.maxWidth;
-		}
-		if ( isminh && ch ) {
-			data.top = dh - o.minHeight;
-		}
-		if ( ismaxh && ch ) {
-			data.top = dh - o.maxHeight;
-		}
-
-		// Fixing jump error on top/left - bug #2330
-		if ( !data.width && !data.height && !data.left && data.top ) {
-			data.top = null;
-		} else if ( !data.width && !data.height && !data.top && data.left ) {
-			data.left = null;
-		}
-
-		return data;
-	},
-
-	_getPaddingPlusBorderDimensions: function( element ) {
-		var i = 0,
-			widths = [],
-			borders = [
-				element.css( "borderTopWidth" ),
-				element.css( "borderRightWidth" ),
-				element.css( "borderBottomWidth" ),
-				element.css( "borderLeftWidth" )
-			],
-			paddings = [
-				element.css( "paddingTop" ),
-				element.css( "paddingRight" ),
-				element.css( "paddingBottom" ),
-				element.css( "paddingLeft" )
-			];
-
-		for ( ; i < 4; i++ ) {
-			widths[ i ] = ( parseFloat( borders[ i ] ) || 0 );
-			widths[ i ] += ( parseFloat( paddings[ i ] ) || 0 );
-		}
-
-		return {
-			height: widths[ 0 ] + widths[ 2 ],
-			width: widths[ 1 ] + widths[ 3 ]
-		};
-	},
-
-	_proportionallyResize: function() {
-
-		if ( !this._proportionallyResizeElements.length ) {
-			return;
-		}
-
-		var prel,
-			i = 0,
-			element = this.helper || this.element;
-
-		for ( ; i < this._proportionallyResizeElements.length; i++ ) {
-
-			prel = this._proportionallyResizeElements[ i ];
-
-			// TODO: Seems like a bug to cache this.outerDimensions
-			// considering that we are in a loop.
-			if ( !this.outerDimensions ) {
-				this.outerDimensions = this._getPaddingPlusBorderDimensions( prel );
-			}
-
-			prel.css( {
-				height: ( element.height() - this.outerDimensions.height ) || 0,
-				width: ( element.width() - this.outerDimensions.width ) || 0
-			} );
-
-		}
-
-	},
-
-	_renderProxy: function() {
-
-		var el = this.element, o = this.options;
-		this.elementOffset = el.offset();
-
-		if ( this._helper ) {
-
-			this.helper = this.helper || $( "<div style='overflow:hidden;'></div>" );
-
-			this._addClass( this.helper, this._helper );
-			this.helper.css( {
-				width: this.element.outerWidth(),
-				height: this.element.outerHeight(),
-				position: "absolute",
-				left: this.elementOffset.left + "px",
-				top: this.elementOffset.top + "px",
-				zIndex: ++o.zIndex //TODO: Don't modify option
-			} );
-
-			this.helper
-				.appendTo( "body" )
-				.disableSelection();
-
-		} else {
-			this.helper = this.element;
-		}
-
-	},
-
-	_change: {
-		e: function( event, dx ) {
-			return { width: this.originalSize.width + dx };
-		},
-		w: function( event, dx ) {
-			var cs = this.originalSize, sp = this.originalPosition;
-			return { left: sp.left + dx, width: cs.width - dx };
-		},
-		n: function( event, dx, dy ) {
-			var cs = this.originalSize, sp = this.originalPosition;
-			return { top: sp.top + dy, height: cs.height - dy };
-		},
-		s: function( event, dx, dy ) {
-			return { height: this.originalSize.height + dy };
-		},
-		se: function( event, dx, dy ) {
-			return $.extend( this._change.s.apply( this, arguments ),
-				this._change.e.apply( this, [ event, dx, dy ] ) );
-		},
-		sw: function( event, dx, dy ) {
-			return $.extend( this._change.s.apply( this, arguments ),
-				this._change.w.apply( this, [ event, dx, dy ] ) );
-		},
-		ne: function( event, dx, dy ) {
-			return $.extend( this._change.n.apply( this, arguments ),
-				this._change.e.apply( this, [ event, dx, dy ] ) );
-		},
-		nw: function( event, dx, dy ) {
-			return $.extend( this._change.n.apply( this, arguments ),
-				this._change.w.apply( this, [ event, dx, dy ] ) );
-		}
-	},
-
-	_propagate: function( n, event ) {
-		$.ui.plugin.call( this, n, [ event, this.ui() ] );
-		( n !== "resize" && this._trigger( n, event, this.ui() ) );
-	},
-
-	plugins: {},
-
-	ui: function() {
-		return {
-			originalElement: this.originalElement,
-			element: this.element,
-			helper: this.helper,
-			position: this.position,
-			size: this.size,
-			originalSize: this.originalSize,
-			originalPosition: this.originalPosition
-		};
-	}
-
-} );
-
-/*
- * Resizable Extensions
- */
-
-$.ui.plugin.add( "resizable", "animate", {
-
-	stop: function( event ) {
-		var that = $( this ).resizable( "instance" ),
-			o = that.options,
-			pr = that._proportionallyResizeElements,
-			ista = pr.length && ( /textarea/i ).test( pr[ 0 ].nodeName ),
-			soffseth = ista && that._hasScroll( pr[ 0 ], "left" ) ? 0 : that.sizeDiff.height,
-			soffsetw = ista ? 0 : that.sizeDiff.width,
-			style = {
-				width: ( that.size.width - soffsetw ),
-				height: ( that.size.height - soffseth )
-			},
-			left = ( parseFloat( that.element.css( "left" ) ) +
-				( that.position.left - that.originalPosition.left ) ) || null,
-			top = ( parseFloat( that.element.css( "top" ) ) +
-				( that.position.top - that.originalPosition.top ) ) || null;
-
-		that.element.animate(
-			$.extend( style, top && left ? { top: top, left: left } : {} ), {
-				duration: o.animateDuration,
-				easing: o.animateEasing,
-				step: function() {
-
-					var data = {
-						width: parseFloat( that.element.css( "width" ) ),
-						height: parseFloat( that.element.css( "height" ) ),
-						top: parseFloat( that.element.css( "top" ) ),
-						left: parseFloat( that.element.css( "left" ) )
-					};
-
-					if ( pr && pr.length ) {
-						$( pr[ 0 ] ).css( { width: data.width, height: data.height } );
-					}
-
-					// Propagating resize, and updating values for each animation step
-					that._updateCache( data );
-					that._propagate( "resize", event );
-
-				}
-			}
-		);
-	}
-
-} );
-
-$.ui.plugin.add( "resizable", "containment", {
-
-	start: function() {
-		var element, p, co, ch, cw, width, height,
-			that = $( this ).resizable( "instance" ),
-			o = that.options,
-			el = that.element,
-			oc = o.containment,
-			ce = ( oc instanceof $ ) ?
-				oc.get( 0 ) :
-				( /parent/.test( oc ) ) ? el.parent().get( 0 ) : oc;
-
-		if ( !ce ) {
-			return;
-		}
-
-		that.containerElement = $( ce );
-
-		if ( /document/.test( oc ) || oc === document ) {
-			that.containerOffset = {
-				left: 0,
-				top: 0
-			};
-			that.containerPosition = {
-				left: 0,
-				top: 0
-			};
-
-			that.parentData = {
-				element: $( document ),
-				left: 0,
-				top: 0,
-				width: $( document ).width(),
-				height: $( document ).height() || document.body.parentNode.scrollHeight
-			};
-		} else {
-			element = $( ce );
-			p = [];
-			$( [ "Top", "Right", "Left", "Bottom" ] ).each( function( i, name ) {
-				p[ i ] = that._num( element.css( "padding" + name ) );
-			} );
-
-			that.containerOffset = element.offset();
-			that.containerPosition = element.position();
-			that.containerSize = {
-				height: ( element.innerHeight() - p[ 3 ] ),
-				width: ( element.innerWidth() - p[ 1 ] )
-			};
-
-			co = that.containerOffset;
-			ch = that.containerSize.height;
-			cw = that.containerSize.width;
-			width = ( that._hasScroll ( ce, "left" ) ? ce.scrollWidth : cw );
-			height = ( that._hasScroll ( ce ) ? ce.scrollHeight : ch ) ;
-
-			that.parentData = {
-				element: ce,
-				left: co.left,
-				top: co.top,
-				width: width,
-				height: height
-			};
-		}
-	},
-
-	resize: function( event ) {
-		var woset, hoset, isParent, isOffsetRelative,
-			that = $( this ).resizable( "instance" ),
-			o = that.options,
-			co = that.containerOffset,
-			cp = that.position,
-			pRatio = that._aspectRatio || event.shiftKey,
-			cop = {
-				top: 0,
-				left: 0
-			},
-			ce = that.containerElement,
-			continueResize = true;
-
-		if ( ce[ 0 ] !== document && ( /static/ ).test( ce.css( "position" ) ) ) {
-			cop = co;
-		}
-
-		if ( cp.left < ( that._helper ? co.left : 0 ) ) {
-			that.size.width = that.size.width +
-				( that._helper ?
-					( that.position.left - co.left ) :
-					( that.position.left - cop.left ) );
-
-			if ( pRatio ) {
-				that.size.height = that.size.width / that.aspectRatio;
-				continueResize = false;
-			}
-			that.position.left = o.helper ? co.left : 0;
-		}
-
-		if ( cp.top < ( that._helper ? co.top : 0 ) ) {
-			that.size.height = that.size.height +
-				( that._helper ?
-					( that.position.top - co.top ) :
-					that.position.top );
-
-			if ( pRatio ) {
-				that.size.width = that.size.height * that.aspectRatio;
-				continueResize = false;
-			}
-			that.position.top = that._helper ? co.top : 0;
-		}
-
-		isParent = that.containerElement.get( 0 ) === that.element.parent().get( 0 );
-		isOffsetRelative = /relative|absolute/.test( that.containerElement.css( "position" ) );
-
-		if ( isParent && isOffsetRelative ) {
-			that.offset.left = that.parentData.left + that.position.left;
-			that.offset.top = that.parentData.top + that.position.top;
-		} else {
-			that.offset.left = that.element.offset().left;
-			that.offset.top = that.element.offset().top;
-		}
-
-		woset = Math.abs( that.sizeDiff.width +
-			( that._helper ?
-				that.offset.left - cop.left :
-				( that.offset.left - co.left ) ) );
-
-		hoset = Math.abs( that.sizeDiff.height +
-			( that._helper ?
-				that.offset.top - cop.top :
-				( that.offset.top - co.top ) ) );
-
-		if ( woset + that.size.width >= that.parentData.width ) {
-			that.size.width = that.parentData.width - woset;
-			if ( pRatio ) {
-				that.size.height = that.size.width / that.aspectRatio;
-				continueResize = false;
-			}
-		}
-
-		if ( hoset + that.size.height >= that.parentData.height ) {
-			that.size.height = that.parentData.height - hoset;
-			if ( pRatio ) {
-				that.size.width = that.size.height * that.aspectRatio;
-				continueResize = false;
-			}
-		}
-
-		if ( !continueResize ) {
-			that.position.left = that.prevPosition.left;
-			that.position.top = that.prevPosition.top;
-			that.size.width = that.prevSize.width;
-			that.size.height = that.prevSize.height;
-		}
-	},
-
-	stop: function() {
-		var that = $( this ).resizable( "instance" ),
-			o = that.options,
-			co = that.containerOffset,
-			cop = that.containerPosition,
-			ce = that.containerElement,
-			helper = $( that.helper ),
-			ho = helper.offset(),
-			w = helper.outerWidth() - that.sizeDiff.width,
-			h = helper.outerHeight() - that.sizeDiff.height;
-
-		if ( that._helper && !o.animate && ( /relative/ ).test( ce.css( "position" ) ) ) {
-			$( this ).css( {
-				left: ho.left - cop.left - co.left,
-				width: w,
-				height: h
-			} );
-		}
-
-		if ( that._helper && !o.animate && ( /static/ ).test( ce.css( "position" ) ) ) {
-			$( this ).css( {
-				left: ho.left - cop.left - co.left,
-				width: w,
-				height: h
-			} );
-		}
-	}
-} );
-
-$.ui.plugin.add( "resizable", "alsoResize", {
-
-	start: function() {
-		var that = $( this ).resizable( "instance" ),
-			o = that.options;
-
-		$( o.alsoResize ).each( function() {
-			var el = $( this );
-			el.data( "ui-resizable-alsoresize", {
-				width: parseFloat( el.width() ), height: parseFloat( el.height() ),
-				left: parseFloat( el.css( "left" ) ), top: parseFloat( el.css( "top" ) )
-			} );
-		} );
-	},
-
-	resize: function( event, ui ) {
-		var that = $( this ).resizable( "instance" ),
-			o = that.options,
-			os = that.originalSize,
-			op = that.originalPosition,
-			delta = {
-				height: ( that.size.height - os.height ) || 0,
-				width: ( that.size.width - os.width ) || 0,
-				top: ( that.position.top - op.top ) || 0,
-				left: ( that.position.left - op.left ) || 0
-			};
-
-			$( o.alsoResize ).each( function() {
-				var el = $( this ), start = $( this ).data( "ui-resizable-alsoresize" ), style = {},
-					css = el.parents( ui.originalElement[ 0 ] ).length ?
-							[ "width", "height" ] :
-							[ "width", "height", "top", "left" ];
-
-				$.each( css, function( i, prop ) {
-					var sum = ( start[ prop ] || 0 ) + ( delta[ prop ] || 0 );
-					if ( sum && sum >= 0 ) {
-						style[ prop ] = sum || null;
-					}
-				} );
-
-				el.css( style );
-			} );
-	},
-
-	stop: function() {
-		$( this ).removeData( "ui-resizable-alsoresize" );
-	}
-} );
-
-$.ui.plugin.add( "resizable", "ghost", {
-
-	start: function() {
-
-		var that = $( this ).resizable( "instance" ), cs = that.size;
-
-		that.ghost = that.originalElement.clone();
-		that.ghost.css( {
-			opacity: 0.25,
-			display: "block",
-			position: "relative",
-			height: cs.height,
-			width: cs.width,
-			margin: 0,
-			left: 0,
-			top: 0
-		} );
-
-		that._addClass( that.ghost, "ui-resizable-ghost" );
-
-		// DEPRECATED
-		// TODO: remove after 1.12
-		if ( $.uiBackCompat !== false && typeof that.options.ghost === "string" ) {
-
-			// Ghost option
-			that.ghost.addClass( this.options.ghost );
-		}
-
-		that.ghost.appendTo( that.helper );
-
-	},
-
-	resize: function() {
-		var that = $( this ).resizable( "instance" );
-		if ( that.ghost ) {
-			that.ghost.css( {
-				position: "relative",
-				height: that.size.height,
-				width: that.size.width
-			} );
-		}
-	},
-
-	stop: function() {
-		var that = $( this ).resizable( "instance" );
-		if ( that.ghost && that.helper ) {
-			that.helper.get( 0 ).removeChild( that.ghost.get( 0 ) );
-		}
-	}
-
-} );
-
-$.ui.plugin.add( "resizable", "grid", {
-
-	resize: function() {
-		var outerDimensions,
-			that = $( this ).resizable( "instance" ),
-			o = that.options,
-			cs = that.size,
-			os = that.originalSize,
-			op = that.originalPosition,
-			a = that.axis,
-			grid = typeof o.grid === "number" ? [ o.grid, o.grid ] : o.grid,
-			gridX = ( grid[ 0 ] || 1 ),
-			gridY = ( grid[ 1 ] || 1 ),
-			ox = Math.round( ( cs.width - os.width ) / gridX ) * gridX,
-			oy = Math.round( ( cs.height - os.height ) / gridY ) * gridY,
-			newWidth = os.width + ox,
-			newHeight = os.height + oy,
-			isMaxWidth = o.maxWidth && ( o.maxWidth < newWidth ),
-			isMaxHeight = o.maxHeight && ( o.maxHeight < newHeight ),
-			isMinWidth = o.minWidth && ( o.minWidth > newWidth ),
-			isMinHeight = o.minHeight && ( o.minHeight > newHeight );
-
-		o.grid = grid;
-
-		if ( isMinWidth ) {
-			newWidth += gridX;
-		}
-		if ( isMinHeight ) {
-			newHeight += gridY;
-		}
-		if ( isMaxWidth ) {
-			newWidth -= gridX;
-		}
-		if ( isMaxHeight ) {
-			newHeight -= gridY;
-		}
-
-		if ( /^(se|s|e)$/.test( a ) ) {
-			that.size.width = newWidth;
-			that.size.height = newHeight;
-		} else if ( /^(ne)$/.test( a ) ) {
-			that.size.width = newWidth;
-			that.size.height = newHeight;
-			that.position.top = op.top - oy;
-		} else if ( /^(sw)$/.test( a ) ) {
-			that.size.width = newWidth;
-			that.size.height = newHeight;
-			that.position.left = op.left - ox;
-		} else {
-			if ( newHeight - gridY <= 0 || newWidth - gridX <= 0 ) {
-				outerDimensions = that._getPaddingPlusBorderDimensions( this );
-			}
-
-			if ( newHeight - gridY > 0 ) {
-				that.size.height = newHeight;
-				that.position.top = op.top - oy;
-			} else {
-				newHeight = gridY - outerDimensions.height;
-				that.size.height = newHeight;
-				that.position.top = op.top + os.height - newHeight;
-			}
-			if ( newWidth - gridX > 0 ) {
-				that.size.width = newWidth;
-				that.position.left = op.left - ox;
-			} else {
-				newWidth = gridX - outerDimensions.width;
-				that.size.width = newWidth;
-				that.position.left = op.left + os.width - newWidth;
-			}
-		}
-	}
-
-} );
-
-return $.ui.resizable;
-
-} ) );
-
-
-/***/ }),
-/* 36 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
- * jQuery UI Disable Selection 1.12.1
- * http://jqueryui.com
- *
- * Copyright jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- */
-
-//>>label: disableSelection
-//>>group: Core
-//>>description: Disable selection of text content within the set of matched elements.
-//>>docs: http://api.jqueryui.com/disableSelection/
-
-// This file is deprecated
-( function( factory ) {
-	if ( true ) {
-
-		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	} else {
-
-		// Browser globals
-		factory( jQuery );
-	}
-} ( function( $ ) {
-
-return $.fn.extend( {
-	disableSelection: ( function() {
-		var eventType = "onselectstart" in document.createElement( "div" ) ?
-			"selectstart" :
-			"mousedown";
-
-		return function() {
-			return this.on( eventType + ".ui-disableSelection", function( event ) {
-				event.preventDefault();
-			} );
-		};
-	} )(),
-
-	enableSelection: function() {
-		return this.off( ".ui-disableSelection" );
-	}
-} );
-
-} ) );
-
-
-/***/ }),
-/* 37 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
- * jQuery UI Tabbable 1.12.1
- * http://jqueryui.com
- *
- * Copyright jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- */
-
-//>>label: :tabbable Selector
-//>>group: Core
-//>>description: Selects elements which can be tabbed to.
-//>>docs: http://api.jqueryui.com/tabbable-selector/
-
-( function( factory ) {
-	if ( true ) {
-
-		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1), __webpack_require__(19) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	} else {
-
-		// Browser globals
-		factory( jQuery );
-	}
-} ( function( $ ) {
-
-return $.extend( $.expr[ ":" ], {
-	tabbable: function( element ) {
-		var tabIndex = $.attr( element, "tabindex" ),
-			hasTabindex = tabIndex != null;
-		return ( !hasTabindex || tabIndex >= 0 ) && $.ui.focusable( element, hasTabindex );
-	}
-} );
-
-} ) );
-
-
-/***/ }),
-/* 38 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -19936,11 +15959,11 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(11),
+			__webpack_require__(12),
 			__webpack_require__(1),
-			__webpack_require__(5),
-			__webpack_require__(6),
-			__webpack_require__(2)
+			__webpack_require__(7),
+			__webpack_require__(9),
+			__webpack_require__(4)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
 				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
@@ -20493,7 +16516,7 @@ return $.ui.spinner;
 
 
 /***/ }),
-/* 39 */
+/* 33 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -20522,15 +16545,15 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 		// AMD. Register as an anonymous module.
 		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
 			__webpack_require__(0),
-			__webpack_require__(14),
-			__webpack_require__(10),
 			__webpack_require__(15),
-			__webpack_require__(5),
+			__webpack_require__(13),
 			__webpack_require__(16),
-			__webpack_require__(8),
-			__webpack_require__(9),
+			__webpack_require__(7),
+			__webpack_require__(17),
+			__webpack_require__(10),
+			__webpack_require__(11),
 			__webpack_require__(1),
-			__webpack_require__(2)
+			__webpack_require__(4)
 		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
 				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
 				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
@@ -21189,944 +17212,11 @@ return $.widget( "ui.selectmenu", [ $.ui.formResetMixin, {
 
 
 /***/ }),
-/* 40 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
- * jQuery UI Tabs 1.12.1
- * http://jqueryui.com
- *
- * Copyright jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- */
-
-//>>label: Tabs
-//>>group: Widgets
-//>>description: Transforms a set of container elements into a tab structure.
-//>>docs: http://api.jqueryui.com/tabs/
-//>>demos: http://jqueryui.com/tabs/
-//>>css.structure: ../../themes/base/core.css
-//>>css.structure: ../../themes/base/tabs.css
-//>>css.theme: ../../themes/base/theme.css
-
-( function( factory ) {
-	if ( true ) {
-
-		// AMD. Register as an anonymous module.
-		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
-			__webpack_require__(0),
-			__webpack_require__(10),
-			__webpack_require__(5),
-			__webpack_require__(6),
-			__webpack_require__(9),
-			__webpack_require__(1),
-			__webpack_require__(2)
-		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-	} else {
-
-		// Browser globals
-		factory( jQuery );
-	}
-}( function( $ ) {
-
-$.widget( "ui.tabs", {
-	version: "1.12.1",
-	delay: 300,
-	options: {
-		active: null,
-		classes: {
-			"ui-tabs": "ui-corner-all",
-			"ui-tabs-nav": "ui-corner-all",
-			"ui-tabs-panel": "ui-corner-bottom",
-			"ui-tabs-tab": "ui-corner-top"
-		},
-		collapsible: false,
-		event: "click",
-		heightStyle: "content",
-		hide: null,
-		show: null,
-
-		// Callbacks
-		activate: null,
-		beforeActivate: null,
-		beforeLoad: null,
-		load: null
-	},
-
-	_isLocal: ( function() {
-		var rhash = /#.*$/;
-
-		return function( anchor ) {
-			var anchorUrl, locationUrl;
-
-			anchorUrl = anchor.href.replace( rhash, "" );
-			locationUrl = location.href.replace( rhash, "" );
-
-			// Decoding may throw an error if the URL isn't UTF-8 (#9518)
-			try {
-				anchorUrl = decodeURIComponent( anchorUrl );
-			} catch ( error ) {}
-			try {
-				locationUrl = decodeURIComponent( locationUrl );
-			} catch ( error ) {}
-
-			return anchor.hash.length > 1 && anchorUrl === locationUrl;
-		};
-	} )(),
-
-	_create: function() {
-		var that = this,
-			options = this.options;
-
-		this.running = false;
-
-		this._addClass( "ui-tabs", "ui-widget ui-widget-content" );
-		this._toggleClass( "ui-tabs-collapsible", null, options.collapsible );
-
-		this._processTabs();
-		options.active = this._initialActive();
-
-		// Take disabling tabs via class attribute from HTML
-		// into account and update option properly.
-		if ( $.isArray( options.disabled ) ) {
-			options.disabled = $.unique( options.disabled.concat(
-				$.map( this.tabs.filter( ".ui-state-disabled" ), function( li ) {
-					return that.tabs.index( li );
-				} )
-			) ).sort();
-		}
-
-		// Check for length avoids error when initializing empty list
-		if ( this.options.active !== false && this.anchors.length ) {
-			this.active = this._findActive( options.active );
-		} else {
-			this.active = $();
-		}
-
-		this._refresh();
-
-		if ( this.active.length ) {
-			this.load( options.active );
-		}
-	},
-
-	_initialActive: function() {
-		var active = this.options.active,
-			collapsible = this.options.collapsible,
-			locationHash = location.hash.substring( 1 );
-
-		if ( active === null ) {
-
-			// check the fragment identifier in the URL
-			if ( locationHash ) {
-				this.tabs.each( function( i, tab ) {
-					if ( $( tab ).attr( "aria-controls" ) === locationHash ) {
-						active = i;
-						return false;
-					}
-				} );
-			}
-
-			// Check for a tab marked active via a class
-			if ( active === null ) {
-				active = this.tabs.index( this.tabs.filter( ".ui-tabs-active" ) );
-			}
-
-			// No active tab, set to false
-			if ( active === null || active === -1 ) {
-				active = this.tabs.length ? 0 : false;
-			}
-		}
-
-		// Handle numbers: negative, out of range
-		if ( active !== false ) {
-			active = this.tabs.index( this.tabs.eq( active ) );
-			if ( active === -1 ) {
-				active = collapsible ? false : 0;
-			}
-		}
-
-		// Don't allow collapsible: false and active: false
-		if ( !collapsible && active === false && this.anchors.length ) {
-			active = 0;
-		}
-
-		return active;
-	},
-
-	_getCreateEventData: function() {
-		return {
-			tab: this.active,
-			panel: !this.active.length ? $() : this._getPanelForTab( this.active )
-		};
-	},
-
-	_tabKeydown: function( event ) {
-		var focusedTab = $( $.ui.safeActiveElement( this.document[ 0 ] ) ).closest( "li" ),
-			selectedIndex = this.tabs.index( focusedTab ),
-			goingForward = true;
-
-		if ( this._handlePageNav( event ) ) {
-			return;
-		}
-
-		switch ( event.keyCode ) {
-		case $.ui.keyCode.RIGHT:
-		case $.ui.keyCode.DOWN:
-			selectedIndex++;
-			break;
-		case $.ui.keyCode.UP:
-		case $.ui.keyCode.LEFT:
-			goingForward = false;
-			selectedIndex--;
-			break;
-		case $.ui.keyCode.END:
-			selectedIndex = this.anchors.length - 1;
-			break;
-		case $.ui.keyCode.HOME:
-			selectedIndex = 0;
-			break;
-		case $.ui.keyCode.SPACE:
-
-			// Activate only, no collapsing
-			event.preventDefault();
-			clearTimeout( this.activating );
-			this._activate( selectedIndex );
-			return;
-		case $.ui.keyCode.ENTER:
-
-			// Toggle (cancel delayed activation, allow collapsing)
-			event.preventDefault();
-			clearTimeout( this.activating );
-
-			// Determine if we should collapse or activate
-			this._activate( selectedIndex === this.options.active ? false : selectedIndex );
-			return;
-		default:
-			return;
-		}
-
-		// Focus the appropriate tab, based on which key was pressed
-		event.preventDefault();
-		clearTimeout( this.activating );
-		selectedIndex = this._focusNextTab( selectedIndex, goingForward );
-
-		// Navigating with control/command key will prevent automatic activation
-		if ( !event.ctrlKey && !event.metaKey ) {
-
-			// Update aria-selected immediately so that AT think the tab is already selected.
-			// Otherwise AT may confuse the user by stating that they need to activate the tab,
-			// but the tab will already be activated by the time the announcement finishes.
-			focusedTab.attr( "aria-selected", "false" );
-			this.tabs.eq( selectedIndex ).attr( "aria-selected", "true" );
-
-			this.activating = this._delay( function() {
-				this.option( "active", selectedIndex );
-			}, this.delay );
-		}
-	},
-
-	_panelKeydown: function( event ) {
-		if ( this._handlePageNav( event ) ) {
-			return;
-		}
-
-		// Ctrl+up moves focus to the current tab
-		if ( event.ctrlKey && event.keyCode === $.ui.keyCode.UP ) {
-			event.preventDefault();
-			this.active.trigger( "focus" );
-		}
-	},
-
-	// Alt+page up/down moves focus to the previous/next tab (and activates)
-	_handlePageNav: function( event ) {
-		if ( event.altKey && event.keyCode === $.ui.keyCode.PAGE_UP ) {
-			this._activate( this._focusNextTab( this.options.active - 1, false ) );
-			return true;
-		}
-		if ( event.altKey && event.keyCode === $.ui.keyCode.PAGE_DOWN ) {
-			this._activate( this._focusNextTab( this.options.active + 1, true ) );
-			return true;
-		}
-	},
-
-	_findNextTab: function( index, goingForward ) {
-		var lastTabIndex = this.tabs.length - 1;
-
-		function constrain() {
-			if ( index > lastTabIndex ) {
-				index = 0;
-			}
-			if ( index < 0 ) {
-				index = lastTabIndex;
-			}
-			return index;
-		}
-
-		while ( $.inArray( constrain(), this.options.disabled ) !== -1 ) {
-			index = goingForward ? index + 1 : index - 1;
-		}
-
-		return index;
-	},
-
-	_focusNextTab: function( index, goingForward ) {
-		index = this._findNextTab( index, goingForward );
-		this.tabs.eq( index ).trigger( "focus" );
-		return index;
-	},
-
-	_setOption: function( key, value ) {
-		if ( key === "active" ) {
-
-			// _activate() will handle invalid values and update this.options
-			this._activate( value );
-			return;
-		}
-
-		this._super( key, value );
-
-		if ( key === "collapsible" ) {
-			this._toggleClass( "ui-tabs-collapsible", null, value );
-
-			// Setting collapsible: false while collapsed; open first panel
-			if ( !value && this.options.active === false ) {
-				this._activate( 0 );
-			}
-		}
-
-		if ( key === "event" ) {
-			this._setupEvents( value );
-		}
-
-		if ( key === "heightStyle" ) {
-			this._setupHeightStyle( value );
-		}
-	},
-
-	_sanitizeSelector: function( hash ) {
-		return hash ? hash.replace( /[!"$%&'()*+,.\/:;<=>?@\[\]\^`{|}~]/g, "\\$&" ) : "";
-	},
-
-	refresh: function() {
-		var options = this.options,
-			lis = this.tablist.children( ":has(a[href])" );
-
-		// Get disabled tabs from class attribute from HTML
-		// this will get converted to a boolean if needed in _refresh()
-		options.disabled = $.map( lis.filter( ".ui-state-disabled" ), function( tab ) {
-			return lis.index( tab );
-		} );
-
-		this._processTabs();
-
-		// Was collapsed or no tabs
-		if ( options.active === false || !this.anchors.length ) {
-			options.active = false;
-			this.active = $();
-
-		// was active, but active tab is gone
-		} else if ( this.active.length && !$.contains( this.tablist[ 0 ], this.active[ 0 ] ) ) {
-
-			// all remaining tabs are disabled
-			if ( this.tabs.length === options.disabled.length ) {
-				options.active = false;
-				this.active = $();
-
-			// activate previous tab
-			} else {
-				this._activate( this._findNextTab( Math.max( 0, options.active - 1 ), false ) );
-			}
-
-		// was active, active tab still exists
-		} else {
-
-			// make sure active index is correct
-			options.active = this.tabs.index( this.active );
-		}
-
-		this._refresh();
-	},
-
-	_refresh: function() {
-		this._setOptionDisabled( this.options.disabled );
-		this._setupEvents( this.options.event );
-		this._setupHeightStyle( this.options.heightStyle );
-
-		this.tabs.not( this.active ).attr( {
-			"aria-selected": "false",
-			"aria-expanded": "false",
-			tabIndex: -1
-		} );
-		this.panels.not( this._getPanelForTab( this.active ) )
-			.hide()
-			.attr( {
-				"aria-hidden": "true"
-			} );
-
-		// Make sure one tab is in the tab order
-		if ( !this.active.length ) {
-			this.tabs.eq( 0 ).attr( "tabIndex", 0 );
-		} else {
-			this.active
-				.attr( {
-					"aria-selected": "true",
-					"aria-expanded": "true",
-					tabIndex: 0
-				} );
-			this._addClass( this.active, "ui-tabs-active", "ui-state-active" );
-			this._getPanelForTab( this.active )
-				.show()
-				.attr( {
-					"aria-hidden": "false"
-				} );
-		}
-	},
-
-	_processTabs: function() {
-		var that = this,
-			prevTabs = this.tabs,
-			prevAnchors = this.anchors,
-			prevPanels = this.panels;
-
-		this.tablist = this._getList().attr( "role", "tablist" );
-		this._addClass( this.tablist, "ui-tabs-nav",
-			"ui-helper-reset ui-helper-clearfix ui-widget-header" );
-
-		// Prevent users from focusing disabled tabs via click
-		this.tablist
-			.on( "mousedown" + this.eventNamespace, "> li", function( event ) {
-				if ( $( this ).is( ".ui-state-disabled" ) ) {
-					event.preventDefault();
-				}
-			} )
-
-			// Support: IE <9
-			// Preventing the default action in mousedown doesn't prevent IE
-			// from focusing the element, so if the anchor gets focused, blur.
-			// We don't have to worry about focusing the previously focused
-			// element since clicking on a non-focusable element should focus
-			// the body anyway.
-			.on( "focus" + this.eventNamespace, ".ui-tabs-anchor", function() {
-				if ( $( this ).closest( "li" ).is( ".ui-state-disabled" ) ) {
-					this.blur();
-				}
-			} );
-
-		this.tabs = this.tablist.find( "> li:has(a[href])" )
-			.attr( {
-				role: "tab",
-				tabIndex: -1
-			} );
-		this._addClass( this.tabs, "ui-tabs-tab", "ui-state-default" );
-
-		this.anchors = this.tabs.map( function() {
-			return $( "a", this )[ 0 ];
-		} )
-			.attr( {
-				role: "presentation",
-				tabIndex: -1
-			} );
-		this._addClass( this.anchors, "ui-tabs-anchor" );
-
-		this.panels = $();
-
-		this.anchors.each( function( i, anchor ) {
-			var selector, panel, panelId,
-				anchorId = $( anchor ).uniqueId().attr( "id" ),
-				tab = $( anchor ).closest( "li" ),
-				originalAriaControls = tab.attr( "aria-controls" );
-
-			// Inline tab
-			if ( that._isLocal( anchor ) ) {
-				selector = anchor.hash;
-				panelId = selector.substring( 1 );
-				panel = that.element.find( that._sanitizeSelector( selector ) );
-
-			// remote tab
-			} else {
-
-				// If the tab doesn't already have aria-controls,
-				// generate an id by using a throw-away element
-				panelId = tab.attr( "aria-controls" ) || $( {} ).uniqueId()[ 0 ].id;
-				selector = "#" + panelId;
-				panel = that.element.find( selector );
-				if ( !panel.length ) {
-					panel = that._createPanel( panelId );
-					panel.insertAfter( that.panels[ i - 1 ] || that.tablist );
-				}
-				panel.attr( "aria-live", "polite" );
-			}
-
-			if ( panel.length ) {
-				that.panels = that.panels.add( panel );
-			}
-			if ( originalAriaControls ) {
-				tab.data( "ui-tabs-aria-controls", originalAriaControls );
-			}
-			tab.attr( {
-				"aria-controls": panelId,
-				"aria-labelledby": anchorId
-			} );
-			panel.attr( "aria-labelledby", anchorId );
-		} );
-
-		this.panels.attr( "role", "tabpanel" );
-		this._addClass( this.panels, "ui-tabs-panel", "ui-widget-content" );
-
-		// Avoid memory leaks (#10056)
-		if ( prevTabs ) {
-			this._off( prevTabs.not( this.tabs ) );
-			this._off( prevAnchors.not( this.anchors ) );
-			this._off( prevPanels.not( this.panels ) );
-		}
-	},
-
-	// Allow overriding how to find the list for rare usage scenarios (#7715)
-	_getList: function() {
-		return this.tablist || this.element.find( "ol, ul" ).eq( 0 );
-	},
-
-	_createPanel: function( id ) {
-		return $( "<div>" )
-			.attr( "id", id )
-			.data( "ui-tabs-destroy", true );
-	},
-
-	_setOptionDisabled: function( disabled ) {
-		var currentItem, li, i;
-
-		if ( $.isArray( disabled ) ) {
-			if ( !disabled.length ) {
-				disabled = false;
-			} else if ( disabled.length === this.anchors.length ) {
-				disabled = true;
-			}
-		}
-
-		// Disable tabs
-		for ( i = 0; ( li = this.tabs[ i ] ); i++ ) {
-			currentItem = $( li );
-			if ( disabled === true || $.inArray( i, disabled ) !== -1 ) {
-				currentItem.attr( "aria-disabled", "true" );
-				this._addClass( currentItem, null, "ui-state-disabled" );
-			} else {
-				currentItem.removeAttr( "aria-disabled" );
-				this._removeClass( currentItem, null, "ui-state-disabled" );
-			}
-		}
-
-		this.options.disabled = disabled;
-
-		this._toggleClass( this.widget(), this.widgetFullName + "-disabled", null,
-			disabled === true );
-	},
-
-	_setupEvents: function( event ) {
-		var events = {};
-		if ( event ) {
-			$.each( event.split( " " ), function( index, eventName ) {
-				events[ eventName ] = "_eventHandler";
-			} );
-		}
-
-		this._off( this.anchors.add( this.tabs ).add( this.panels ) );
-
-		// Always prevent the default action, even when disabled
-		this._on( true, this.anchors, {
-			click: function( event ) {
-				event.preventDefault();
-			}
-		} );
-		this._on( this.anchors, events );
-		this._on( this.tabs, { keydown: "_tabKeydown" } );
-		this._on( this.panels, { keydown: "_panelKeydown" } );
-
-		this._focusable( this.tabs );
-		this._hoverable( this.tabs );
-	},
-
-	_setupHeightStyle: function( heightStyle ) {
-		var maxHeight,
-			parent = this.element.parent();
-
-		if ( heightStyle === "fill" ) {
-			maxHeight = parent.height();
-			maxHeight -= this.element.outerHeight() - this.element.height();
-
-			this.element.siblings( ":visible" ).each( function() {
-				var elem = $( this ),
-					position = elem.css( "position" );
-
-				if ( position === "absolute" || position === "fixed" ) {
-					return;
-				}
-				maxHeight -= elem.outerHeight( true );
-			} );
-
-			this.element.children().not( this.panels ).each( function() {
-				maxHeight -= $( this ).outerHeight( true );
-			} );
-
-			this.panels.each( function() {
-				$( this ).height( Math.max( 0, maxHeight -
-					$( this ).innerHeight() + $( this ).height() ) );
-			} )
-				.css( "overflow", "auto" );
-		} else if ( heightStyle === "auto" ) {
-			maxHeight = 0;
-			this.panels.each( function() {
-				maxHeight = Math.max( maxHeight, $( this ).height( "" ).height() );
-			} ).height( maxHeight );
-		}
-	},
-
-	_eventHandler: function( event ) {
-		var options = this.options,
-			active = this.active,
-			anchor = $( event.currentTarget ),
-			tab = anchor.closest( "li" ),
-			clickedIsActive = tab[ 0 ] === active[ 0 ],
-			collapsing = clickedIsActive && options.collapsible,
-			toShow = collapsing ? $() : this._getPanelForTab( tab ),
-			toHide = !active.length ? $() : this._getPanelForTab( active ),
-			eventData = {
-				oldTab: active,
-				oldPanel: toHide,
-				newTab: collapsing ? $() : tab,
-				newPanel: toShow
-			};
-
-		event.preventDefault();
-
-		if ( tab.hasClass( "ui-state-disabled" ) ||
-
-				// tab is already loading
-				tab.hasClass( "ui-tabs-loading" ) ||
-
-				// can't switch durning an animation
-				this.running ||
-
-				// click on active header, but not collapsible
-				( clickedIsActive && !options.collapsible ) ||
-
-				// allow canceling activation
-				( this._trigger( "beforeActivate", event, eventData ) === false ) ) {
-			return;
-		}
-
-		options.active = collapsing ? false : this.tabs.index( tab );
-
-		this.active = clickedIsActive ? $() : tab;
-		if ( this.xhr ) {
-			this.xhr.abort();
-		}
-
-		if ( !toHide.length && !toShow.length ) {
-			$.error( "jQuery UI Tabs: Mismatching fragment identifier." );
-		}
-
-		if ( toShow.length ) {
-			this.load( this.tabs.index( tab ), event );
-		}
-		this._toggle( event, eventData );
-	},
-
-	// Handles show/hide for selecting tabs
-	_toggle: function( event, eventData ) {
-		var that = this,
-			toShow = eventData.newPanel,
-			toHide = eventData.oldPanel;
-
-		this.running = true;
-
-		function complete() {
-			that.running = false;
-			that._trigger( "activate", event, eventData );
-		}
-
-		function show() {
-			that._addClass( eventData.newTab.closest( "li" ), "ui-tabs-active", "ui-state-active" );
-
-			if ( toShow.length && that.options.show ) {
-				that._show( toShow, that.options.show, complete );
-			} else {
-				toShow.show();
-				complete();
-			}
-		}
-
-		// Start out by hiding, then showing, then completing
-		if ( toHide.length && this.options.hide ) {
-			this._hide( toHide, this.options.hide, function() {
-				that._removeClass( eventData.oldTab.closest( "li" ),
-					"ui-tabs-active", "ui-state-active" );
-				show();
-			} );
-		} else {
-			this._removeClass( eventData.oldTab.closest( "li" ),
-				"ui-tabs-active", "ui-state-active" );
-			toHide.hide();
-			show();
-		}
-
-		toHide.attr( "aria-hidden", "true" );
-		eventData.oldTab.attr( {
-			"aria-selected": "false",
-			"aria-expanded": "false"
-		} );
-
-		// If we're switching tabs, remove the old tab from the tab order.
-		// If we're opening from collapsed state, remove the previous tab from the tab order.
-		// If we're collapsing, then keep the collapsing tab in the tab order.
-		if ( toShow.length && toHide.length ) {
-			eventData.oldTab.attr( "tabIndex", -1 );
-		} else if ( toShow.length ) {
-			this.tabs.filter( function() {
-				return $( this ).attr( "tabIndex" ) === 0;
-			} )
-				.attr( "tabIndex", -1 );
-		}
-
-		toShow.attr( "aria-hidden", "false" );
-		eventData.newTab.attr( {
-			"aria-selected": "true",
-			"aria-expanded": "true",
-			tabIndex: 0
-		} );
-	},
-
-	_activate: function( index ) {
-		var anchor,
-			active = this._findActive( index );
-
-		// Trying to activate the already active panel
-		if ( active[ 0 ] === this.active[ 0 ] ) {
-			return;
-		}
-
-		// Trying to collapse, simulate a click on the current active header
-		if ( !active.length ) {
-			active = this.active;
-		}
-
-		anchor = active.find( ".ui-tabs-anchor" )[ 0 ];
-		this._eventHandler( {
-			target: anchor,
-			currentTarget: anchor,
-			preventDefault: $.noop
-		} );
-	},
-
-	_findActive: function( index ) {
-		return index === false ? $() : this.tabs.eq( index );
-	},
-
-	_getIndex: function( index ) {
-
-		// meta-function to give users option to provide a href string instead of a numerical index.
-		if ( typeof index === "string" ) {
-			index = this.anchors.index( this.anchors.filter( "[href$='" +
-				$.ui.escapeSelector( index ) + "']" ) );
-		}
-
-		return index;
-	},
-
-	_destroy: function() {
-		if ( this.xhr ) {
-			this.xhr.abort();
-		}
-
-		this.tablist
-			.removeAttr( "role" )
-			.off( this.eventNamespace );
-
-		this.anchors
-			.removeAttr( "role tabIndex" )
-			.removeUniqueId();
-
-		this.tabs.add( this.panels ).each( function() {
-			if ( $.data( this, "ui-tabs-destroy" ) ) {
-				$( this ).remove();
-			} else {
-				$( this ).removeAttr( "role tabIndex " +
-					"aria-live aria-busy aria-selected aria-labelledby aria-hidden aria-expanded" );
-			}
-		} );
-
-		this.tabs.each( function() {
-			var li = $( this ),
-				prev = li.data( "ui-tabs-aria-controls" );
-			if ( prev ) {
-				li
-					.attr( "aria-controls", prev )
-					.removeData( "ui-tabs-aria-controls" );
-			} else {
-				li.removeAttr( "aria-controls" );
-			}
-		} );
-
-		this.panels.show();
-
-		if ( this.options.heightStyle !== "content" ) {
-			this.panels.css( "height", "" );
-		}
-	},
-
-	enable: function( index ) {
-		var disabled = this.options.disabled;
-		if ( disabled === false ) {
-			return;
-		}
-
-		if ( index === undefined ) {
-			disabled = false;
-		} else {
-			index = this._getIndex( index );
-			if ( $.isArray( disabled ) ) {
-				disabled = $.map( disabled, function( num ) {
-					return num !== index ? num : null;
-				} );
-			} else {
-				disabled = $.map( this.tabs, function( li, num ) {
-					return num !== index ? num : null;
-				} );
-			}
-		}
-		this._setOptionDisabled( disabled );
-	},
-
-	disable: function( index ) {
-		var disabled = this.options.disabled;
-		if ( disabled === true ) {
-			return;
-		}
-
-		if ( index === undefined ) {
-			disabled = true;
-		} else {
-			index = this._getIndex( index );
-			if ( $.inArray( index, disabled ) !== -1 ) {
-				return;
-			}
-			if ( $.isArray( disabled ) ) {
-				disabled = $.merge( [ index ], disabled ).sort();
-			} else {
-				disabled = [ index ];
-			}
-		}
-		this._setOptionDisabled( disabled );
-	},
-
-	load: function( index, event ) {
-		index = this._getIndex( index );
-		var that = this,
-			tab = this.tabs.eq( index ),
-			anchor = tab.find( ".ui-tabs-anchor" ),
-			panel = this._getPanelForTab( tab ),
-			eventData = {
-				tab: tab,
-				panel: panel
-			},
-			complete = function( jqXHR, status ) {
-				if ( status === "abort" ) {
-					that.panels.stop( false, true );
-				}
-
-				that._removeClass( tab, "ui-tabs-loading" );
-				panel.removeAttr( "aria-busy" );
-
-				if ( jqXHR === that.xhr ) {
-					delete that.xhr;
-				}
-			};
-
-		// Not remote
-		if ( this._isLocal( anchor[ 0 ] ) ) {
-			return;
-		}
-
-		this.xhr = $.ajax( this._ajaxSettings( anchor, event, eventData ) );
-
-		// Support: jQuery <1.8
-		// jQuery <1.8 returns false if the request is canceled in beforeSend,
-		// but as of 1.8, $.ajax() always returns a jqXHR object.
-		if ( this.xhr && this.xhr.statusText !== "canceled" ) {
-			this._addClass( tab, "ui-tabs-loading" );
-			panel.attr( "aria-busy", "true" );
-
-			this.xhr
-				.done( function( response, status, jqXHR ) {
-
-					// support: jQuery <1.8
-					// http://bugs.jquery.com/ticket/11778
-					setTimeout( function() {
-						panel.html( response );
-						that._trigger( "load", event, eventData );
-
-						complete( jqXHR, status );
-					}, 1 );
-				} )
-				.fail( function( jqXHR, status ) {
-
-					// support: jQuery <1.8
-					// http://bugs.jquery.com/ticket/11778
-					setTimeout( function() {
-						complete( jqXHR, status );
-					}, 1 );
-				} );
-		}
-	},
-
-	_ajaxSettings: function( anchor, event, eventData ) {
-		var that = this;
-		return {
-
-			// Support: IE <11 only
-			// Strip any hash that exists to prevent errors with the Ajax request
-			url: anchor.attr( "href" ).replace( /#.*$/, "" ),
-			beforeSend: function( jqXHR, settings ) {
-				return that._trigger( "beforeLoad", event,
-					$.extend( { jqXHR: jqXHR, ajaxSettings: settings }, eventData ) );
-			}
-		};
-	},
-
-	_getPanelForTab: function( tab ) {
-		var id = $( tab ).attr( "aria-controls" );
-		return this.element.find( this._sanitizeSelector( "#" + id ) );
-	}
-} );
-
-// DEPRECATED
-// TODO: Switch return back to widget declaration at top of file when this is removed
-if ( $.uiBackCompat !== false ) {
-
-	// Backcompat for ui-tab class (now ui-tabs-tab)
-	$.widget( "ui.tabs", $.ui.tabs, {
-		_processTabs: function() {
-			this._superApply( arguments );
-			this._addClass( this.tabs, "ui-tab" );
-		}
-	} );
-}
-
-return $.ui.tabs;
-
-} ) );
-
-
-/***/ }),
-/* 41 */
+/* 34 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(42);
+var content = __webpack_require__(35);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22140,7 +17230,7 @@ var options = {"hmr":true}
 options.transform = transform
 options.insertInto = undefined;
 
-var update = __webpack_require__(4)(content, options);
+var update = __webpack_require__(3)(content, options);
 
 if(content.locals) module.exports = content.locals;
 
@@ -22172,10 +17262,10 @@ if(false) {
 }
 
 /***/ }),
-/* 42 */
+/* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(3)(false);
+exports = module.exports = __webpack_require__(2)(false);
 // imports
 
 
@@ -22186,7 +17276,7 @@ exports.push([module.i, "/*!\n * jQuery UI CSS Framework 1.12.1\n * http://jquer
 
 
 /***/ }),
-/* 43 */
+/* 36 */
 /***/ (function(module, exports) {
 
 
@@ -22281,11 +17371,11 @@ module.exports = function (css) {
 
 
 /***/ }),
-/* 44 */
+/* 37 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(45);
+var content = __webpack_require__(38);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22299,7 +17389,7 @@ var options = {"hmr":true}
 options.transform = transform
 options.insertInto = undefined;
 
-var update = __webpack_require__(4)(content, options);
+var update = __webpack_require__(3)(content, options);
 
 if(content.locals) module.exports = content.locals;
 
@@ -22331,10 +17421,10 @@ if(false) {
 }
 
 /***/ }),
-/* 45 */
+/* 38 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(3)(false);
+exports = module.exports = __webpack_require__(2)(false);
 // imports
 
 
@@ -22345,11 +17435,11 @@ exports.push([module.i, "/*!\n * jQuery UI Autocomplete 1.12.1\n * http://jquery
 
 
 /***/ }),
-/* 46 */
+/* 39 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(47);
+var content = __webpack_require__(40);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22363,7 +17453,7 @@ var options = {"hmr":true}
 options.transform = transform
 options.insertInto = undefined;
 
-var update = __webpack_require__(4)(content, options);
+var update = __webpack_require__(3)(content, options);
 
 if(content.locals) module.exports = content.locals;
 
@@ -22395,10 +17485,10 @@ if(false) {
 }
 
 /***/ }),
-/* 47 */
+/* 40 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(3)(false);
+exports = module.exports = __webpack_require__(2)(false);
 // imports
 
 
@@ -22409,11 +17499,11 @@ exports.push([module.i, "/*!\n * jQuery UI Button 1.12.1\n * http://jqueryui.com
 
 
 /***/ }),
-/* 48 */
+/* 41 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(49);
+var content = __webpack_require__(42);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22427,7 +17517,7 @@ var options = {"hmr":true}
 options.transform = transform
 options.insertInto = undefined;
 
-var update = __webpack_require__(4)(content, options);
+var update = __webpack_require__(3)(content, options);
 
 if(content.locals) module.exports = content.locals;
 
@@ -22459,10 +17549,10 @@ if(false) {
 }
 
 /***/ }),
-/* 49 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(3)(false);
+exports = module.exports = __webpack_require__(2)(false);
 // imports
 
 
@@ -22473,11 +17563,11 @@ exports.push([module.i, "/*!\n * jQuery UI Controlgroup 1.12.1\n * http://jquery
 
 
 /***/ }),
-/* 50 */
+/* 43 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(51);
+var content = __webpack_require__(44);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22491,71 +17581,7 @@ var options = {"hmr":true}
 options.transform = transform
 options.insertInto = undefined;
 
-var update = __webpack_require__(4)(content, options);
-
-if(content.locals) module.exports = content.locals;
-
-if(false) {
-	module.hot.accept("!!../../../css-loader/index.js!./dialog.css", function() {
-		var newContent = require("!!../../../css-loader/index.js!./dialog.css");
-
-		if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
-
-		var locals = (function(a, b) {
-			var key, idx = 0;
-
-			for(key in a) {
-				if(!b || a[key] !== b[key]) return false;
-				idx++;
-			}
-
-			for(key in b) idx--;
-
-			return idx === 0;
-		}(content.locals, newContent.locals));
-
-		if(!locals) throw new Error('Aborting CSS HMR due to changed css-modules locals.');
-
-		update(newContent);
-	});
-
-	module.hot.dispose(function() { update(); });
-}
-
-/***/ }),
-/* 51 */
-/***/ (function(module, exports, __webpack_require__) {
-
-exports = module.exports = __webpack_require__(3)(false);
-// imports
-
-
-// module
-exports.push([module.i, "/*!\n * jQuery UI Dialog 1.12.1\n * http://jqueryui.com\n *\n * Copyright jQuery Foundation and other contributors\n * Released under the MIT license.\n * http://jquery.org/license\n *\n * http://api.jqueryui.com/dialog/#theming\n */\n.ui-dialog {\n\tposition: absolute;\n\ttop: 0;\n\tleft: 0;\n\tpadding: .2em;\n\toutline: 0;\n}\n.ui-dialog .ui-dialog-titlebar {\n\tpadding: .4em 1em;\n\tposition: relative;\n}\n.ui-dialog .ui-dialog-title {\n\tfloat: left;\n\tmargin: .1em 0;\n\twhite-space: nowrap;\n\twidth: 90%;\n\toverflow: hidden;\n\ttext-overflow: ellipsis;\n}\n.ui-dialog .ui-dialog-titlebar-close {\n\tposition: absolute;\n\tright: .3em;\n\ttop: 50%;\n\twidth: 20px;\n\tmargin: -10px 0 0 0;\n\tpadding: 1px;\n\theight: 20px;\n}\n.ui-dialog .ui-dialog-content {\n\tposition: relative;\n\tborder: 0;\n\tpadding: .5em 1em;\n\tbackground: none;\n\toverflow: auto;\n}\n.ui-dialog .ui-dialog-buttonpane {\n\ttext-align: left;\n\tborder-width: 1px 0 0 0;\n\tbackground-image: none;\n\tmargin-top: .5em;\n\tpadding: .3em 1em .5em .4em;\n}\n.ui-dialog .ui-dialog-buttonpane .ui-dialog-buttonset {\n\tfloat: right;\n}\n.ui-dialog .ui-dialog-buttonpane button {\n\tmargin: .5em .4em .5em 0;\n\tcursor: pointer;\n}\n.ui-dialog .ui-resizable-n {\n\theight: 2px;\n\ttop: 0;\n}\n.ui-dialog .ui-resizable-e {\n\twidth: 2px;\n\tright: 0;\n}\n.ui-dialog .ui-resizable-s {\n\theight: 2px;\n\tbottom: 0;\n}\n.ui-dialog .ui-resizable-w {\n\twidth: 2px;\n\tleft: 0;\n}\n.ui-dialog .ui-resizable-se,\n.ui-dialog .ui-resizable-sw,\n.ui-dialog .ui-resizable-ne,\n.ui-dialog .ui-resizable-nw {\n\twidth: 7px;\n\theight: 7px;\n}\n.ui-dialog .ui-resizable-se {\n\tright: 0;\n\tbottom: 0;\n}\n.ui-dialog .ui-resizable-sw {\n\tleft: 0;\n\tbottom: 0;\n}\n.ui-dialog .ui-resizable-ne {\n\tright: 0;\n\ttop: 0;\n}\n.ui-dialog .ui-resizable-nw {\n\tleft: 0;\n\ttop: 0;\n}\n.ui-draggable .ui-dialog-titlebar {\n\tcursor: move;\n}\n", ""]);
-
-// exports
-
-
-/***/ }),
-/* 52 */
-/***/ (function(module, exports, __webpack_require__) {
-
-
-var content = __webpack_require__(53);
-
-if(typeof content === 'string') content = [[module.i, content, '']];
-
-var transform;
-var insertInto;
-
-
-
-var options = {"hmr":true}
-
-options.transform = transform
-options.insertInto = undefined;
-
-var update = __webpack_require__(4)(content, options);
+var update = __webpack_require__(3)(content, options);
 
 if(content.locals) module.exports = content.locals;
 
@@ -22587,10 +17613,10 @@ if(false) {
 }
 
 /***/ }),
-/* 53 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(3)(false);
+exports = module.exports = __webpack_require__(2)(false);
 // imports
 
 
@@ -22601,11 +17627,11 @@ exports.push([module.i, "/*!\n * jQuery UI Spinner 1.12.1\n * http://jqueryui.co
 
 
 /***/ }),
-/* 54 */
+/* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(55);
+var content = __webpack_require__(46);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22619,7 +17645,7 @@ var options = {"hmr":true}
 options.transform = transform
 options.insertInto = undefined;
 
-var update = __webpack_require__(4)(content, options);
+var update = __webpack_require__(3)(content, options);
 
 if(content.locals) module.exports = content.locals;
 
@@ -22651,10 +17677,10 @@ if(false) {
 }
 
 /***/ }),
-/* 55 */
+/* 46 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(3)(false);
+exports = module.exports = __webpack_require__(2)(false);
 // imports
 
 
@@ -22665,11 +17691,11 @@ exports.push([module.i, "/*!\n * jQuery UI Selectmenu 1.12.1\n * http://jqueryui
 
 
 /***/ }),
-/* 56 */
+/* 47 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(57);
+var content = __webpack_require__(48);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -22683,71 +17709,7 @@ var options = {"hmr":true}
 options.transform = transform
 options.insertInto = undefined;
 
-var update = __webpack_require__(4)(content, options);
-
-if(content.locals) module.exports = content.locals;
-
-if(false) {
-	module.hot.accept("!!../../../css-loader/index.js!./tabs.css", function() {
-		var newContent = require("!!../../../css-loader/index.js!./tabs.css");
-
-		if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
-
-		var locals = (function(a, b) {
-			var key, idx = 0;
-
-			for(key in a) {
-				if(!b || a[key] !== b[key]) return false;
-				idx++;
-			}
-
-			for(key in b) idx--;
-
-			return idx === 0;
-		}(content.locals, newContent.locals));
-
-		if(!locals) throw new Error('Aborting CSS HMR due to changed css-modules locals.');
-
-		update(newContent);
-	});
-
-	module.hot.dispose(function() { update(); });
-}
-
-/***/ }),
-/* 57 */
-/***/ (function(module, exports, __webpack_require__) {
-
-exports = module.exports = __webpack_require__(3)(false);
-// imports
-
-
-// module
-exports.push([module.i, "/*!\n * jQuery UI Tabs 1.12.1\n * http://jqueryui.com\n *\n * Copyright jQuery Foundation and other contributors\n * Released under the MIT license.\n * http://jquery.org/license\n *\n * http://api.jqueryui.com/tabs/#theming\n */\n.ui-tabs {\n\tposition: relative;/* position: relative prevents IE scroll bug (element with position: relative inside container with overflow: auto appear as \"fixed\") */\n\tpadding: .2em;\n}\n.ui-tabs .ui-tabs-nav {\n\tmargin: 0;\n\tpadding: .2em .2em 0;\n}\n.ui-tabs .ui-tabs-nav li {\n\tlist-style: none;\n\tfloat: left;\n\tposition: relative;\n\ttop: 0;\n\tmargin: 1px .2em 0 0;\n\tborder-bottom-width: 0;\n\tpadding: 0;\n\twhite-space: nowrap;\n}\n.ui-tabs .ui-tabs-nav .ui-tabs-anchor {\n\tfloat: left;\n\tpadding: .5em 1em;\n\ttext-decoration: none;\n}\n.ui-tabs .ui-tabs-nav li.ui-tabs-active {\n\tmargin-bottom: -1px;\n\tpadding-bottom: 1px;\n}\n.ui-tabs .ui-tabs-nav li.ui-tabs-active .ui-tabs-anchor,\n.ui-tabs .ui-tabs-nav li.ui-state-disabled .ui-tabs-anchor,\n.ui-tabs .ui-tabs-nav li.ui-tabs-loading .ui-tabs-anchor {\n\tcursor: text;\n}\n.ui-tabs-collapsible .ui-tabs-nav li.ui-tabs-active .ui-tabs-anchor {\n\tcursor: pointer;\n}\n.ui-tabs .ui-tabs-panel {\n\tdisplay: block;\n\tborder-width: 0;\n\tpadding: 1em 1.4em;\n\tbackground: none;\n}\n", ""]);
-
-// exports
-
-
-/***/ }),
-/* 58 */
-/***/ (function(module, exports, __webpack_require__) {
-
-
-var content = __webpack_require__(59);
-
-if(typeof content === 'string') content = [[module.i, content, '']];
-
-var transform;
-var insertInto;
-
-
-
-var options = {"hmr":true}
-
-options.transform = transform
-options.insertInto = undefined;
-
-var update = __webpack_require__(4)(content, options);
+var update = __webpack_require__(3)(content, options);
 
 if(content.locals) module.exports = content.locals;
 
@@ -22779,46 +17741,46 @@ if(false) {
 }
 
 /***/ }),
-/* 59 */
+/* 48 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var escape = __webpack_require__(20);
-exports = module.exports = __webpack_require__(3)(false);
+var escape = __webpack_require__(18);
+exports = module.exports = __webpack_require__(2)(false);
 // imports
 
 
 // module
-exports.push([module.i, "/*!\n * jQuery UI CSS Framework 1.12.1\n * http://jqueryui.com\n *\n * Copyright jQuery Foundation and other contributors\n * Released under the MIT license.\n * http://jquery.org/license\n *\n * http://api.jqueryui.com/category/theming/\n *\n * To view and modify this theme, visit http://jqueryui.com/themeroller/\n */\n\n\n/* Component containers\n----------------------------------*/\n.ui-widget {\n\tfont-family: Arial,Helvetica,sans-serif/*{ffDefault}*/;\n\tfont-size: 1em/*{fsDefault}*/;\n}\n.ui-widget .ui-widget {\n\tfont-size: 1em;\n}\n.ui-widget input,\n.ui-widget select,\n.ui-widget textarea,\n.ui-widget button {\n\tfont-family: Arial,Helvetica,sans-serif/*{ffDefault}*/;\n\tfont-size: 1em;\n}\n.ui-widget.ui-widget-content {\n\tborder: 1px solid #c5c5c5/*{borderColorDefault}*/;\n}\n.ui-widget-content {\n\tborder: 1px solid #dddddd/*{borderColorContent}*/;\n\tbackground: #ffffff/*{bgColorContent}*/ /*{bgImgUrlContent}*/ /*{bgContentXPos}*/ /*{bgContentYPos}*/ /*{bgContentRepeat}*/;\n\tcolor: #333333/*{fcContent}*/;\n}\n.ui-widget-content a {\n\tcolor: #333333/*{fcContent}*/;\n}\n.ui-widget-header {\n\tborder: 1px solid #dddddd/*{borderColorHeader}*/;\n\tbackground: #e9e9e9/*{bgColorHeader}*/ /*{bgImgUrlHeader}*/ /*{bgHeaderXPos}*/ /*{bgHeaderYPos}*/ /*{bgHeaderRepeat}*/;\n\tcolor: #333333/*{fcHeader}*/;\n\tfont-weight: bold;\n}\n.ui-widget-header a {\n\tcolor: #333333/*{fcHeader}*/;\n}\n\n/* Interaction states\n----------------------------------*/\n.ui-state-default,\n.ui-widget-content .ui-state-default,\n.ui-widget-header .ui-state-default,\n.ui-button,\n\n/* We use html here because we need a greater specificity to make sure disabled\nworks properly when clicked or hovered */\nhtml .ui-button.ui-state-disabled:hover,\nhtml .ui-button.ui-state-disabled:active {\n\tborder: 1px solid #c5c5c5/*{borderColorDefault}*/;\n\tbackground: #f6f6f6/*{bgColorDefault}*/ /*{bgImgUrlDefault}*/ /*{bgDefaultXPos}*/ /*{bgDefaultYPos}*/ /*{bgDefaultRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #454545/*{fcDefault}*/;\n}\n.ui-state-default a,\n.ui-state-default a:link,\n.ui-state-default a:visited,\na.ui-button,\na:link.ui-button,\na:visited.ui-button,\n.ui-button {\n\tcolor: #454545/*{fcDefault}*/;\n\ttext-decoration: none;\n}\n.ui-state-hover,\n.ui-widget-content .ui-state-hover,\n.ui-widget-header .ui-state-hover,\n.ui-state-focus,\n.ui-widget-content .ui-state-focus,\n.ui-widget-header .ui-state-focus,\n.ui-button:hover,\n.ui-button:focus {\n\tborder: 1px solid #cccccc/*{borderColorHover}*/;\n\tbackground: #ededed/*{bgColorHover}*/ /*{bgImgUrlHover}*/ /*{bgHoverXPos}*/ /*{bgHoverYPos}*/ /*{bgHoverRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #2b2b2b/*{fcHover}*/;\n}\n.ui-state-hover a,\n.ui-state-hover a:hover,\n.ui-state-hover a:link,\n.ui-state-hover a:visited,\n.ui-state-focus a,\n.ui-state-focus a:hover,\n.ui-state-focus a:link,\n.ui-state-focus a:visited,\na.ui-button:hover,\na.ui-button:focus {\n\tcolor: #2b2b2b/*{fcHover}*/;\n\ttext-decoration: none;\n}\n\n.ui-visual-focus {\n\tbox-shadow: 0 0 3px 1px rgb(94, 158, 214);\n}\n.ui-state-active,\n.ui-widget-content .ui-state-active,\n.ui-widget-header .ui-state-active,\na.ui-button:active,\n.ui-button:active,\n.ui-button.ui-state-active:hover {\n\tborder: 1px solid #003eff/*{borderColorActive}*/;\n\tbackground: #007fff/*{bgColorActive}*/ /*{bgImgUrlActive}*/ /*{bgActiveXPos}*/ /*{bgActiveYPos}*/ /*{bgActiveRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #ffffff/*{fcActive}*/;\n}\n.ui-icon-background,\n.ui-state-active .ui-icon-background {\n\tborder: #003eff/*{borderColorActive}*/;\n\tbackground-color: #ffffff/*{fcActive}*/;\n}\n.ui-state-active a,\n.ui-state-active a:link,\n.ui-state-active a:visited {\n\tcolor: #ffffff/*{fcActive}*/;\n\ttext-decoration: none;\n}\n\n/* Interaction Cues\n----------------------------------*/\n.ui-state-highlight,\n.ui-widget-content .ui-state-highlight,\n.ui-widget-header .ui-state-highlight {\n\tborder: 1px solid #dad55e/*{borderColorHighlight}*/;\n\tbackground: #fffa90/*{bgColorHighlight}*/ /*{bgImgUrlHighlight}*/ /*{bgHighlightXPos}*/ /*{bgHighlightYPos}*/ /*{bgHighlightRepeat}*/;\n\tcolor: #777620/*{fcHighlight}*/;\n}\n.ui-state-checked {\n\tborder: 1px solid #dad55e/*{borderColorHighlight}*/;\n\tbackground: #fffa90/*{bgColorHighlight}*/;\n}\n.ui-state-highlight a,\n.ui-widget-content .ui-state-highlight a,\n.ui-widget-header .ui-state-highlight a {\n\tcolor: #777620/*{fcHighlight}*/;\n}\n.ui-state-error,\n.ui-widget-content .ui-state-error,\n.ui-widget-header .ui-state-error {\n\tborder: 1px solid #f1a899/*{borderColorError}*/;\n\tbackground: #fddfdf/*{bgColorError}*/ /*{bgImgUrlError}*/ /*{bgErrorXPos}*/ /*{bgErrorYPos}*/ /*{bgErrorRepeat}*/;\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-state-error a,\n.ui-widget-content .ui-state-error a,\n.ui-widget-header .ui-state-error a {\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-state-error-text,\n.ui-widget-content .ui-state-error-text,\n.ui-widget-header .ui-state-error-text {\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-priority-primary,\n.ui-widget-content .ui-priority-primary,\n.ui-widget-header .ui-priority-primary {\n\tfont-weight: bold;\n}\n.ui-priority-secondary,\n.ui-widget-content .ui-priority-secondary,\n.ui-widget-header .ui-priority-secondary {\n\topacity: .7;\n\tfilter:Alpha(Opacity=70); /* support: IE8 */\n\tfont-weight: normal;\n}\n.ui-state-disabled,\n.ui-widget-content .ui-state-disabled,\n.ui-widget-header .ui-state-disabled {\n\topacity: .35;\n\tfilter:Alpha(Opacity=35); /* support: IE8 */\n\tbackground-image: none;\n}\n.ui-state-disabled .ui-icon {\n\tfilter:Alpha(Opacity=35); /* support: IE8 - See #6059 */\n}\n\n/* Icons\n----------------------------------*/\n\n/* states and images */\n.ui-icon {\n\twidth: 16px;\n\theight: 16px;\n}\n.ui-icon,\n.ui-widget-content .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(21)) + ");\n}\n.ui-widget-header .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(21)) + ");\n}\n.ui-state-hover .ui-icon,\n.ui-state-focus .ui-icon,\n.ui-button:hover .ui-icon,\n.ui-button:focus .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(60)) + ");\n}\n.ui-state-active .ui-icon,\n.ui-button:active .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(22)) + ");\n}\n.ui-state-highlight .ui-icon,\n.ui-button .ui-state-highlight.ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(61)) + ");\n}\n.ui-state-error .ui-icon,\n.ui-state-error-text .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(62)) + ");\n}\n.ui-button .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(63)) + ");\n}\n\n/* positioning */\n.ui-icon-blank { background-position: 16px 16px; }\n.ui-icon-caret-1-n { background-position: 0 0; }\n.ui-icon-caret-1-ne { background-position: -16px 0; }\n.ui-icon-caret-1-e { background-position: -32px 0; }\n.ui-icon-caret-1-se { background-position: -48px 0; }\n.ui-icon-caret-1-s { background-position: -65px 0; }\n.ui-icon-caret-1-sw { background-position: -80px 0; }\n.ui-icon-caret-1-w { background-position: -96px 0; }\n.ui-icon-caret-1-nw { background-position: -112px 0; }\n.ui-icon-caret-2-n-s { background-position: -128px 0; }\n.ui-icon-caret-2-e-w { background-position: -144px 0; }\n.ui-icon-triangle-1-n { background-position: 0 -16px; }\n.ui-icon-triangle-1-ne { background-position: -16px -16px; }\n.ui-icon-triangle-1-e { background-position: -32px -16px; }\n.ui-icon-triangle-1-se { background-position: -48px -16px; }\n.ui-icon-triangle-1-s { background-position: -65px -16px; }\n.ui-icon-triangle-1-sw { background-position: -80px -16px; }\n.ui-icon-triangle-1-w { background-position: -96px -16px; }\n.ui-icon-triangle-1-nw { background-position: -112px -16px; }\n.ui-icon-triangle-2-n-s { background-position: -128px -16px; }\n.ui-icon-triangle-2-e-w { background-position: -144px -16px; }\n.ui-icon-arrow-1-n { background-position: 0 -32px; }\n.ui-icon-arrow-1-ne { background-position: -16px -32px; }\n.ui-icon-arrow-1-e { background-position: -32px -32px; }\n.ui-icon-arrow-1-se { background-position: -48px -32px; }\n.ui-icon-arrow-1-s { background-position: -65px -32px; }\n.ui-icon-arrow-1-sw { background-position: -80px -32px; }\n.ui-icon-arrow-1-w { background-position: -96px -32px; }\n.ui-icon-arrow-1-nw { background-position: -112px -32px; }\n.ui-icon-arrow-2-n-s { background-position: -128px -32px; }\n.ui-icon-arrow-2-ne-sw { background-position: -144px -32px; }\n.ui-icon-arrow-2-e-w { background-position: -160px -32px; }\n.ui-icon-arrow-2-se-nw { background-position: -176px -32px; }\n.ui-icon-arrowstop-1-n { background-position: -192px -32px; }\n.ui-icon-arrowstop-1-e { background-position: -208px -32px; }\n.ui-icon-arrowstop-1-s { background-position: -224px -32px; }\n.ui-icon-arrowstop-1-w { background-position: -240px -32px; }\n.ui-icon-arrowthick-1-n { background-position: 1px -48px; }\n.ui-icon-arrowthick-1-ne { background-position: -16px -48px; }\n.ui-icon-arrowthick-1-e { background-position: -32px -48px; }\n.ui-icon-arrowthick-1-se { background-position: -48px -48px; }\n.ui-icon-arrowthick-1-s { background-position: -64px -48px; }\n.ui-icon-arrowthick-1-sw { background-position: -80px -48px; }\n.ui-icon-arrowthick-1-w { background-position: -96px -48px; }\n.ui-icon-arrowthick-1-nw { background-position: -112px -48px; }\n.ui-icon-arrowthick-2-n-s { background-position: -128px -48px; }\n.ui-icon-arrowthick-2-ne-sw { background-position: -144px -48px; }\n.ui-icon-arrowthick-2-e-w { background-position: -160px -48px; }\n.ui-icon-arrowthick-2-se-nw { background-position: -176px -48px; }\n.ui-icon-arrowthickstop-1-n { background-position: -192px -48px; }\n.ui-icon-arrowthickstop-1-e { background-position: -208px -48px; }\n.ui-icon-arrowthickstop-1-s { background-position: -224px -48px; }\n.ui-icon-arrowthickstop-1-w { background-position: -240px -48px; }\n.ui-icon-arrowreturnthick-1-w { background-position: 0 -64px; }\n.ui-icon-arrowreturnthick-1-n { background-position: -16px -64px; }\n.ui-icon-arrowreturnthick-1-e { background-position: -32px -64px; }\n.ui-icon-arrowreturnthick-1-s { background-position: -48px -64px; }\n.ui-icon-arrowreturn-1-w { background-position: -64px -64px; }\n.ui-icon-arrowreturn-1-n { background-position: -80px -64px; }\n.ui-icon-arrowreturn-1-e { background-position: -96px -64px; }\n.ui-icon-arrowreturn-1-s { background-position: -112px -64px; }\n.ui-icon-arrowrefresh-1-w { background-position: -128px -64px; }\n.ui-icon-arrowrefresh-1-n { background-position: -144px -64px; }\n.ui-icon-arrowrefresh-1-e { background-position: -160px -64px; }\n.ui-icon-arrowrefresh-1-s { background-position: -176px -64px; }\n.ui-icon-arrow-4 { background-position: 0 -80px; }\n.ui-icon-arrow-4-diag { background-position: -16px -80px; }\n.ui-icon-extlink { background-position: -32px -80px; }\n.ui-icon-newwin { background-position: -48px -80px; }\n.ui-icon-refresh { background-position: -64px -80px; }\n.ui-icon-shuffle { background-position: -80px -80px; }\n.ui-icon-transfer-e-w { background-position: -96px -80px; }\n.ui-icon-transferthick-e-w { background-position: -112px -80px; }\n.ui-icon-folder-collapsed { background-position: 0 -96px; }\n.ui-icon-folder-open { background-position: -16px -96px; }\n.ui-icon-document { background-position: -32px -96px; }\n.ui-icon-document-b { background-position: -48px -96px; }\n.ui-icon-note { background-position: -64px -96px; }\n.ui-icon-mail-closed { background-position: -80px -96px; }\n.ui-icon-mail-open { background-position: -96px -96px; }\n.ui-icon-suitcase { background-position: -112px -96px; }\n.ui-icon-comment { background-position: -128px -96px; }\n.ui-icon-person { background-position: -144px -96px; }\n.ui-icon-print { background-position: -160px -96px; }\n.ui-icon-trash { background-position: -176px -96px; }\n.ui-icon-locked { background-position: -192px -96px; }\n.ui-icon-unlocked { background-position: -208px -96px; }\n.ui-icon-bookmark { background-position: -224px -96px; }\n.ui-icon-tag { background-position: -240px -96px; }\n.ui-icon-home { background-position: 0 -112px; }\n.ui-icon-flag { background-position: -16px -112px; }\n.ui-icon-calendar { background-position: -32px -112px; }\n.ui-icon-cart { background-position: -48px -112px; }\n.ui-icon-pencil { background-position: -64px -112px; }\n.ui-icon-clock { background-position: -80px -112px; }\n.ui-icon-disk { background-position: -96px -112px; }\n.ui-icon-calculator { background-position: -112px -112px; }\n.ui-icon-zoomin { background-position: -128px -112px; }\n.ui-icon-zoomout { background-position: -144px -112px; }\n.ui-icon-search { background-position: -160px -112px; }\n.ui-icon-wrench { background-position: -176px -112px; }\n.ui-icon-gear { background-position: -192px -112px; }\n.ui-icon-heart { background-position: -208px -112px; }\n.ui-icon-star { background-position: -224px -112px; }\n.ui-icon-link { background-position: -240px -112px; }\n.ui-icon-cancel { background-position: 0 -128px; }\n.ui-icon-plus { background-position: -16px -128px; }\n.ui-icon-plusthick { background-position: -32px -128px; }\n.ui-icon-minus { background-position: -48px -128px; }\n.ui-icon-minusthick { background-position: -64px -128px; }\n.ui-icon-close { background-position: -80px -128px; }\n.ui-icon-closethick { background-position: -96px -128px; }\n.ui-icon-key { background-position: -112px -128px; }\n.ui-icon-lightbulb { background-position: -128px -128px; }\n.ui-icon-scissors { background-position: -144px -128px; }\n.ui-icon-clipboard { background-position: -160px -128px; }\n.ui-icon-copy { background-position: -176px -128px; }\n.ui-icon-contact { background-position: -192px -128px; }\n.ui-icon-image { background-position: -208px -128px; }\n.ui-icon-video { background-position: -224px -128px; }\n.ui-icon-script { background-position: -240px -128px; }\n.ui-icon-alert { background-position: 0 -144px; }\n.ui-icon-info { background-position: -16px -144px; }\n.ui-icon-notice { background-position: -32px -144px; }\n.ui-icon-help { background-position: -48px -144px; }\n.ui-icon-check { background-position: -64px -144px; }\n.ui-icon-bullet { background-position: -80px -144px; }\n.ui-icon-radio-on { background-position: -96px -144px; }\n.ui-icon-radio-off { background-position: -112px -144px; }\n.ui-icon-pin-w { background-position: -128px -144px; }\n.ui-icon-pin-s { background-position: -144px -144px; }\n.ui-icon-play { background-position: 0 -160px; }\n.ui-icon-pause { background-position: -16px -160px; }\n.ui-icon-seek-next { background-position: -32px -160px; }\n.ui-icon-seek-prev { background-position: -48px -160px; }\n.ui-icon-seek-end { background-position: -64px -160px; }\n.ui-icon-seek-start { background-position: -80px -160px; }\n/* ui-icon-seek-first is deprecated, use ui-icon-seek-start instead */\n.ui-icon-seek-first { background-position: -80px -160px; }\n.ui-icon-stop { background-position: -96px -160px; }\n.ui-icon-eject { background-position: -112px -160px; }\n.ui-icon-volume-off { background-position: -128px -160px; }\n.ui-icon-volume-on { background-position: -144px -160px; }\n.ui-icon-power { background-position: 0 -176px; }\n.ui-icon-signal-diag { background-position: -16px -176px; }\n.ui-icon-signal { background-position: -32px -176px; }\n.ui-icon-battery-0 { background-position: -48px -176px; }\n.ui-icon-battery-1 { background-position: -64px -176px; }\n.ui-icon-battery-2 { background-position: -80px -176px; }\n.ui-icon-battery-3 { background-position: -96px -176px; }\n.ui-icon-circle-plus { background-position: 0 -192px; }\n.ui-icon-circle-minus { background-position: -16px -192px; }\n.ui-icon-circle-close { background-position: -32px -192px; }\n.ui-icon-circle-triangle-e { background-position: -48px -192px; }\n.ui-icon-circle-triangle-s { background-position: -64px -192px; }\n.ui-icon-circle-triangle-w { background-position: -80px -192px; }\n.ui-icon-circle-triangle-n { background-position: -96px -192px; }\n.ui-icon-circle-arrow-e { background-position: -112px -192px; }\n.ui-icon-circle-arrow-s { background-position: -128px -192px; }\n.ui-icon-circle-arrow-w { background-position: -144px -192px; }\n.ui-icon-circle-arrow-n { background-position: -160px -192px; }\n.ui-icon-circle-zoomin { background-position: -176px -192px; }\n.ui-icon-circle-zoomout { background-position: -192px -192px; }\n.ui-icon-circle-check { background-position: -208px -192px; }\n.ui-icon-circlesmall-plus { background-position: 0 -208px; }\n.ui-icon-circlesmall-minus { background-position: -16px -208px; }\n.ui-icon-circlesmall-close { background-position: -32px -208px; }\n.ui-icon-squaresmall-plus { background-position: -48px -208px; }\n.ui-icon-squaresmall-minus { background-position: -64px -208px; }\n.ui-icon-squaresmall-close { background-position: -80px -208px; }\n.ui-icon-grip-dotted-vertical { background-position: 0 -224px; }\n.ui-icon-grip-dotted-horizontal { background-position: -16px -224px; }\n.ui-icon-grip-solid-vertical { background-position: -32px -224px; }\n.ui-icon-grip-solid-horizontal { background-position: -48px -224px; }\n.ui-icon-gripsmall-diagonal-se { background-position: -64px -224px; }\n.ui-icon-grip-diagonal-se { background-position: -80px -224px; }\n\n\n/* Misc visuals\n----------------------------------*/\n\n/* Corner radius */\n.ui-corner-all,\n.ui-corner-top,\n.ui-corner-left,\n.ui-corner-tl {\n\tborder-top-left-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-top,\n.ui-corner-right,\n.ui-corner-tr {\n\tborder-top-right-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-bottom,\n.ui-corner-left,\n.ui-corner-bl {\n\tborder-bottom-left-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-bottom,\n.ui-corner-right,\n.ui-corner-br {\n\tborder-bottom-right-radius: 3px/*{cornerRadius}*/;\n}\n\n/* Overlays */\n.ui-widget-overlay {\n\tbackground: #aaaaaa/*{bgColorOverlay}*/ /*{bgImgUrlOverlay}*/ /*{bgOverlayXPos}*/ /*{bgOverlayYPos}*/ /*{bgOverlayRepeat}*/;\n\topacity: .3/*{opacityOverlay}*/;\n\tfilter: Alpha(Opacity=30)/*{opacityFilterOverlay}*/; /* support: IE8 */\n}\n.ui-widget-shadow {\n\t-webkit-box-shadow: 0/*{offsetLeftShadow}*/ 0/*{offsetTopShadow}*/ 5px/*{thicknessShadow}*/ #666666/*{bgColorShadow}*/;\n\tbox-shadow: 0/*{offsetLeftShadow}*/ 0/*{offsetTopShadow}*/ 5px/*{thicknessShadow}*/ #666666/*{bgColorShadow}*/;\n}\n", ""]);
+exports.push([module.i, "/*!\n * jQuery UI CSS Framework 1.12.1\n * http://jqueryui.com\n *\n * Copyright jQuery Foundation and other contributors\n * Released under the MIT license.\n * http://jquery.org/license\n *\n * http://api.jqueryui.com/category/theming/\n *\n * To view and modify this theme, visit http://jqueryui.com/themeroller/\n */\n\n\n/* Component containers\n----------------------------------*/\n.ui-widget {\n\tfont-family: Arial,Helvetica,sans-serif/*{ffDefault}*/;\n\tfont-size: 1em/*{fsDefault}*/;\n}\n.ui-widget .ui-widget {\n\tfont-size: 1em;\n}\n.ui-widget input,\n.ui-widget select,\n.ui-widget textarea,\n.ui-widget button {\n\tfont-family: Arial,Helvetica,sans-serif/*{ffDefault}*/;\n\tfont-size: 1em;\n}\n.ui-widget.ui-widget-content {\n\tborder: 1px solid #c5c5c5/*{borderColorDefault}*/;\n}\n.ui-widget-content {\n\tborder: 1px solid #dddddd/*{borderColorContent}*/;\n\tbackground: #ffffff/*{bgColorContent}*/ /*{bgImgUrlContent}*/ /*{bgContentXPos}*/ /*{bgContentYPos}*/ /*{bgContentRepeat}*/;\n\tcolor: #333333/*{fcContent}*/;\n}\n.ui-widget-content a {\n\tcolor: #333333/*{fcContent}*/;\n}\n.ui-widget-header {\n\tborder: 1px solid #dddddd/*{borderColorHeader}*/;\n\tbackground: #e9e9e9/*{bgColorHeader}*/ /*{bgImgUrlHeader}*/ /*{bgHeaderXPos}*/ /*{bgHeaderYPos}*/ /*{bgHeaderRepeat}*/;\n\tcolor: #333333/*{fcHeader}*/;\n\tfont-weight: bold;\n}\n.ui-widget-header a {\n\tcolor: #333333/*{fcHeader}*/;\n}\n\n/* Interaction states\n----------------------------------*/\n.ui-state-default,\n.ui-widget-content .ui-state-default,\n.ui-widget-header .ui-state-default,\n.ui-button,\n\n/* We use html here because we need a greater specificity to make sure disabled\nworks properly when clicked or hovered */\nhtml .ui-button.ui-state-disabled:hover,\nhtml .ui-button.ui-state-disabled:active {\n\tborder: 1px solid #c5c5c5/*{borderColorDefault}*/;\n\tbackground: #f6f6f6/*{bgColorDefault}*/ /*{bgImgUrlDefault}*/ /*{bgDefaultXPos}*/ /*{bgDefaultYPos}*/ /*{bgDefaultRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #454545/*{fcDefault}*/;\n}\n.ui-state-default a,\n.ui-state-default a:link,\n.ui-state-default a:visited,\na.ui-button,\na:link.ui-button,\na:visited.ui-button,\n.ui-button {\n\tcolor: #454545/*{fcDefault}*/;\n\ttext-decoration: none;\n}\n.ui-state-hover,\n.ui-widget-content .ui-state-hover,\n.ui-widget-header .ui-state-hover,\n.ui-state-focus,\n.ui-widget-content .ui-state-focus,\n.ui-widget-header .ui-state-focus,\n.ui-button:hover,\n.ui-button:focus {\n\tborder: 1px solid #cccccc/*{borderColorHover}*/;\n\tbackground: #ededed/*{bgColorHover}*/ /*{bgImgUrlHover}*/ /*{bgHoverXPos}*/ /*{bgHoverYPos}*/ /*{bgHoverRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #2b2b2b/*{fcHover}*/;\n}\n.ui-state-hover a,\n.ui-state-hover a:hover,\n.ui-state-hover a:link,\n.ui-state-hover a:visited,\n.ui-state-focus a,\n.ui-state-focus a:hover,\n.ui-state-focus a:link,\n.ui-state-focus a:visited,\na.ui-button:hover,\na.ui-button:focus {\n\tcolor: #2b2b2b/*{fcHover}*/;\n\ttext-decoration: none;\n}\n\n.ui-visual-focus {\n\tbox-shadow: 0 0 3px 1px rgb(94, 158, 214);\n}\n.ui-state-active,\n.ui-widget-content .ui-state-active,\n.ui-widget-header .ui-state-active,\na.ui-button:active,\n.ui-button:active,\n.ui-button.ui-state-active:hover {\n\tborder: 1px solid #003eff/*{borderColorActive}*/;\n\tbackground: #007fff/*{bgColorActive}*/ /*{bgImgUrlActive}*/ /*{bgActiveXPos}*/ /*{bgActiveYPos}*/ /*{bgActiveRepeat}*/;\n\tfont-weight: normal/*{fwDefault}*/;\n\tcolor: #ffffff/*{fcActive}*/;\n}\n.ui-icon-background,\n.ui-state-active .ui-icon-background {\n\tborder: #003eff/*{borderColorActive}*/;\n\tbackground-color: #ffffff/*{fcActive}*/;\n}\n.ui-state-active a,\n.ui-state-active a:link,\n.ui-state-active a:visited {\n\tcolor: #ffffff/*{fcActive}*/;\n\ttext-decoration: none;\n}\n\n/* Interaction Cues\n----------------------------------*/\n.ui-state-highlight,\n.ui-widget-content .ui-state-highlight,\n.ui-widget-header .ui-state-highlight {\n\tborder: 1px solid #dad55e/*{borderColorHighlight}*/;\n\tbackground: #fffa90/*{bgColorHighlight}*/ /*{bgImgUrlHighlight}*/ /*{bgHighlightXPos}*/ /*{bgHighlightYPos}*/ /*{bgHighlightRepeat}*/;\n\tcolor: #777620/*{fcHighlight}*/;\n}\n.ui-state-checked {\n\tborder: 1px solid #dad55e/*{borderColorHighlight}*/;\n\tbackground: #fffa90/*{bgColorHighlight}*/;\n}\n.ui-state-highlight a,\n.ui-widget-content .ui-state-highlight a,\n.ui-widget-header .ui-state-highlight a {\n\tcolor: #777620/*{fcHighlight}*/;\n}\n.ui-state-error,\n.ui-widget-content .ui-state-error,\n.ui-widget-header .ui-state-error {\n\tborder: 1px solid #f1a899/*{borderColorError}*/;\n\tbackground: #fddfdf/*{bgColorError}*/ /*{bgImgUrlError}*/ /*{bgErrorXPos}*/ /*{bgErrorYPos}*/ /*{bgErrorRepeat}*/;\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-state-error a,\n.ui-widget-content .ui-state-error a,\n.ui-widget-header .ui-state-error a {\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-state-error-text,\n.ui-widget-content .ui-state-error-text,\n.ui-widget-header .ui-state-error-text {\n\tcolor: #5f3f3f/*{fcError}*/;\n}\n.ui-priority-primary,\n.ui-widget-content .ui-priority-primary,\n.ui-widget-header .ui-priority-primary {\n\tfont-weight: bold;\n}\n.ui-priority-secondary,\n.ui-widget-content .ui-priority-secondary,\n.ui-widget-header .ui-priority-secondary {\n\topacity: .7;\n\tfilter:Alpha(Opacity=70); /* support: IE8 */\n\tfont-weight: normal;\n}\n.ui-state-disabled,\n.ui-widget-content .ui-state-disabled,\n.ui-widget-header .ui-state-disabled {\n\topacity: .35;\n\tfilter:Alpha(Opacity=35); /* support: IE8 */\n\tbackground-image: none;\n}\n.ui-state-disabled .ui-icon {\n\tfilter:Alpha(Opacity=35); /* support: IE8 - See #6059 */\n}\n\n/* Icons\n----------------------------------*/\n\n/* states and images */\n.ui-icon {\n\twidth: 16px;\n\theight: 16px;\n}\n.ui-icon,\n.ui-widget-content .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(19)) + ");\n}\n.ui-widget-header .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(19)) + ");\n}\n.ui-state-hover .ui-icon,\n.ui-state-focus .ui-icon,\n.ui-button:hover .ui-icon,\n.ui-button:focus .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(49)) + ");\n}\n.ui-state-active .ui-icon,\n.ui-button:active .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(20)) + ");\n}\n.ui-state-highlight .ui-icon,\n.ui-button .ui-state-highlight.ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(50)) + ");\n}\n.ui-state-error .ui-icon,\n.ui-state-error-text .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(51)) + ");\n}\n.ui-button .ui-icon {\n\tbackground-image: url(" + escape(__webpack_require__(52)) + ");\n}\n\n/* positioning */\n.ui-icon-blank { background-position: 16px 16px; }\n.ui-icon-caret-1-n { background-position: 0 0; }\n.ui-icon-caret-1-ne { background-position: -16px 0; }\n.ui-icon-caret-1-e { background-position: -32px 0; }\n.ui-icon-caret-1-se { background-position: -48px 0; }\n.ui-icon-caret-1-s { background-position: -65px 0; }\n.ui-icon-caret-1-sw { background-position: -80px 0; }\n.ui-icon-caret-1-w { background-position: -96px 0; }\n.ui-icon-caret-1-nw { background-position: -112px 0; }\n.ui-icon-caret-2-n-s { background-position: -128px 0; }\n.ui-icon-caret-2-e-w { background-position: -144px 0; }\n.ui-icon-triangle-1-n { background-position: 0 -16px; }\n.ui-icon-triangle-1-ne { background-position: -16px -16px; }\n.ui-icon-triangle-1-e { background-position: -32px -16px; }\n.ui-icon-triangle-1-se { background-position: -48px -16px; }\n.ui-icon-triangle-1-s { background-position: -65px -16px; }\n.ui-icon-triangle-1-sw { background-position: -80px -16px; }\n.ui-icon-triangle-1-w { background-position: -96px -16px; }\n.ui-icon-triangle-1-nw { background-position: -112px -16px; }\n.ui-icon-triangle-2-n-s { background-position: -128px -16px; }\n.ui-icon-triangle-2-e-w { background-position: -144px -16px; }\n.ui-icon-arrow-1-n { background-position: 0 -32px; }\n.ui-icon-arrow-1-ne { background-position: -16px -32px; }\n.ui-icon-arrow-1-e { background-position: -32px -32px; }\n.ui-icon-arrow-1-se { background-position: -48px -32px; }\n.ui-icon-arrow-1-s { background-position: -65px -32px; }\n.ui-icon-arrow-1-sw { background-position: -80px -32px; }\n.ui-icon-arrow-1-w { background-position: -96px -32px; }\n.ui-icon-arrow-1-nw { background-position: -112px -32px; }\n.ui-icon-arrow-2-n-s { background-position: -128px -32px; }\n.ui-icon-arrow-2-ne-sw { background-position: -144px -32px; }\n.ui-icon-arrow-2-e-w { background-position: -160px -32px; }\n.ui-icon-arrow-2-se-nw { background-position: -176px -32px; }\n.ui-icon-arrowstop-1-n { background-position: -192px -32px; }\n.ui-icon-arrowstop-1-e { background-position: -208px -32px; }\n.ui-icon-arrowstop-1-s { background-position: -224px -32px; }\n.ui-icon-arrowstop-1-w { background-position: -240px -32px; }\n.ui-icon-arrowthick-1-n { background-position: 1px -48px; }\n.ui-icon-arrowthick-1-ne { background-position: -16px -48px; }\n.ui-icon-arrowthick-1-e { background-position: -32px -48px; }\n.ui-icon-arrowthick-1-se { background-position: -48px -48px; }\n.ui-icon-arrowthick-1-s { background-position: -64px -48px; }\n.ui-icon-arrowthick-1-sw { background-position: -80px -48px; }\n.ui-icon-arrowthick-1-w { background-position: -96px -48px; }\n.ui-icon-arrowthick-1-nw { background-position: -112px -48px; }\n.ui-icon-arrowthick-2-n-s { background-position: -128px -48px; }\n.ui-icon-arrowthick-2-ne-sw { background-position: -144px -48px; }\n.ui-icon-arrowthick-2-e-w { background-position: -160px -48px; }\n.ui-icon-arrowthick-2-se-nw { background-position: -176px -48px; }\n.ui-icon-arrowthickstop-1-n { background-position: -192px -48px; }\n.ui-icon-arrowthickstop-1-e { background-position: -208px -48px; }\n.ui-icon-arrowthickstop-1-s { background-position: -224px -48px; }\n.ui-icon-arrowthickstop-1-w { background-position: -240px -48px; }\n.ui-icon-arrowreturnthick-1-w { background-position: 0 -64px; }\n.ui-icon-arrowreturnthick-1-n { background-position: -16px -64px; }\n.ui-icon-arrowreturnthick-1-e { background-position: -32px -64px; }\n.ui-icon-arrowreturnthick-1-s { background-position: -48px -64px; }\n.ui-icon-arrowreturn-1-w { background-position: -64px -64px; }\n.ui-icon-arrowreturn-1-n { background-position: -80px -64px; }\n.ui-icon-arrowreturn-1-e { background-position: -96px -64px; }\n.ui-icon-arrowreturn-1-s { background-position: -112px -64px; }\n.ui-icon-arrowrefresh-1-w { background-position: -128px -64px; }\n.ui-icon-arrowrefresh-1-n { background-position: -144px -64px; }\n.ui-icon-arrowrefresh-1-e { background-position: -160px -64px; }\n.ui-icon-arrowrefresh-1-s { background-position: -176px -64px; }\n.ui-icon-arrow-4 { background-position: 0 -80px; }\n.ui-icon-arrow-4-diag { background-position: -16px -80px; }\n.ui-icon-extlink { background-position: -32px -80px; }\n.ui-icon-newwin { background-position: -48px -80px; }\n.ui-icon-refresh { background-position: -64px -80px; }\n.ui-icon-shuffle { background-position: -80px -80px; }\n.ui-icon-transfer-e-w { background-position: -96px -80px; }\n.ui-icon-transferthick-e-w { background-position: -112px -80px; }\n.ui-icon-folder-collapsed { background-position: 0 -96px; }\n.ui-icon-folder-open { background-position: -16px -96px; }\n.ui-icon-document { background-position: -32px -96px; }\n.ui-icon-document-b { background-position: -48px -96px; }\n.ui-icon-note { background-position: -64px -96px; }\n.ui-icon-mail-closed { background-position: -80px -96px; }\n.ui-icon-mail-open { background-position: -96px -96px; }\n.ui-icon-suitcase { background-position: -112px -96px; }\n.ui-icon-comment { background-position: -128px -96px; }\n.ui-icon-person { background-position: -144px -96px; }\n.ui-icon-print { background-position: -160px -96px; }\n.ui-icon-trash { background-position: -176px -96px; }\n.ui-icon-locked { background-position: -192px -96px; }\n.ui-icon-unlocked { background-position: -208px -96px; }\n.ui-icon-bookmark { background-position: -224px -96px; }\n.ui-icon-tag { background-position: -240px -96px; }\n.ui-icon-home { background-position: 0 -112px; }\n.ui-icon-flag { background-position: -16px -112px; }\n.ui-icon-calendar { background-position: -32px -112px; }\n.ui-icon-cart { background-position: -48px -112px; }\n.ui-icon-pencil { background-position: -64px -112px; }\n.ui-icon-clock { background-position: -80px -112px; }\n.ui-icon-disk { background-position: -96px -112px; }\n.ui-icon-calculator { background-position: -112px -112px; }\n.ui-icon-zoomin { background-position: -128px -112px; }\n.ui-icon-zoomout { background-position: -144px -112px; }\n.ui-icon-search { background-position: -160px -112px; }\n.ui-icon-wrench { background-position: -176px -112px; }\n.ui-icon-gear { background-position: -192px -112px; }\n.ui-icon-heart { background-position: -208px -112px; }\n.ui-icon-star { background-position: -224px -112px; }\n.ui-icon-link { background-position: -240px -112px; }\n.ui-icon-cancel { background-position: 0 -128px; }\n.ui-icon-plus { background-position: -16px -128px; }\n.ui-icon-plusthick { background-position: -32px -128px; }\n.ui-icon-minus { background-position: -48px -128px; }\n.ui-icon-minusthick { background-position: -64px -128px; }\n.ui-icon-close { background-position: -80px -128px; }\n.ui-icon-closethick { background-position: -96px -128px; }\n.ui-icon-key { background-position: -112px -128px; }\n.ui-icon-lightbulb { background-position: -128px -128px; }\n.ui-icon-scissors { background-position: -144px -128px; }\n.ui-icon-clipboard { background-position: -160px -128px; }\n.ui-icon-copy { background-position: -176px -128px; }\n.ui-icon-contact { background-position: -192px -128px; }\n.ui-icon-image { background-position: -208px -128px; }\n.ui-icon-video { background-position: -224px -128px; }\n.ui-icon-script { background-position: -240px -128px; }\n.ui-icon-alert { background-position: 0 -144px; }\n.ui-icon-info { background-position: -16px -144px; }\n.ui-icon-notice { background-position: -32px -144px; }\n.ui-icon-help { background-position: -48px -144px; }\n.ui-icon-check { background-position: -64px -144px; }\n.ui-icon-bullet { background-position: -80px -144px; }\n.ui-icon-radio-on { background-position: -96px -144px; }\n.ui-icon-radio-off { background-position: -112px -144px; }\n.ui-icon-pin-w { background-position: -128px -144px; }\n.ui-icon-pin-s { background-position: -144px -144px; }\n.ui-icon-play { background-position: 0 -160px; }\n.ui-icon-pause { background-position: -16px -160px; }\n.ui-icon-seek-next { background-position: -32px -160px; }\n.ui-icon-seek-prev { background-position: -48px -160px; }\n.ui-icon-seek-end { background-position: -64px -160px; }\n.ui-icon-seek-start { background-position: -80px -160px; }\n/* ui-icon-seek-first is deprecated, use ui-icon-seek-start instead */\n.ui-icon-seek-first { background-position: -80px -160px; }\n.ui-icon-stop { background-position: -96px -160px; }\n.ui-icon-eject { background-position: -112px -160px; }\n.ui-icon-volume-off { background-position: -128px -160px; }\n.ui-icon-volume-on { background-position: -144px -160px; }\n.ui-icon-power { background-position: 0 -176px; }\n.ui-icon-signal-diag { background-position: -16px -176px; }\n.ui-icon-signal { background-position: -32px -176px; }\n.ui-icon-battery-0 { background-position: -48px -176px; }\n.ui-icon-battery-1 { background-position: -64px -176px; }\n.ui-icon-battery-2 { background-position: -80px -176px; }\n.ui-icon-battery-3 { background-position: -96px -176px; }\n.ui-icon-circle-plus { background-position: 0 -192px; }\n.ui-icon-circle-minus { background-position: -16px -192px; }\n.ui-icon-circle-close { background-position: -32px -192px; }\n.ui-icon-circle-triangle-e { background-position: -48px -192px; }\n.ui-icon-circle-triangle-s { background-position: -64px -192px; }\n.ui-icon-circle-triangle-w { background-position: -80px -192px; }\n.ui-icon-circle-triangle-n { background-position: -96px -192px; }\n.ui-icon-circle-arrow-e { background-position: -112px -192px; }\n.ui-icon-circle-arrow-s { background-position: -128px -192px; }\n.ui-icon-circle-arrow-w { background-position: -144px -192px; }\n.ui-icon-circle-arrow-n { background-position: -160px -192px; }\n.ui-icon-circle-zoomin { background-position: -176px -192px; }\n.ui-icon-circle-zoomout { background-position: -192px -192px; }\n.ui-icon-circle-check { background-position: -208px -192px; }\n.ui-icon-circlesmall-plus { background-position: 0 -208px; }\n.ui-icon-circlesmall-minus { background-position: -16px -208px; }\n.ui-icon-circlesmall-close { background-position: -32px -208px; }\n.ui-icon-squaresmall-plus { background-position: -48px -208px; }\n.ui-icon-squaresmall-minus { background-position: -64px -208px; }\n.ui-icon-squaresmall-close { background-position: -80px -208px; }\n.ui-icon-grip-dotted-vertical { background-position: 0 -224px; }\n.ui-icon-grip-dotted-horizontal { background-position: -16px -224px; }\n.ui-icon-grip-solid-vertical { background-position: -32px -224px; }\n.ui-icon-grip-solid-horizontal { background-position: -48px -224px; }\n.ui-icon-gripsmall-diagonal-se { background-position: -64px -224px; }\n.ui-icon-grip-diagonal-se { background-position: -80px -224px; }\n\n\n/* Misc visuals\n----------------------------------*/\n\n/* Corner radius */\n.ui-corner-all,\n.ui-corner-top,\n.ui-corner-left,\n.ui-corner-tl {\n\tborder-top-left-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-top,\n.ui-corner-right,\n.ui-corner-tr {\n\tborder-top-right-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-bottom,\n.ui-corner-left,\n.ui-corner-bl {\n\tborder-bottom-left-radius: 3px/*{cornerRadius}*/;\n}\n.ui-corner-all,\n.ui-corner-bottom,\n.ui-corner-right,\n.ui-corner-br {\n\tborder-bottom-right-radius: 3px/*{cornerRadius}*/;\n}\n\n/* Overlays */\n.ui-widget-overlay {\n\tbackground: #aaaaaa/*{bgColorOverlay}*/ /*{bgImgUrlOverlay}*/ /*{bgOverlayXPos}*/ /*{bgOverlayYPos}*/ /*{bgOverlayRepeat}*/;\n\topacity: .3/*{opacityOverlay}*/;\n\tfilter: Alpha(Opacity=30)/*{opacityFilterOverlay}*/; /* support: IE8 */\n}\n.ui-widget-shadow {\n\t-webkit-box-shadow: 0/*{offsetLeftShadow}*/ 0/*{offsetTopShadow}*/ 5px/*{thicknessShadow}*/ #666666/*{bgColorShadow}*/;\n\tbox-shadow: 0/*{offsetLeftShadow}*/ 0/*{offsetTopShadow}*/ 5px/*{thicknessShadow}*/ #666666/*{bgColorShadow}*/;\n}\n", ""]);
 
 // exports
 
 
 /***/ }),
-/* 60 */
+/* 49 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "dist/images/ui-icons_555555_256x240.png";
 
 /***/ }),
-/* 61 */
+/* 50 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "dist/images/ui-icons_777620_256x240.png";
 
 /***/ }),
-/* 62 */
+/* 51 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "dist/images/ui-icons_cc0000_256x240.png";
 
 /***/ }),
-/* 63 */
+/* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "dist/images/ui-icons_777777_256x240.png";
 
 /***/ }),
-/* 64 */
+/* 53 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -24668,7 +19630,6144 @@ return jsc.jscolor;
 
 
 /***/ }),
+/* 54 */
+/***/ (function(module, exports, __webpack_require__) {
+
+
+var content = __webpack_require__(55);
+
+if(typeof content === 'string') content = [[module.i, content, '']];
+
+var transform;
+var insertInto;
+
+
+
+var options = {"hmr":true}
+
+options.transform = transform
+options.insertInto = undefined;
+
+var update = __webpack_require__(3)(content, options);
+
+if(content.locals) module.exports = content.locals;
+
+if(false) {
+	module.hot.accept("!!../css-loader/index.js!../sass-loader/lib/loader.js!./toastr.scss", function() {
+		var newContent = require("!!../css-loader/index.js!../sass-loader/lib/loader.js!./toastr.scss");
+
+		if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+
+		var locals = (function(a, b) {
+			var key, idx = 0;
+
+			for(key in a) {
+				if(!b || a[key] !== b[key]) return false;
+				idx++;
+			}
+
+			for(key in b) idx--;
+
+			return idx === 0;
+		}(content.locals, newContent.locals));
+
+		if(!locals) throw new Error('Aborting CSS HMR due to changed css-modules locals.');
+
+		update(newContent);
+	});
+
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 55 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(2)(false);
+// imports
+
+
+// module
+exports.push([module.i, ".toast-title {\n  font-weight: bold; }\n\n.toast-message {\n  -ms-word-wrap: break-word;\n  word-wrap: break-word; }\n\n.toast-message a,\n.toast-message label {\n  color: #ffffff; }\n\n.toast-message a:hover {\n  color: #cccccc;\n  text-decoration: none; }\n\n.toast-close-button {\n  position: relative;\n  right: -0.3em;\n  top: -0.3em;\n  float: right;\n  font-size: 20px;\n  font-weight: bold;\n  color: #ffffff;\n  -webkit-text-shadow: 0 1px 0 #ffffff;\n  text-shadow: 0 1px 0 #ffffff;\n  opacity: 0.8;\n  -ms-filter: progid:DXImageTransform.Microsoft.Alpha(Opacity=80);\n  filter: alpha(opacity=80); }\n\n.toast-close-button:hover,\n.toast-close-button:focus {\n  color: #000000;\n  text-decoration: none;\n  cursor: pointer;\n  opacity: 0.4;\n  -ms-filter: progid:DXImageTransform.Microsoft.Alpha(Opacity=40);\n  filter: alpha(opacity=40); }\n\n/*Additional properties for button version\n iOS requires the button element instead of an anchor tag.\n If you want the anchor version, it requires `href=\"#\"`.*/\nbutton.toast-close-button {\n  padding: 0;\n  cursor: pointer;\n  background: transparent;\n  border: 0;\n  -webkit-appearance: none; }\n\n.toast-top-center {\n  top: 0;\n  right: 0;\n  width: 100%; }\n\n.toast-bottom-center {\n  bottom: 0;\n  right: 0;\n  width: 100%; }\n\n.toast-top-full-width {\n  top: 0;\n  right: 0;\n  width: 100%; }\n\n.toast-bottom-full-width {\n  bottom: 0;\n  right: 0;\n  width: 100%; }\n\n.toast-top-left {\n  top: 12px;\n  left: 12px; }\n\n.toast-top-right {\n  top: 12px;\n  right: 12px; }\n\n.toast-bottom-right {\n  right: 12px;\n  bottom: 12px; }\n\n.toast-bottom-left {\n  bottom: 12px;\n  left: 12px; }\n\n#toast-container {\n  position: fixed;\n  z-index: 999999;\n  /*overrides*/ }\n\n#toast-container * {\n  -moz-box-sizing: border-box;\n  -webkit-box-sizing: border-box;\n  box-sizing: border-box; }\n\n#toast-container > div {\n  position: relative;\n  overflow: hidden;\n  margin: 0 0 6px;\n  padding: 15px 15px 15px 50px;\n  width: 300px;\n  -moz-border-radius: 3px 3px 3px 3px;\n  -webkit-border-radius: 3px 3px 3px 3px;\n  border-radius: 3px 3px 3px 3px;\n  background-position: 15px center;\n  background-repeat: no-repeat;\n  -moz-box-shadow: 0 0 12px #999999;\n  -webkit-box-shadow: 0 0 12px #999999;\n  box-shadow: 0 0 12px #999999;\n  color: #ffffff;\n  opacity: 0.8;\n  -ms-filter: progid:DXImageTransform.Microsoft.Alpha(Opacity=80);\n  filter: alpha(opacity=80); }\n\n#toast-container > div:hover {\n  -moz-box-shadow: 0 0 12px #000000;\n  -webkit-box-shadow: 0 0 12px #000000;\n  box-shadow: 0 0 12px #000000;\n  opacity: 1;\n  -ms-filter: progid:DXImageTransform.Microsoft.Alpha(Opacity=100);\n  filter: alpha(opacity=100);\n  cursor: pointer; }\n\n#toast-container > .toast-info {\n  background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAGwSURBVEhLtZa9SgNBEMc9sUxxRcoUKSzSWIhXpFMhhYWFhaBg4yPYiWCXZxBLERsLRS3EQkEfwCKdjWJAwSKCgoKCcudv4O5YLrt7EzgXhiU3/4+b2ckmwVjJSpKkQ6wAi4gwhT+z3wRBcEz0yjSseUTrcRyfsHsXmD0AmbHOC9Ii8VImnuXBPglHpQ5wwSVM7sNnTG7Za4JwDdCjxyAiH3nyA2mtaTJufiDZ5dCaqlItILh1NHatfN5skvjx9Z38m69CgzuXmZgVrPIGE763Jx9qKsRozWYw6xOHdER+nn2KkO+Bb+UV5CBN6WC6QtBgbRVozrahAbmm6HtUsgtPC19tFdxXZYBOfkbmFJ1VaHA1VAHjd0pp70oTZzvR+EVrx2Ygfdsq6eu55BHYR8hlcki+n+kERUFG8BrA0BwjeAv2M8WLQBtcy+SD6fNsmnB3AlBLrgTtVW1c2QN4bVWLATaIS60J2Du5y1TiJgjSBvFVZgTmwCU+dAZFoPxGEEs8nyHC9Bwe2GvEJv2WXZb0vjdyFT4Cxk3e/kIqlOGoVLwwPevpYHT+00T+hWwXDf4AJAOUqWcDhbwAAAAASUVORK5CYII=\") !important; }\n\n#toast-container > .toast-error {\n  background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHOSURBVEhLrZa/SgNBEMZzh0WKCClSCKaIYOED+AAKeQQLG8HWztLCImBrYadgIdY+gIKNYkBFSwu7CAoqCgkkoGBI/E28PdbLZmeDLgzZzcx83/zZ2SSXC1j9fr+I1Hq93g2yxH4iwM1vkoBWAdxCmpzTxfkN2RcyZNaHFIkSo10+8kgxkXIURV5HGxTmFuc75B2RfQkpxHG8aAgaAFa0tAHqYFfQ7Iwe2yhODk8+J4C7yAoRTWI3w/4klGRgR4lO7Rpn9+gvMyWp+uxFh8+H+ARlgN1nJuJuQAYvNkEnwGFck18Er4q3egEc/oO+mhLdKgRyhdNFiacC0rlOCbhNVz4H9FnAYgDBvU3QIioZlJFLJtsoHYRDfiZoUyIxqCtRpVlANq0EU4dApjrtgezPFad5S19Wgjkc0hNVnuF4HjVA6C7QrSIbylB+oZe3aHgBsqlNqKYH48jXyJKMuAbiyVJ8KzaB3eRc0pg9VwQ4niFryI68qiOi3AbjwdsfnAtk0bCjTLJKr6mrD9g8iq/S/B81hguOMlQTnVyG40wAcjnmgsCNESDrjme7wfftP4P7SP4N3CJZdvzoNyGq2c/HWOXJGsvVg+RA/k2MC/wN6I2YA2Pt8GkAAAAASUVORK5CYII=\") !important; }\n\n#toast-container > .toast-success {\n  background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADsSURBVEhLY2AYBfQMgf///3P8+/evAIgvA/FsIF+BavYDDWMBGroaSMMBiE8VC7AZDrIFaMFnii3AZTjUgsUUWUDA8OdAH6iQbQEhw4HyGsPEcKBXBIC4ARhex4G4BsjmweU1soIFaGg/WtoFZRIZdEvIMhxkCCjXIVsATV6gFGACs4Rsw0EGgIIH3QJYJgHSARQZDrWAB+jawzgs+Q2UO49D7jnRSRGoEFRILcdmEMWGI0cm0JJ2QpYA1RDvcmzJEWhABhD/pqrL0S0CWuABKgnRki9lLseS7g2AlqwHWQSKH4oKLrILpRGhEQCw2LiRUIa4lwAAAABJRU5ErkJggg==\") !important; }\n\n#toast-container > .toast-warning {\n  background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAGYSURBVEhL5ZSvTsNQFMbXZGICMYGYmJhAQIJAICYQPAACiSDB8AiICQQJT4CqQEwgJvYASAQCiZiYmJhAIBATCARJy+9rTsldd8sKu1M0+dLb057v6/lbq/2rK0mS/TRNj9cWNAKPYIJII7gIxCcQ51cvqID+GIEX8ASG4B1bK5gIZFeQfoJdEXOfgX4QAQg7kH2A65yQ87lyxb27sggkAzAuFhbbg1K2kgCkB1bVwyIR9m2L7PRPIhDUIXgGtyKw575yz3lTNs6X4JXnjV+LKM/m3MydnTbtOKIjtz6VhCBq4vSm3ncdrD2lk0VgUXSVKjVDJXJzijW1RQdsU7F77He8u68koNZTz8Oz5yGa6J3H3lZ0xYgXBK2QymlWWA+RWnYhskLBv2vmE+hBMCtbA7KX5drWyRT/2JsqZ2IvfB9Y4bWDNMFbJRFmC9E74SoS0CqulwjkC0+5bpcV1CZ8NMej4pjy0U+doDQsGyo1hzVJttIjhQ7GnBtRFN1UarUlH8F3xict+HY07rEzoUGPlWcjRFRr4/gChZgc3ZL2d8oAAAAASUVORK5CYII=\") !important; }\n\n#toast-container.toast-top-center > div,\n#toast-container.toast-bottom-center > div {\n  width: 300px;\n  margin-left: auto;\n  margin-right: auto; }\n\n#toast-container.toast-top-full-width > div,\n#toast-container.toast-bottom-full-width > div {\n  width: 96%;\n  margin-left: auto;\n  margin-right: auto; }\n\n.toast {\n  background-color: #030303; }\n\n.toast-success {\n  background-color: #51a351; }\n\n.toast-error {\n  background-color: #bd362f; }\n\n.toast-info {\n  background-color: #2f96b4; }\n\n.toast-warning {\n  background-color: #f89406; }\n\n.toast-progress {\n  position: absolute;\n  left: 0;\n  bottom: 0;\n  height: 4px;\n  background-color: #000000;\n  opacity: 0.4;\n  -ms-filter: progid:DXImageTransform.Microsoft.Alpha(Opacity=40);\n  filter: alpha(opacity=40); }\n\n/*Responsive Design*/\n@media all and (max-width: 240px) {\n  #toast-container > div {\n    padding: 8px 8px 8px 50px;\n    width: 11em; }\n  #toast-container .toast-close-button {\n    right: -0.2em;\n    top: -0.2em; } }\n\n@media all and (min-width: 241px) and (max-width: 480px) {\n  #toast-container > div {\n    padding: 8px 8px 8px 50px;\n    width: 18em; }\n  #toast-container .toast-close-button {\n    right: -0.2em;\n    top: -0.2em; } }\n\n@media all and (min-width: 481px) and (max-width: 768px) {\n  #toast-container > div {\n    padding: 15px 15px 15px 50px;\n    width: 25em; } }\n", ""]);
+
+// exports
+
+
+/***/ }),
+/* 56 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+exports.Rules = exports.CellularAutomaton = exports.CellFieldView = exports.CellField = undefined;
+
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _utils = __webpack_require__(8);
+
+var _rules = __webpack_require__(21);
+
+var _rules2 = _interopRequireDefault(_rules);
+
+var _history = __webpack_require__(58);
+
+var _history2 = _interopRequireDefault(_history);
+
+var _generations = __webpack_require__(59);
+
+var _generations2 = _interopRequireDefault(_generations);
+
+var _cellField = __webpack_require__(61);
+
+var _cellField2 = _interopRequireDefault(_cellField);
+
+var _cellFieldView = __webpack_require__(62);
+
+var _cellFieldView2 = _interopRequireDefault(_cellFieldView);
+
+var _config = __webpack_require__(5);
+
+var _config2 = _interopRequireDefault(_config);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var defaultOptions = {
+    _intervalID: null,
+    _stepDuration: _config2.default.DEFAULT_STEP_DURATION,
+    _generationsPerStep: _config2.default.DEFAULT_GENERATIONS_PER_STEP
+};
+
+var CellularAutomaton = function () {
+    function CellularAutomaton(options) {
+        _classCallCheck(this, CellularAutomaton);
+
+        Object.assign(this, defaultOptions);
+
+        this.cells = {
+            curr: new _cellField2.default(options.xSize, options.ySize)
+        };
+        this.cells.next = this.cells.curr.clone();
+        this.cells.next._shift = this.cells.curr._shift; // чтобы не заниматься синхронизацией, просто сделаем объект смещения общим
+
+        this.view = new _cellFieldView2.default(_extends({}, options.view, { field: this.cells.curr }));
+
+        this.generations = new _generations2.default({
+            cells: this.cells,
+            view: this.view
+        });
+
+        this.history = new _history2.default({
+            cells: this.cells,
+            generations: this.generations
+        });
+
+        this.generations.rule = options.ruleCode || _rules2.default.get(options.ruleName || 'default');
+    }
+
+    _createClass(CellularAutomaton, [{
+        key: 'resize',
+        value: function resize() {
+            var sizes = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+            if (!isNaN(sizes.xSize) && !isNaN(sizes.ySize)) {
+                if (this.cells.curr.xSize !== sizes.xSize || this.cells.curr.ySize !== sizes.ySize) {
+                    this.cells.curr.resize(sizes.xSize, sizes.ySize);
+                    this.cells.next.conform(this.cells.curr);
+                }
+            }
+
+            this.view.resize(sizes.cellSide, sizes.cellBorder);
+        }
+    }, {
+        key: 'fill',
+        value: function fill() {
+            var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+                _ref$invert = _ref.invert,
+                invert = _ref$invert === undefined ? [] : _ref$invert,
+                _ref$random = _ref.random,
+                random = _ref$random === undefined ? {} : _ref$random,
+                _ref$copy = _ref.copy,
+                copy = _ref$copy === undefined ? {} : _ref$copy;
+
+            this.cells.curr.invertBitPlane(invert).fillRandom(random).copyBitPlane(copy);
+            this.view.render();
+        }
+    }, {
+        key: 'clear',
+        value: function clear() {
+            this.cells.curr.fill(function () {
+                return 0;
+            });
+            this.view.render();
+        }
+    }, {
+        key: 'newGeneration',
+        value: function newGeneration(n) {
+            if (!this._intervalID) {
+                if (!this.history.data) {
+                    this.history.save();
+                }
+
+                this.generations.next(n);
+                this.view.render();
+            }
+        }
+    }, {
+        key: 'rotateClockwise',
+        value: function rotateClockwise() {
+            this.cells.curr.rotateClockwise();
+            this.cells.next.conform(this.cells.curr);
+            this.view.resize();
+        }
+    }, {
+        key: 'rotateCounterclockwise',
+        value: function rotateCounterclockwise() {
+            this.cells.curr.rotateCounterclockwise();
+            this.cells.next.conform(this.cells.curr);
+            this.view.resize();
+        }
+    }, {
+        key: 'start',
+        value: function start() {
+            var _this = this;
+
+            if (this._intervalID) {
+                return false;
+            }
+
+            this._intervalID = setInterval(function () {
+                _this.generations.next(_this.generationsPerStep);
+                _this.view.render();
+            }, this.stepDuration);
+
+            this.history.save();
+
+            if (this.view.mode === 'edit') {
+                this.view.mode = 'shift';
+            }
+
+            document.dispatchEvent(new CustomEvent('ca-start', {
+                detail: this
+            }));
+
+            return true;
+        }
+    }, {
+        key: 'stop',
+        value: function stop() {
+            if (!this._intervalID) {
+                return false;
+            }
+
+            clearInterval(this._intervalID);
+            this._intervalID = null;
+
+            this.view.mode = 'edit';
+
+            document.dispatchEvent(new CustomEvent('ca-stop', {
+                detail: this
+            }));
+
+            return true;
+        }
+    }, {
+        key: 'back',
+        value: function back() {
+            if (this.history.data) {
+                this.stop();
+                this.history.back();
+                this.view.resize();
+            }
+        }
+    }, {
+        key: 'generationsPerStep',
+        get: function get() {
+            return this._generationsPerStep;
+        },
+        set: function set(value) {
+            this._generationsPerStep = (0, _utils.limitation)(value, _config2.default.GENERATIONS_PER_STEP_MIN, _config2.default.GENERATIONS_PER_STEP_MAX);
+        }
+    }, {
+        key: 'stepDuration',
+        get: function get() {
+            return this._stepDuration;
+        },
+        set: function set(value) {
+            this._stepDuration = (0, _utils.limitation)(value, _config2.default.STEP_DURATION_MIN, _config2.default.STEP_DURATION_MAX);
+            if (this._intervalID) {
+                this.stop();
+                this.start();
+            }
+        }
+    }, {
+        key: 'rule',
+        get: function get() {
+            return this.generations.rule;
+        },
+        set: function set(code) {
+            this.generations.rule = code;
+        }
+    }]);
+
+    return CellularAutomaton;
+}();
+
+exports.CellField = _cellField2.default;
+exports.CellFieldView = _cellFieldView2.default;
+exports.CellularAutomaton = CellularAutomaton;
+exports.Rules = _rules2.default;
+
+/***/ }),
+/* 57 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
+exports.default = [{
+    name: 'default',
+    code: 'makeTable(n => n.center, n => n.center);',
+    hidden: true
+}, {
+    name: 'Conway\'s Life',
+    code: 'makeTable(function(n) {\n    var s = n.north + n.south + n.west + n.east + n.n_west + n.s_west + n.n_east + n.s_east;\n    return s === 3 ? 1 : (s === 2 ? n.center : 0);\n});\n\n// Same as:\n// makeTable(rules.totalistic2d9(224));\n// or:\n// makeTable(rules.lifeLike(\'B3/S23\'));'
+}, {
+    name: 'Conway\'s Life (trace)',
+    code: 'makeTable(function(n) {\n    var s = n.north + n.south + n.west + n.east + n.n_west + n.s_west + n.n_east + n.s_east,\n        p0 = s === 3 ? 1 : (s === 2 ? n.center : 0),\n        p1 = (+!!n.center) | p0;\n\n    return p0 | (p1 << 1);\n});'
+}, {
+    name: 'Forest fire',
+    code: 'setNeighborhoods({\n    name: \'prob\',\n    data: {\n        treeBirth: 0.005,\n        treeIgnite: 0.00001\n    }\n});\n\nview.setColors([ \'000000\', \'FF0000\', \'00FF00\' ], true);\n\nmakeTable(function(n) {\n    var fire = 1 & (n.north | n.south | n.west | n.east | n.n_west | n.n_east | n.s_west | n.s_east),\n        tree = n.center;\n\n    if (tree === 2 && (fire || n.treeIgnite)) {\n        return 1;\n    }\n\n    if (tree === 0 && n.treeBirth) {\n        return 2;\n    }\n\n    return tree === 1 ? 0 : tree;\n});'
+}, {
+    name: 'Brian\'s brain',
+    code: 'var ready = n => n.center ? 0 : 1,\n    stimulus = rules.totalistic2d9(48);\n\nmakeTable(n => (stimulus(n) & ready(n)) | ((n.center & 1) << 1));'
+}, {
+    name: 'Wireworld',
+    code: 'setNeighborhoods(\'Moore-thick\');\n\nmakeTable(function(n) {\n    var s = (n.north === 1) + (n.south === 1) + (n.west === 1) + (n.east === 1) + (n.n_west === 1) + (n.s_west === 1) + (n.n_east === 1) + (n.s_east === 1);\n\n    return [ 0, 2, 3, s === 1 || s === 2 ? 1 : 3 ][n.center];\n});'
+}, {
+    name: 'Life-like',
+    code: '// see also: https://en.wikipedia.org/wiki/Life-like_cellular_automaton\n\nvar ruleCode = \n\n/* Replicator         */ // \'B1357/S1357\'\n/* Seeds              */ // \'B2/S\'\n/* Life without death */ // \'B3/S01234567\'\n/* Life               */ // \'B3/S23\'\n/* 34 Life            */ // \'B34/S34\'\n/* Diamoeba           */ // \'B35678/S5678\'\n/* 2x2                */  \'B36/S125\'\n/* Highlife           */ // \'B36/S23\'\n/* Day & Night        */ // \'B3678/S34678\'\n/* Morley             */ // \'B368/S245\'\n/* Anneal             */ // \'B4678/S35678\'\n\nmakeTable(rules.lifeLike(ruleCode))'
+}, {
+    name: 'Elementary',
+    code: '// see also: https://en.wikipedia.org/wiki/Elementary_cellular_automaton\n\nvar ruleID = 102;\n\nmakeTable(rules.elementary(ruleID));'
+}, {
+    name: 'Parity',
+    code: 'setNeighborhoods(\'Neumann\');\n\nmakeTable(function(n) {\n    return n.north ^ n.south ^ n.west ^ n.east ^ n.center;\n});\n\n// Same rule, for one bit plane:\n// makeTable(rules.totalistic2d5(614));'
+}, {
+    name: 'Anneal x 2',
+    code: 'setNeighborhoods(\'Moore-thick\');\n\nview.setColors([ \'000000\', \'FF0000\', \'00FF00\', \'FFFF00\' ], true);\n\nvar ruleID = 260480,\n    p0 = rules.totalistic2d9(ruleID, 0),\n    p1 = rules.totalistic2d9(ruleID, 1);\n\nmakeTable(n => p0(n) | p1(n));'
+}, {
+    name: 'Rand anneal',
+    code: 'setNeighborhoods(\'Neumann\');\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.north, n.south, n.west, n.east),\n        r = (+!!(2 & n.center & n.north & n.south & n.west & n.east)) ^ 1,\n        p0 = [ 0, 0, r, +!r, 1, 1 ][s],\n        p1 = 2 & (n.center ^ n.north ^ n.south ^ n.west ^ n.east);\n\n    return p0 | p1;\n});'
+}, {
+    name: 'Time tunnel',
+    code: 'makeTable(function(n) {\n    var s = (n.center & 1) + n.north + n.south + n.west + n.east,\n        p0 = (s === 0 || s === 5 ? 0 : 1) ^ ((n.center & 2) >> 1),\n        p1 = n.center & 1;\n\n    return p0 | (p1 << 1);\n});'
+}, {
+    name: 'Border / hollow',
+    code: 'setNeighborhoods(\'phase\');\n\nfunction border(n) {\n    return 1 & (n.center | n.north | n.south | n.west | n.east | n.n_west | n.n_east | n.s_west | n.s_east);\n}\n\nfunction hollow(n) {\n    var t = 1 & n.north & n.south & n.west & n.east & n.n_west & n.n_east & n.s_west & n.s_east;\n    return t ? 0 : n.center;\n}\n\nmakeTable(function(n) {\n    return (n.phase & 1) ? hollow(n) : border(n);\n});'
+}, {
+    name: 'Safe / pass',
+    code: 'setNeighborhoods(\'Neumann\');\n\nmakeTable(function(n) {\n    var p0 = n.center & 1,\n        p1 = n.center & 2;\n\n    if (!p0) {\n        if (!p1 && (n.north & 1)) {\n            p0 = 1;\n        }\n    } else {\n        if (!n.south) {\n            p0 = 0;\n        }\n    }\n\n    return p0 | p1;\n});'
+}, {
+    name: 'Critters',
+    code: 'setNeighborhoods(\'Margolus\');\n\non.beforeNewGeneration = function() {\n    view.setColors(this.time & 1 ? [ \'000000\', \'FFFFFF\' ] : [ \'FFFFFF\', \'000000\' ]);\n};\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.cw, n.ccw, n.opp),\n        c = n.center ^ 1;\n\n    return [ c, c, n.center & 1, n.opp ^ 1, c ][s];\n});'
+}, {
+    name: 'Tron',
+    code: 'setNeighborhoods(\'Margolus\');\n\nmakeTable(function(n) {\n    var s = rules.sum(0, n.center, n.cw, n.ccw, n.opp),\n        c = n.center;\n\n    return [ 1, c, c, c, 0 ][s];\n});'
+}, {
+    name: 'Tube worms',
+    code: 'setNeighborhoods(\'_center\', \'_center\');\n\nmakeTable(function(n) {\n    var s = n.north + n.south + n.west + n.east + n.n_west + n.s_west + n.n_east + n.s_east,\n        alarm = [ 0, 0, 0, 1, 1, 1, 1, 1, 1 ][s];\n\n    return ([ 1, 0, 0, 0 ][n._center]) | (alarm << 1);\n},  function(n) {\n    return n._center === 3 ? 3 : ([ 0, 0, 1, 2 ][n.center]);\n});'
+}, {
+    name: 'Brownian',
+    code: 'setNeighborhoods(\'Margolus\', \'_center\');\n\nmakeTable(function(n) {\n    var p1 = 2 & (n.ccw & n.opp ^ n.cw ^ n.center),\n        rand = 2 & (n.ccw ^ n.opp ^ n.cw ^ n.center);\n\n    return ((rand ? n.cw : n.ccw) & 1) | p1;\n},  function(n) {\n    return (n._center & 1) | n.center;\n});'
+}, {
+    name: 'Cyclic',
+    code: 'view.setColors(view.gradient(\'#FF0000\', \'#FFFF00\'), true);\n\nmain = function(n) {\n    var t = (n.center + 1) & 15,\n        s = (n.north === t) + (n.south === t) + (n.west === t) + (n.east === t) + (n.n_west === t) + (n.n_east === t) + (n.s_west === t) + (n.s_east === t);\n\n    return s ? t : n.center;\n}'
+}].map(function (n) {
+    return _extends({}, n, { predefined: true });
+});
+
+/***/ }),
+/* 58 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var History = function () {
+    function History(options) {
+        _classCallCheck(this, History);
+
+        Object.assign(this, options);
+
+        this.data = null;
+    }
+
+    _createClass(History, [{
+        key: "save",
+        value: function save() {
+            this.data = {
+                cells: this.cells.curr.clone(),
+                time: this.generations.time
+            };
+        }
+    }, {
+        key: "back",
+        value: function back() {
+            if (this.data) {
+                this.cells.curr.conform(this.data.cells);
+                this.cells.next.conform(this.data.cells);
+                this.generations.time = this.data.time;
+                this.data = null;
+            }
+        }
+    }]);
+
+    return History;
+}();
+
+exports.default = History;
+
+/***/ }),
+/* 59 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+exports.default = undefined;
+
+var _dec, _desc, _value, _class;
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _utils = __webpack_require__(8);
+
+var _rules = __webpack_require__(21);
+
+var _rules2 = _interopRequireDefault(_rules);
+
+var _neighborhood = __webpack_require__(60);
+
+var _neighborhood2 = _interopRequireDefault(_neighborhood);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
+    var desc = {};
+    Object['ke' + 'ys'](descriptor).forEach(function (key) {
+        desc[key] = descriptor[key];
+    });
+    desc.enumerable = !!desc.enumerable;
+    desc.configurable = !!desc.configurable;
+
+    if ('value' in desc || desc.initializer) {
+        desc.writable = true;
+    }
+
+    desc = decorators.slice().reverse().reduce(function (desc, decorator) {
+        return decorator(target, property, desc) || desc;
+    }, desc);
+
+    if (context && desc.initializer !== void 0) {
+        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
+        desc.initializer = undefined;
+    }
+
+    if (desc.initializer === void 0) {
+        Object['define' + 'Property'](target, property, desc);
+        desc = null;
+    }
+
+    return desc;
+}
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var codeTemplate = {
+
+    indexToNeighbor: function indexToNeighbor(name, mask, position) {
+        return name + ': (i & ' + (mask << position) + ') >> ' + position;
+    },
+
+    neighborToIndex: function neighborToIndex(code, mask, position, shift) {
+        return '((((' + code + ') & ' + (mask << shift) + ') >> ' + shift + ') << ' + position + ')';
+    },
+
+    nextStateFromTable: function nextStateFromTable(neighbors, shift) {
+        return '(table_' + shift + '[' + neighbors.join('|') + '] << ' + shift + ')';
+    },
+
+    nextStateCalculation: function nextStateCalculation(neighbors, numBitPlanes) {
+        return 'main({' + neighbors.map(function (n) {
+            return n.name + ':' + n.code;
+        }).join(',') + '}) & ' + (0, _utils.bitMask)(numBitPlanes);
+    },
+
+    tableProc: function tableProc(neighborsCode) {
+        return '\n(function(nextState, neighborhoodSize) {\n    var table = new Array(Math.pow(2, neighborhoodSize));\n\n    for (var i = 0; i < table.length; i++) {\n        table[i] = nextState({\n            ' + neighborsCode.join(',') + '\n        }) & 3;\n    }\n\n    return table;\n})';
+    },
+
+    nextGeneration: function nextGeneration(nextStateCode) {
+        return '\n(function(d, newD) {\n    var table_0 = this.CAA.table,\n        table_2 = this.CAB.table,\n        xSize = d.length,\n        ySize = d[0].length,\n        fixX = cells._shift.x,\n        fixY = cells._shift.y,\n        time = this.time,\n        t = time & 1;\n\n    for (var x = 0; x < xSize; x++) {\n        var newDX = newD[x],\n            xPrev = x === 0 ? xSize - 1 : x - 1,\n            xNext = x === xSize - 1 ? 0 : x + 1,\n            dXCurr = d[x],\n            dXPrev = d[xPrev],\n            dXNext = d[xNext],\n            h = (x ^ fixX) & 1;\n\n        for (var y = 0; y < ySize; y++) {\n            var yPrev = y === 0 ? ySize - 1 : y - 1,\n                yNext = y === ySize - 1 ? 0 : y + 1,\n                v = (y ^ fixY) & 1;\n\n            newDX[y] = ' + nextStateCode + ';\n        }\n    }\n})';
+    }
+};
+
+var Compiler = function () {
+    function Compiler(shift, neighborhood) {
+        _classCallCheck(this, Compiler);
+
+        this.shift = shift;
+        this.customNeighborhood = neighborhood instanceof Object ? neighborhood : {};
+    }
+
+    _createClass(Compiler, [{
+        key: 'setNeighborhoods',
+        value: function setNeighborhoods(neighborhoods) {
+            var _this = this;
+
+            var
+            // основная окрестность может быть одна и только одна
+            main = _neighborhood2.default.main['Moore'],
+
+            // дополнительных окрестностей можно подключить сколько угодно
+            extra = [];
+
+            [].concat(neighborhoods).forEach(function (n) {
+                if (_neighborhood2.default.main[n]) {
+                    main = _neighborhood2.default.main[n];
+                } else {
+                    extra.push(n);
+                }
+            });
+
+            this.neighbors = Array.prototype.concat.apply([], [_neighborhood2.default.base, main].concat(_toConsumableArray(extra.map(function (n) {
+                var name = n instanceof Object ? n.name : n,
+                    val = _this.customNeighborhood[name] || _neighborhood2.default.extra[name];
+
+                return val instanceof Function ? val(n.data) : val;
+            }).filter(function (n) {
+                return !!n;
+            }))));
+        }
+    }, {
+        key: 'getNextStateCode',
+        value: function getNextStateCode() {
+            var shift = this.shift,
+                neighborsCode = [],
+                nextStateCode = [];
+
+            var neighborhoodSize = this.neighbors.reduce(function (size, neighbor) {
+                var mask = (0, _utils.bitMask)(neighbor.size);
+
+                neighborsCode.push(codeTemplate.indexToNeighbor(neighbor.name, mask, size));
+                nextStateCode.push(codeTemplate.neighborToIndex(neighbor.code, mask, size, shift));
+
+                return size + neighbor.size;
+            }, 0);
+
+            var tableProc = eval(codeTemplate.tableProc(neighborsCode));
+            this.table = tableProc(this.nextState, neighborhoodSize);
+
+            return codeTemplate.nextStateFromTable(nextStateCode, shift);
+        }
+    }]);
+
+    return Compiler;
+}();
+
+var defaultOptions = function defaultOptions() {
+    return {
+        on: {},
+        calculateNewGeneration: null,
+        main: null,
+        time: 0
+    };
+};
+
+var Generations = (_dec = (0, _utils.logExecutionTime)('new generation'), (_class = function () {
+    function Generations(options) {
+        _classCallCheck(this, Generations);
+
+        Object.assign(this, options);
+
+        this.setNeighborhoods = this.setNeighborhoods.bind(this);
+        this.makeTable = this.makeTable.bind(this);
+
+        this.CAA = new Compiler(0, { _center: [{ name: '_center', size: 2, code: '(dXCurr[y] & 12) >> 2' }] });
+        this.CAB = new Compiler(2, { _center: [{ name: '_center', size: 2, code: '(dXCurr[y] &  3) << 2' }] });
+
+        this.rules = _rules2.default;
+    }
+
+    _createClass(Generations, [{
+        key: 'setNeighborhoods',
+        value: function setNeighborhoods(a, b) {
+            this.CAA.setNeighborhoods(a);
+            this.CAB.setNeighborhoods(b);
+        }
+    }, {
+        key: 'makeTable',
+        value: function makeTable(a, b) {
+            this.CAA.nextState = a;
+            this.CAB.nextState = b;
+        }
+    }, {
+        key: 'next',
+        value: function next(count) {
+            if (isNaN(count) || count < 1) {
+                count = 1;
+            }
+
+            var _cells = this.cells,
+                curr = _cells.curr,
+                next = _cells.next;
+
+
+            for (var i = 0; i < count; i++) {
+                if (this.on.beforeNewGeneration instanceof Function) {
+                    this.on.beforeNewGeneration.call(this);
+                }
+
+                this.calculateNewGeneration(curr.data, next.data);
+                var _ref = [curr.data, next.data];
+                next.data = _ref[0];
+                curr.data = _ref[1];
+
+
+                this.time++;
+
+                if (this.on.afterNewGeneration instanceof Function) {
+                    this.on.afterNewGeneration.call(this);
+                }
+            }
+        }
+    }, {
+        key: 'rule',
+        get: function get() {
+            return this._rule;
+        },
+        set: function set(code) {
+            Object.assign(this, defaultOptions());
+            this.view.setColors(null, true);
+            this.setNeighborhoods();
+
+            var view = this.view,
+                rules = this.rules,
+                setNeighborhoods = this.setNeighborhoods,
+                makeTable = this.makeTable,
+                on = this.on,
+                main = this.main,
+                cells = this.cells.curr;
+
+
+            eval(code);
+
+            var nextStateCode = typeof main === 'function' ? codeTemplate.nextStateCalculation(this.CAA.neighbors, cells.numBitPlanes) : [this.CAA, this.CAB].filter(function (n) {
+                return n.nextState instanceof Function;
+            }).map(function (n) {
+                return n.getNextStateCode();
+            }).join('|');
+
+            this.calculateNewGeneration = eval(codeTemplate.nextGeneration(nextStateCode));
+
+            this._rule = code;
+        }
+    }]);
+
+    return Generations;
+}(), (_applyDecoratedDescriptor(_class.prototype, 'next', [_dec], Object.getOwnPropertyDescriptor(_class.prototype, 'next'), _class.prototype)), _class));
+exports.default = Generations;
+
+/***/ }),
+/* 60 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
+var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
+
+var neighborhood = {
+    base: [{ name: 'center', size: 2, code: 'dXCurr[y]' }],
+    main: {
+        Neumann: [{ name: 'north', size: 2, code: 'dXCurr[yPrev]' }, { name: 'south', size: 2, code: 'dXCurr[yNext]' }, { name: 'west', size: 2, code: 'dXPrev[y]' }, { name: 'east', size: 2, code: 'dXNext[y]' }],
+        Moore: [{ name: 'north', size: 1, code: 'dXCurr[yPrev]' }, { name: 'south', size: 1, code: 'dXCurr[yNext]' }, { name: 'west', size: 1, code: 'dXPrev[y]' }, { name: 'east', size: 1, code: 'dXNext[y]' }, { name: 'n_west', size: 1, code: 'dXPrev[yPrev]' }, { name: 's_west', size: 1, code: 'dXPrev[yNext]' }, { name: 'n_east', size: 1, code: 'dXNext[yPrev]' }, { name: 's_east', size: 1, code: 'dXNext[yNext]' }],
+        Margolus: [{ name: 'cw', size: 2, code: 't ? (h ^ v ? (h ? dXNext : dXPrev) : dXCurr)[h ^ v ? y : (v ? yNext : yPrev)] : (h ^ v ? (h ? dXPrev : dXNext) : dXCurr)[h ^ v ? y : (v ? yPrev : yNext)]' }, { name: 'ccw', size: 2, code: 't ? (h ^ v ? dXCurr : (h ? dXNext : dXPrev))[h ^ v ? (v ? yNext : yPrev) : y] : (h ^ v ? dXCurr : (h ? dXPrev : dXNext))[h ^ v ? (v ? yPrev : yNext) : y]' }, { name: 'opp', size: 2, code: 't ? (h ? dXNext : dXPrev)[v ? yNext : yPrev] : (h ? dXPrev : dXNext)[v ? yPrev : yNext]' }]
+    },
+    extra: {
+        phase: [{ name: 'phase', size: 2, code: 'time' }],
+        hv: [{ name: 'horz', size: 1, code: 'h' }, { name: 'vert', size: 1, code: 'v' }],
+        prob: function prob(data) {
+            return Object.entries(data).map(function (_ref) {
+                var _ref2 = _slicedToArray(_ref, 2),
+                    name = _ref2[0],
+                    probability = _ref2[1];
+
+                return {
+                    name: name,
+                    size: 1,
+                    code: '(Math.random() < ' + probability + ')'
+                };
+            });
+        }
+    }
+};
+neighborhood.main['Moore-thick'] = neighborhood.main.Moore.map(function (n) {
+    return _extends({}, n, { size: 2 });
+});
+
+exports.default = neighborhood;
+
+/***/ }),
+/* 61 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+exports.default = undefined;
+
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _dec, _dec2, _desc, _value, _class;
+
+var _utils = __webpack_require__(8);
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
+    var desc = {};
+    Object['ke' + 'ys'](descriptor).forEach(function (key) {
+        desc[key] = descriptor[key];
+    });
+    desc.enumerable = !!desc.enumerable;
+    desc.configurable = !!desc.configurable;
+
+    if ('value' in desc || desc.initializer) {
+        desc.writable = true;
+    }
+
+    desc = decorators.slice().reverse().reduce(function (desc, decorator) {
+        return decorator(target, property, desc) || desc;
+    }, desc);
+
+    if (context && desc.initializer !== void 0) {
+        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
+        desc.initializer = undefined;
+    }
+
+    if (desc.initializer === void 0) {
+        Object['define' + 'Property'](target, property, desc);
+        desc = null;
+    }
+
+    return desc;
+}
+
+function rotateField(sizeField) {
+    return function (target, key, descriptor) {
+        var original = descriptor.value;
+
+        descriptor.value = function () {
+            this.data = original(this.data, this._shift, this[sizeField]);
+            var _ref = [this.ySize, this.xSize];
+            this.xSize = _ref[0];
+            this.ySize = _ref[1];
+
+
+            return this;
+        };
+
+        return descriptor;
+    };
+}
+
+var CellField = (_dec = rotateField('ySize'), _dec2 = rotateField('xSize'), (_class = function () {
+    function CellField(x, y) {
+        _classCallCheck(this, CellField);
+
+        this.resize(x, y);
+    }
+
+    _createClass(CellField, [{
+        key: 'resize',
+        value: function resize(x) {
+            var y = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : x;
+            var shift = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : { x: 0, y: 0 };
+
+            this.xSize = x;
+            this.ySize = y;
+            this._shift = _extends({}, shift);
+            this.data = [].concat(_toConsumableArray(Array(x))).map(function () {
+                return Array(y).fill(0);
+            });
+
+            return this;
+        }
+    }, {
+        key: 'fill',
+        value: function fill(f) {
+            var _this = this;
+
+            this.data = this.data.map(function (col, x) {
+                return col.map(function (cell, y) {
+                    return f.call(_this, x, y, cell);
+                });
+            });
+
+            return this;
+        }
+    }, {
+        key: 'shift',
+        value: function shift(x, y) {
+            x = x | 0;
+            y = y | 0;
+
+            (0, _utils.rotateArray)(this.data, x);
+            this.data.forEach(function (col) {
+                return (0, _utils.rotateArray)(col, y);
+            });
+
+            this._shift.x = (this._shift.x + x) % this.xSize;
+            this._shift.y = (this._shift.y + y) % this.ySize;
+
+            return this;
+        }
+    }, {
+        key: 'rotateClockwise',
+        value: function rotateClockwise(data, shift, size) {
+            Object.assign(shift, { x: (size - shift.y) % size, y: shift.x });
+            return data[0].map(function (cell, y) {
+                return data.map(function (col, x) {
+                    return data[x][size - y - 1];
+                });
+            });
+        }
+    }, {
+        key: 'rotateCounterclockwise',
+        value: function rotateCounterclockwise(data, shift, size) {
+            Object.assign(shift, { x: shift.y, y: (size - shift.x) % size });
+            return data[0].map(function (cell, y) {
+                return data.map(function (col, x) {
+                    return data[size - x - 1][y];
+                });
+            });
+        }
+    }, {
+        key: 'clone',
+        value: function clone() {
+            return new CellField(this.xSize, this.ySize, this._shift).copy(this);
+        }
+    }, {
+        key: 'conform',
+        value: function conform(f) {
+            this.data = f.data.map(function (col) {
+                return [].concat(_toConsumableArray(col));
+            });
+            var _ref2 = [f.xSize, f.ySize];
+            this.xSize = _ref2[0];
+            this.ySize = _ref2[1];
+
+            Object.assign(this._shift, f._shift);
+            return this;
+        }
+    }, {
+        key: 'copy',
+        value: function copy(source, options) {
+            options = _extends({ x: 0, y: 0 }, options);
+
+            for (var i = 0, x = options.x; i < source.xSize; i++, x++) {
+                if (x === this.xSize) {
+                    x = 0;
+                }
+
+                for (var j = 0, y = options.y; j < source.ySize; j++, y++) {
+                    if (y === this.ySize) {
+                        y = 0;
+                    }
+
+                    var t = source.data[i][j];
+                    if (!options.skipZeros || t !== 0) {
+                        this.data[x][y] = options.setZeros ? 0 : t;
+                    }
+                }
+            }
+
+            return this;
+        }
+
+        // bitPlanes - массив номеров битовых плоскостей
+
+    }, {
+        key: 'invertBitPlane',
+        value: function invertBitPlane(bitPlanes) {
+            var mask = bitPlanes.reduce(function (mask, plane) {
+                return mask | 1 << plane;
+            }, 0);
+
+            return mask ? this.fill(function (x, y, value) {
+                return value ^ mask;
+            }) : this;
+        }
+
+        // bitPlanes - объект вида { <номер заполняемой битовой плоскости>: <номер копируемой битовой плоскости>, ... }
+
+    }, {
+        key: 'copyBitPlane',
+        value: function copyBitPlane(bitPlanes) {
+            for (var i in bitPlanes) {
+                if (isNaN(parseInt(bitPlanes[i], 10))) {
+                    delete bitPlanes[i];
+                }
+            }
+
+            return Object.keys(bitPlanes).length ? this.fill(function (x, y, value) {
+                var newVal = value;
+
+                for (var _i in bitPlanes) {
+                    newVal = newVal & ~(1 << _i) | (value & 1 << bitPlanes[_i]) >> bitPlanes[_i] << _i;
+                }
+
+                return newVal;
+            }) : this;
+        }
+
+        // bitPlanes - объект вида { <номер битовой плоскости>: <плотность заполнения>, ... }
+
+    }, {
+        key: 'fillRandom',
+        value: function fillRandom(bitPlanes) {
+            return Object.keys(bitPlanes).length ? this.fill(function (x, y, value) {
+                for (var i in bitPlanes) {
+                    var mask = 1 << i;
+
+                    if ((Math.random() * this.randomFillDensityDescritization | 0) < bitPlanes[i]) {
+                        value |= mask;
+                    } else {
+                        value &= ~mask;
+                    }
+                }
+
+                return value;
+            }) : this;
+        }
+    }, {
+        key: 'randomFillDensityDescritization',
+        get: function get() {
+            return 1000;
+        }
+    }, {
+        key: 'numBitPlanes',
+        get: function get() {
+            return 4;
+        }
+    }, {
+        key: 'numCellStates',
+        get: function get() {
+            return Math.pow(2, this.numBitPlanes);
+        }
+    }, {
+        key: 'bitPlanesList',
+        get: function get() {
+            return [].concat(_toConsumableArray(Array(this.numBitPlanes))).map(function (n, i) {
+                return i;
+            });
+        }
+    }]);
+
+    return CellField;
+}(), (_applyDecoratedDescriptor(_class.prototype, 'rotateClockwise', [_dec], Object.getOwnPropertyDescriptor(_class.prototype, 'rotateClockwise'), _class.prototype), _applyDecoratedDescriptor(_class.prototype, 'rotateCounterclockwise', [_dec2], Object.getOwnPropertyDescriptor(_class.prototype, 'rotateCounterclockwise'), _class.prototype)), _class));
+exports.default = CellField;
+
+/***/ }),
+/* 62 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+exports.default = undefined;
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _dec, _dec2, _desc, _value, _class;
+
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
+var _utils = __webpack_require__(8);
+
+var _config = __webpack_require__(5);
+
+var _config2 = _interopRequireDefault(_config);
+
+__webpack_require__(63);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
+    var desc = {};
+    Object['ke' + 'ys'](descriptor).forEach(function (key) {
+        desc[key] = descriptor[key];
+    });
+    desc.enumerable = !!desc.enumerable;
+    desc.configurable = !!desc.configurable;
+
+    if ('value' in desc || desc.initializer) {
+        desc.writable = true;
+    }
+
+    desc = decorators.slice().reverse().reduce(function (desc, decorator) {
+        return decorator(target, property, desc) || desc;
+    }, desc);
+
+    if (context && desc.initializer !== void 0) {
+        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
+        desc.initializer = undefined;
+    }
+
+    if (desc.initializer === void 0) {
+        Object['define' + 'Property'](target, property, desc);
+        desc = null;
+    }
+
+    return desc;
+}
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+var defaultColors = _config2.default.DEFAULT_COLORS;
+
+var mouseButtons = {
+    left: 1,
+    right: 2
+};
+
+var zoom = {
+    in: 1,
+    out: -1
+};
+
+var eventHandlers = [{
+    events: ['contextmenu'],
+    handler: function handler(e) {
+        // контекстное меню доступно при зажатом ctrl
+        return e.ctrlKey;
+    }
+}, {
+    events: ['mouseup', 'mouseleave'],
+    handler: function handler(e) {
+        this.oldEventCoord = {};
+    }
+}, {
+    events: ['mousedown', 'mousemove'],
+    handler: function handler(e) {
+        e.preventDefault();
+
+        if (![mouseButtons.left, mouseButtons.right].includes(e.buttons)) {
+            return;
+        }
+
+        var oldCoord = this.oldEventCoord || {},
+            newCoord = detectEventCoord(this, e);
+
+        if (newCoord.x === oldCoord.x && newCoord.y === oldCoord.y) {
+            return;
+        }
+
+        var action = userActions[this.mode.split('.')[0]];
+        if (action.events.indexOf(e.type) !== -1 && action.handler.call(this, e, newCoord, oldCoord) !== false) {
+
+            this.oldEventCoord = newCoord;
+        }
+    }
+}, {
+    wrapper: true,
+    events: ['scroll'],
+    handler: function handler(e) {
+        scrollFix(this);
+        this.render();
+    }
+}, {
+    wrapper: true,
+    events: ['wheel'],
+    handler: function handler(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        changeZoom(this, e.deltaY > 0 ? zoom.out : zoom.in, detectEventCoord(this, e));
+    }
+}];
+
+var userActions = {
+    edit: {
+        events: ['mousedown', 'mousemove'],
+        handler: function handler(e, newCoord, oldCoord) {
+            var x = newCoord.x,
+                y = newCoord.y,
+                f = this.field,
+                b = this.brush;
+
+            if (x >= f.xSize || y >= f.ySize || x < 0 || y < 0 || !b || e.ctrlKey) {
+                return false;
+            }
+
+            var coord = (0, _utils.getLineCoord)(newCoord, _extends({}, newCoord, oldCoord));
+            for (var i = 0; i < coord.length; i++) {
+                x = (coord[i].x - Math.floor(b.xSize / 2) + f.xSize) % f.xSize;
+                y = (coord[i].y - Math.floor(b.ySize / 2) + f.ySize) % f.ySize;
+
+                f.copy(b, {
+                    x: x,
+                    y: y,
+                    skipZeros: true,
+                    setZeros: e.buttons === mouseButtons.right
+                });
+                this.renderPartial({ x: x, y: y, xSize: b.xSize, ySize: b.ySize });
+            }
+        }
+    },
+    shift: {
+        events: ['mousemove'],
+        handler: function handler(e, newCoord, oldCoord) {
+            this.field.shift(oldCoord.x - newCoord.x, oldCoord.y - newCoord.y);
+            this.render();
+        }
+    },
+    zoom: {
+        events: ['mousedown'],
+        handler: function handler(e, newCoord, oldCoord) {
+            var _mouseButtons$left$mo;
+
+            var subMode = this.mode.split('.')[1] === 'in';
+            changeZoom(this, (_mouseButtons$left$mo = {}, _defineProperty(_mouseButtons$left$mo, mouseButtons.left, subMode ? zoom.in : zoom.out), _defineProperty(_mouseButtons$left$mo, mouseButtons.right, subMode ? zoom.out : zoom.in), _mouseButtons$left$mo)[e.buttons] || 0, newCoord);
+        }
+    }
+};
+
+function changeZoom(view, change, coord) {
+    if (!view.zoom) {
+        return;
+    }
+
+    var oldCellSide = view.cellSide,
+        newCellSide = (0, _utils.limitation)(oldCellSide + change, view.zoom.min, view.zoom.max);
+
+    if (oldCellSide !== newCellSide) {
+        var w = view.wrapper,
+            oldScrollX = w.scrollLeft,
+            oldScrollY = w.scrollTop,
+            newScrollX = coord.x * (newCellSide - oldCellSide) + oldScrollX,
+            newScrollY = coord.y * (newCellSide - oldCellSide) + oldScrollY;
+
+        view.resize(newCellSide);
+
+        var maxScrollX = w.scrollWidth - w.clientWidth,
+            maxScrollY = w.scrollHeight - w.clientHeight,
+            fixScrollX = 0,
+            fixScrollY = 0;
+
+        if (newScrollX < 0) {
+            fixScrollX = Math.round(newScrollX / (newCellSide + view.cellBorder));
+            newScrollX = 0;
+        }
+        if (newScrollX > maxScrollX) {
+            fixScrollX = Math.round((newScrollX - maxScrollX) / (newCellSide + view.cellBorder));
+            newScrollX = maxScrollX;
+        }
+        if (newScrollY < 0) {
+            fixScrollY = Math.round(newScrollY / (newCellSide + view.cellBorder));
+            newScrollY = 0;
+        }
+        if (newScrollY > maxScrollY) {
+            fixScrollY = Math.round((newScrollY - maxScrollY) / (newCellSide + view.cellBorder));
+            newScrollY = maxScrollY;
+        }
+
+        w.scrollLeft = newScrollX;
+        w.scrollTop = newScrollY;
+
+        if (fixScrollX || fixScrollY) {
+            view.field.shift(fixScrollX, fixScrollY);
+            view.render();
+        }
+    }
+}
+
+function getFullSize(view) {
+    var f = view.field,
+        b = view.cellBorder,
+        s = view.cellSide + b;
+
+    return {
+        width: f.xSize * s + b,
+        height: f.ySize * s + b
+    };
+}
+
+// левый верхний угол canvas'а совпадает с левым верхним углом клетки (если возможно)
+function scrollFix(view) {
+    var s = view.cellSide + view.cellBorder,
+        w = view.wrapper,
+        size = getFullSize(view);
+
+    w.scrollLeft = Math.min(Math.round(w.scrollLeft / s) * s, size.width - w.clientWidth);
+    w.scrollTop = Math.min(Math.round(w.scrollTop / s) * s, size.height - w.clientHeight);
+}
+
+function detectEventCoord(view, e) {
+    var b = view.cellBorder,
+        t = Math.round(b / 2),
+        w = view.wrapper;
+
+    return {
+        x: Math.floor((e.offsetX + w.scrollLeft - t) / (view.cellSide + b)),
+        y: Math.floor((e.offsetY + w.scrollTop - t) / (view.cellSide + b))
+    };
+}
+
+function detectViewCoord(view) {
+    var w = view.wrapper,
+        t = w.classList.contains('scrollable'),
+        s = view.cellSide + view.cellBorder;
+
+    return {
+        x: t ? Math.floor(w.scrollLeft / s) : 0,
+        y: t ? Math.floor(w.scrollTop / s) : 0,
+        xSize: t ? Math.ceil(view.imageData.width / s) : view.field.xSize,
+        ySize: t ? Math.ceil(view.imageData.height / s) : view.field.ySize
+    };
+}
+
+var limit = _utils.limitation;
+
+/*
+ * собственные методы отрисовки под различные размеры клетки
+ *
+ * прирост скорости отрисовки - до ~2 раз (чем меньше размер - тем больше эффект),
+ * за счёт отсутствия накладных расходов на организацию циклов по пикселям отдельной клетки
+ */
+var cellFieldRenderFunction = function cellFieldRenderFunction(cellRenderCode) {
+    return eval('\n(function() {\n    var coord = detectViewCoord(this),\n        mask = this.showBitPlanes,\n        cells = this.field.data,\n        maxX = limit(coord.x + coord.xSize, 0, this.field.xSize),\n        maxY = limit(coord.y + coord.ySize, 0, this.field.ySize),\n        border = this.cellBorder,\n        side = this.cellSide,\n        sideFull = side + border,\n        image = this.buf32,\n        width = this.imageData.width,\n        colors = this.colorsForRender;\n\n    for (var i = 0, x = coord.x; x < maxX; x++, i++) {\n        var column = cells[x];\n\n        for (var j = 0, y = coord.y; y < maxY; y++, j++) {\n            var color = colors[column[y] & mask];\n\n            ' + cellRenderCode + '\n        }\n    }\n\n    this.imageData.data.set(this.buf8);\n    this.context.putImageData(\n        this.imageData,\n        -(this.wrapper.scrollLeft % sideFull),\n        -(this.wrapper.scrollTop % sideFull)\n    );\n})\n');
+};
+
+var cellPixelRenderCode = function cellPixelRenderCode(i, j) {
+    return 'image[i * sideFull + border + ' + i + ' + (j * sideFull + border + ' + j + ') * width] = color;';
+};
+
+var cellRenderCode = function cellRenderCode(cellSide) {
+    return [].concat(_toConsumableArray(Array(cellSide * cellSide))).map(function (n, i) {
+        return cellPixelRenderCode(i / cellSide | 0, i % cellSide);
+    }).join('');
+};
+
+var renderFunctions = {
+    default: cellFieldRenderFunction('\n        for (var imageX = i * sideFull + border, n = 0; n < side; n++, imageX++) {\n            for (var imageY = j * sideFull + border, m = 0; m < side; m++, imageY++) {\n                image[imageX + imageY * width] = color;\n            }\n        }\n    ')
+};
+
+function afterLoad(o) {
+    o.wrapper = o.wrapper instanceof HTMLElement ? o.wrapper : document.querySelector(o.wrapper);
+    o.cellSide = o.cellSide | 0;
+    o.cellBorder = o.cellBorder | 0;
+    o.showBitPlanes = isNaN(o.showBitPlanes) ? (0, _utils.bitMask)(o.field.numBitPlanes) : +o.showBitPlanes;
+
+    if (o.wrapper.classList.contains('scrollable')) {
+        o.wrapperScroll = document.createElement('div');
+        o.wrapperScroll.classList.add('cells-field-wrapper-scroll');
+        o.wrapper.appendChild(o.wrapperScroll);
+    } else {
+        var size = getFullSize(o);
+        o.wrapper.style.width = size.width + 'px';
+        o.wrapper.style.height = size.height + 'px';
+    }
+
+    o.canvas = document.createElement('canvas');
+    o.wrapper.appendChild(o.canvas);
+
+    eventHandlers.forEach(function (eh) {
+        eh.events.forEach(function (eventName) {
+            var elem = eh.wrapper ? o.wrapper : o.canvas;
+            elem['on' + eventName] = eh.handler.bind(o);
+        });
+    });
+
+    o.setColors(null);
+    o.resize(o.cellSide);
+
+    o.mode = 'edit';
+}
+
+var loaded = false;
+var waitLoad = [];
+
+document.addEventListener('DOMContentLoaded', function () {
+    loaded = true;
+    waitLoad.forEach(afterLoad);
+    waitLoad.length = 0;
+});
+
+var CellFieldView = (_dec = (0, _utils.logExecutionTime)('renderPartial'), _dec2 = (0, _utils.logExecutionTime)('render'), (_class = function () {
+    function CellFieldView(options) {
+        _classCallCheck(this, CellFieldView);
+
+        Object.assign(this, options);
+
+        if (loaded) {
+            afterLoad(this);
+        } else {
+            waitLoad.push(this);
+        }
+    }
+
+    _createClass(CellFieldView, [{
+        key: 'renderPartial',
+        value: function renderPartial(coord) {
+            var mask = this.showBitPlanes,
+                cells = this.field.data,
+                maxX = this.field.xSize,
+                maxY = this.field.ySize,
+                border = this.cellBorder,
+                side = this.cellSide,
+                sideFull = side + border,
+                fixX = border - this.wrapper.scrollLeft,
+                fixY = border - this.wrapper.scrollTop,
+                c = this.context;
+
+            for (var x = coord.x, i = 0; i < coord.xSize; i++, x++) {
+                if (x === maxX) {
+                    x = 0;
+                }
+
+                for (var y = coord.y, j = 0; j < coord.ySize; j++, y++) {
+                    if (y === maxY) {
+                        y = 0;
+                    }
+
+                    c.fillStyle = this.colors[cells[x][y] & mask];
+                    c.fillRect(x * sideFull + fixX, y * sideFull + fixY, side, side);
+                }
+            }
+        }
+    }, {
+        key: 'render',
+        value: function render() {
+            (renderFunctions[this.cellSide] || renderFunctions['default']).call(this);
+        }
+    }, {
+        key: 'resize',
+        value: function resize() {
+            var cellSide = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : this.cellSide;
+            var cellBorder = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.cellBorder || 0;
+
+            if (isNaN(cellSide) || cellSide < 1) {
+                return;
+            }
+
+            var canvas = this.canvas,
+                context = this.context = canvas.getContext('2d'),
+                side = this.cellSide = cellSide,
+                border = this.cellBorder = cellBorder,
+                sideFull = side + border,
+                size = getFullSize(this),
+                isScroll = !!this.wrapperScroll,
+                width = isScroll ? this.wrapper.clientWidth || 1 : size.width,
+                height = isScroll ? this.wrapper.clientHeight || 1 : size.height;
+
+            if (isScroll) {
+                this.wrapperScroll.style.width = Math.max(size.width, width) + 'px';
+                this.wrapperScroll.style.height = Math.max(size.height, height) + 'px';
+            }
+
+            canvas.width = context.width = width;
+            canvas.height = context.height = height;
+
+            this.imageData = context.createImageData(Math.min(size.width, Math.ceil(width / sideFull) * sideFull), Math.min(size.height, Math.ceil(height / sideFull) * sideFull));
+            this.imageBuff = new ArrayBuffer(this.imageData.data.length);
+            this.buf8 = new Uint8ClampedArray(this.imageBuff);
+            this.buf32 = new Uint32Array(this.imageBuff);
+
+            this.buf32.fill(this.colorsForRender.background);
+
+            if (!renderFunctions.hasOwnProperty(cellSide) && cellSide <= _config2.default.MAX_CELL_SIDE_WITH_OWN_RENDER) {
+                renderFunctions[cellSide] = cellFieldRenderFunction(cellRenderCode(cellSide));
+            }
+
+            scrollFix(this);
+            this.render();
+        }
+    }, {
+        key: 'setColors',
+        value: function setColors(colors, forceRender) {
+            var oldColors = this.colors || defaultColors,
+                newColors = {},
+                colorsForRender = {};
+
+            colors = Object.assign({}, oldColors, colors || defaultColors);
+
+            for (var i in defaultColors) {
+                var color = colors[i] || oldColors[i];
+                if (color[0] !== '#') {
+                    color = '#' + color;
+                }
+
+                newColors[i] = color;
+                colorsForRender[i] = (0, _utils.transformColor)(color);
+            }
+
+            this.colors = newColors;
+            this.colorsForRender = colorsForRender;
+
+            if (forceRender && this.canvas) {
+                this.render();
+            }
+        }
+    }, {
+        key: 'gradient',
+        value: function gradient(from, to) {
+            var items = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : this.field.numCellStates;
+
+            var componentsFrom = (0, _utils.getColorComponents)(from),
+                componentsTo = (0, _utils.getColorComponents)(to),
+                componentsItems = componentsFrom.map(function (n, i) {
+                return (n - componentsTo[i]) / (items - 1);
+            });
+
+            return [].concat(_toConsumableArray(Array(items))).map(function (n, i) {
+                return componentsFrom.map(function (m, j) {
+                    return (m - i * componentsItems[j] | 0).toString(16).padStart(2, '0');
+                }).join('');
+            });
+        }
+    }, {
+        key: 'download',
+        value: function download() {
+            var filename = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : Date.now().toString() + '.png';
+
+            /*
+             * отдельный canvas - чтобы результирующее изображение содержало
+             * только данные из this.imageData; актуально для случаев, когда
+             * размеры this.imageData меньше, чем размеры wrapper'а
+             */
+            var canvas = document.createElement('canvas');
+            var ctx = canvas.getContext('2d');
+            canvas.width = this.imageData.width;
+            canvas.height = this.imageData.height;
+            ctx.putImageData(this.imageData, 0, 0);
+
+            var a = document.createElement('a');
+            a.href = canvas.toDataURL();
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    }, {
+        key: 'mode',
+        get: function get() {
+            return this._mode;
+        },
+        set: function set(value) {
+            this._mode = value;
+            this.canvas.setAttribute('data-mode', value);
+            document.dispatchEvent(new CustomEvent('cell-field-mode', {
+                detail: this
+            }));
+        }
+    }]);
+
+    return CellFieldView;
+}(), (_applyDecoratedDescriptor(_class.prototype, 'renderPartial', [_dec], Object.getOwnPropertyDescriptor(_class.prototype, 'renderPartial'), _class.prototype), _applyDecoratedDescriptor(_class.prototype, 'render', [_dec2], Object.getOwnPropertyDescriptor(_class.prototype, 'render'), _class.prototype)), _class));
+exports.default = CellFieldView;
+
+/***/ }),
+/* 63 */
+/***/ (function(module, exports, __webpack_require__) {
+
+
+var content = __webpack_require__(64);
+
+if(typeof content === 'string') content = [[module.i, content, '']];
+
+var transform;
+var insertInto;
+
+
+
+var options = {"hmr":true}
+
+options.transform = transform
+options.insertInto = undefined;
+
+var update = __webpack_require__(3)(content, options);
+
+if(content.locals) module.exports = content.locals;
+
+if(false) {
+	module.hot.accept("!!../../../node_modules/css-loader/index.js!../../../node_modules/sass-loader/lib/loader.js!./style.scss", function() {
+		var newContent = require("!!../../../node_modules/css-loader/index.js!../../../node_modules/sass-loader/lib/loader.js!./style.scss");
+
+		if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+
+		var locals = (function(a, b) {
+			var key, idx = 0;
+
+			for(key in a) {
+				if(!b || a[key] !== b[key]) return false;
+				idx++;
+			}
+
+			for(key in b) idx--;
+
+			return idx === 0;
+		}(content.locals, newContent.locals));
+
+		if(!locals) throw new Error('Aborting CSS HMR due to changed css-modules locals.');
+
+		update(newContent);
+	});
+
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 64 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(2)(false);
+// imports
+
+
+// module
+exports.push([module.i, ".cells-field-wrapper.scrollable {\n  display: flex;\n  overflow: hidden;\n  padding: 0;\n  flex: 1;\n  overflow: scroll;\n  position: relative; }\n\n.cells-field-wrapper .cells-field-wrapper-scroll {\n  position: absolute; }\n\n.cells-field-wrapper canvas {\n  position: sticky;\n  left: 0;\n  top: 0; }\n  .cells-field-wrapper canvas[data-mode=\"edit\"] {\n    cursor: default; }\n  .cells-field-wrapper canvas[data-mode=\"shift\"] {\n    cursor: move; }\n  .cells-field-wrapper canvas[data-mode=\"zoom.in\"] {\n    cursor: zoom-in; }\n  .cells-field-wrapper canvas[data-mode=\"zoom.out\"] {\n    cursor: zoom-out; }\n", ""]);
+
+// exports
+
+
+/***/ }),
 /* 65 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* WEBPACK VAR INJECTION */(function($) {
+
+__webpack_require__(66);
+
+$.widget('custom.inputWithButton', {
+  options: {
+    icon: '',
+    value: '',
+    title: '',
+    placeholder: '',
+    click: $.noop
+  },
+  _create: function _create() {
+    var element = this.element,
+        options = this.options;
+
+
+    element.addClass('input-with-button ui-controlgroup ui-corner-all ui-widget ui-widget-content');
+
+    element.append('\n      <input class="ui-spinner-input">\n      <button><span class="ui-icon ' + options.icon + '"></span></button>\n    ');
+
+    element.find('button').button().on('click', options.click.bind(element)).attr('title', options.title);
+    element.find('input').val(options.value).attr('placeholder', options.placeholder);
+  },
+  value: function value(val) {
+    var $input = this.element.find('input');
+
+    return val === undefined ? $input.val() : $input.val(val).end();
+  }
+});
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(0)))
+
+/***/ }),
+/* 66 */
+/***/ (function(module, exports, __webpack_require__) {
+
+
+var content = __webpack_require__(67);
+
+if(typeof content === 'string') content = [[module.i, content, '']];
+
+var transform;
+var insertInto;
+
+
+
+var options = {"hmr":true}
+
+options.transform = transform
+options.insertInto = undefined;
+
+var update = __webpack_require__(3)(content, options);
+
+if(content.locals) module.exports = content.locals;
+
+if(false) {
+	module.hot.accept("!!../../../node_modules/css-loader/index.js!../../../node_modules/sass-loader/lib/loader.js!./style.scss", function() {
+		var newContent = require("!!../../../node_modules/css-loader/index.js!../../../node_modules/sass-loader/lib/loader.js!./style.scss");
+
+		if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+
+		var locals = (function(a, b) {
+			var key, idx = 0;
+
+			for(key in a) {
+				if(!b || a[key] !== b[key]) return false;
+				idx++;
+			}
+
+			for(key in b) idx--;
+
+			return idx === 0;
+		}(content.locals, newContent.locals));
+
+		if(!locals) throw new Error('Aborting CSS HMR due to changed css-modules locals.');
+
+		update(newContent);
+	});
+
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 67 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(2)(false);
+// imports
+
+
+// module
+exports.push([module.i, ".input-with-button {\n  margin-right: 2px;\n  display: inline-flex; }\n  .input-with-button > input {\n    margin: 0;\n    padding: 5px; }\n  .input-with-button > button, .input-with-button > button:hover, .input-with-button > button:focus {\n    margin: 0;\n    border-width: 0;\n    border-left-width: 1px; }\n", ""]);
+
+// exports
+
+
+/***/ }),
+/* 68 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _jquery = __webpack_require__(0);
+
+var _jquery2 = _interopRequireDefault(_jquery);
+
+__webpack_require__(69);
+
+__webpack_require__(77);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+_jquery2.default.widget('ui.confirmDialog', _jquery2.default.ui.dialog, {
+  options: {
+    modal: true,
+    autoOpen: false,
+    resizable: false
+  },
+  _closeDialog: function _closeDialog(f) {
+    return function () {
+      var $this = (0, _jquery2.default)(this),
+          run = f instanceof Function ? f.apply($this, arguments) : true;
+
+      _jquery2.default.when(run).always(function (result) {
+        if (result !== false) {
+          $this.confirmDialog('close');
+        }
+      });
+    };
+  },
+  _create: function _create() {
+    this.options.buttons = {
+      OK: this._closeDialog(this.options.ok || null),
+      Cancel: this._closeDialog(this.options.cancel || null)
+    };
+
+    return this._super();
+  },
+  open: function open() {
+    var _this = this;
+
+    this._super();
+    this.overlay.on('click', function () {
+      return _this.element.confirmDialog('close');
+    });
+
+    return this;
+  }
+});
+
+var context = __webpack_require__(79),
+    dialogsList = context.keys().map(function (key) {
+  return context(key).default;
+});
+
+exports.default = {
+  init: function init() {
+    dialogsList.forEach(function (n) {
+      return (0, _jquery2.default)(n.template).appendTo('body').confirmDialog(n);
+    });
+  }
+};
+
+/***/ }),
+/* 69 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
+ * jQuery UI Dialog 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: Dialog
+//>>group: Widgets
+//>>description: Displays customizable dialog windows.
+//>>docs: http://api.jqueryui.com/dialog/
+//>>demos: http://jqueryui.com/dialog/
+//>>css.structure: ../../themes/base/core.css
+//>>css.structure: ../../themes/base/dialog.css
+//>>css.theme: ../../themes/base/theme.css
+
+( function( factory ) {
+	if ( true ) {
+
+		// AMD. Register as an anonymous module.
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
+			__webpack_require__(0),
+			__webpack_require__(12),
+			__webpack_require__(70),
+			__webpack_require__(14),
+			__webpack_require__(74),
+			__webpack_require__(24),
+			__webpack_require__(7),
+			__webpack_require__(10),
+			__webpack_require__(9),
+			__webpack_require__(23),
+			__webpack_require__(76),
+			__webpack_require__(11),
+			__webpack_require__(1),
+			__webpack_require__(4)
+		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
+				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	} else {
+
+		// Browser globals
+		factory( jQuery );
+	}
+}( function( $ ) {
+
+$.widget( "ui.dialog", {
+	version: "1.12.1",
+	options: {
+		appendTo: "body",
+		autoOpen: true,
+		buttons: [],
+		classes: {
+			"ui-dialog": "ui-corner-all",
+			"ui-dialog-titlebar": "ui-corner-all"
+		},
+		closeOnEscape: true,
+		closeText: "Close",
+		draggable: true,
+		hide: null,
+		height: "auto",
+		maxHeight: null,
+		maxWidth: null,
+		minHeight: 150,
+		minWidth: 150,
+		modal: false,
+		position: {
+			my: "center",
+			at: "center",
+			of: window,
+			collision: "fit",
+
+			// Ensure the titlebar is always visible
+			using: function( pos ) {
+				var topOffset = $( this ).css( pos ).offset().top;
+				if ( topOffset < 0 ) {
+					$( this ).css( "top", pos.top - topOffset );
+				}
+			}
+		},
+		resizable: true,
+		show: null,
+		title: null,
+		width: 300,
+
+		// Callbacks
+		beforeClose: null,
+		close: null,
+		drag: null,
+		dragStart: null,
+		dragStop: null,
+		focus: null,
+		open: null,
+		resize: null,
+		resizeStart: null,
+		resizeStop: null
+	},
+
+	sizeRelatedOptions: {
+		buttons: true,
+		height: true,
+		maxHeight: true,
+		maxWidth: true,
+		minHeight: true,
+		minWidth: true,
+		width: true
+	},
+
+	resizableRelatedOptions: {
+		maxHeight: true,
+		maxWidth: true,
+		minHeight: true,
+		minWidth: true
+	},
+
+	_create: function() {
+		this.originalCss = {
+			display: this.element[ 0 ].style.display,
+			width: this.element[ 0 ].style.width,
+			minHeight: this.element[ 0 ].style.minHeight,
+			maxHeight: this.element[ 0 ].style.maxHeight,
+			height: this.element[ 0 ].style.height
+		};
+		this.originalPosition = {
+			parent: this.element.parent(),
+			index: this.element.parent().children().index( this.element )
+		};
+		this.originalTitle = this.element.attr( "title" );
+		if ( this.options.title == null && this.originalTitle != null ) {
+			this.options.title = this.originalTitle;
+		}
+
+		// Dialogs can't be disabled
+		if ( this.options.disabled ) {
+			this.options.disabled = false;
+		}
+
+		this._createWrapper();
+
+		this.element
+			.show()
+			.removeAttr( "title" )
+			.appendTo( this.uiDialog );
+
+		this._addClass( "ui-dialog-content", "ui-widget-content" );
+
+		this._createTitlebar();
+		this._createButtonPane();
+
+		if ( this.options.draggable && $.fn.draggable ) {
+			this._makeDraggable();
+		}
+		if ( this.options.resizable && $.fn.resizable ) {
+			this._makeResizable();
+		}
+
+		this._isOpen = false;
+
+		this._trackFocus();
+	},
+
+	_init: function() {
+		if ( this.options.autoOpen ) {
+			this.open();
+		}
+	},
+
+	_appendTo: function() {
+		var element = this.options.appendTo;
+		if ( element && ( element.jquery || element.nodeType ) ) {
+			return $( element );
+		}
+		return this.document.find( element || "body" ).eq( 0 );
+	},
+
+	_destroy: function() {
+		var next,
+			originalPosition = this.originalPosition;
+
+		this._untrackInstance();
+		this._destroyOverlay();
+
+		this.element
+			.removeUniqueId()
+			.css( this.originalCss )
+
+			// Without detaching first, the following becomes really slow
+			.detach();
+
+		this.uiDialog.remove();
+
+		if ( this.originalTitle ) {
+			this.element.attr( "title", this.originalTitle );
+		}
+
+		next = originalPosition.parent.children().eq( originalPosition.index );
+
+		// Don't try to place the dialog next to itself (#8613)
+		if ( next.length && next[ 0 ] !== this.element[ 0 ] ) {
+			next.before( this.element );
+		} else {
+			originalPosition.parent.append( this.element );
+		}
+	},
+
+	widget: function() {
+		return this.uiDialog;
+	},
+
+	disable: $.noop,
+	enable: $.noop,
+
+	close: function( event ) {
+		var that = this;
+
+		if ( !this._isOpen || this._trigger( "beforeClose", event ) === false ) {
+			return;
+		}
+
+		this._isOpen = false;
+		this._focusedElement = null;
+		this._destroyOverlay();
+		this._untrackInstance();
+
+		if ( !this.opener.filter( ":focusable" ).trigger( "focus" ).length ) {
+
+			// Hiding a focused element doesn't trigger blur in WebKit
+			// so in case we have nothing to focus on, explicitly blur the active element
+			// https://bugs.webkit.org/show_bug.cgi?id=47182
+			$.ui.safeBlur( $.ui.safeActiveElement( this.document[ 0 ] ) );
+		}
+
+		this._hide( this.uiDialog, this.options.hide, function() {
+			that._trigger( "close", event );
+		} );
+	},
+
+	isOpen: function() {
+		return this._isOpen;
+	},
+
+	moveToTop: function() {
+		this._moveToTop();
+	},
+
+	_moveToTop: function( event, silent ) {
+		var moved = false,
+			zIndices = this.uiDialog.siblings( ".ui-front:visible" ).map( function() {
+				return +$( this ).css( "z-index" );
+			} ).get(),
+			zIndexMax = Math.max.apply( null, zIndices );
+
+		if ( zIndexMax >= +this.uiDialog.css( "z-index" ) ) {
+			this.uiDialog.css( "z-index", zIndexMax + 1 );
+			moved = true;
+		}
+
+		if ( moved && !silent ) {
+			this._trigger( "focus", event );
+		}
+		return moved;
+	},
+
+	open: function() {
+		var that = this;
+		if ( this._isOpen ) {
+			if ( this._moveToTop() ) {
+				this._focusTabbable();
+			}
+			return;
+		}
+
+		this._isOpen = true;
+		this.opener = $( $.ui.safeActiveElement( this.document[ 0 ] ) );
+
+		this._size();
+		this._position();
+		this._createOverlay();
+		this._moveToTop( null, true );
+
+		// Ensure the overlay is moved to the top with the dialog, but only when
+		// opening. The overlay shouldn't move after the dialog is open so that
+		// modeless dialogs opened after the modal dialog stack properly.
+		if ( this.overlay ) {
+			this.overlay.css( "z-index", this.uiDialog.css( "z-index" ) - 1 );
+		}
+
+		this._show( this.uiDialog, this.options.show, function() {
+			that._focusTabbable();
+			that._trigger( "focus" );
+		} );
+
+		// Track the dialog immediately upon openening in case a focus event
+		// somehow occurs outside of the dialog before an element inside the
+		// dialog is focused (#10152)
+		this._makeFocusTarget();
+
+		this._trigger( "open" );
+	},
+
+	_focusTabbable: function() {
+
+		// Set focus to the first match:
+		// 1. An element that was focused previously
+		// 2. First element inside the dialog matching [autofocus]
+		// 3. Tabbable element inside the content element
+		// 4. Tabbable element inside the buttonpane
+		// 5. The close button
+		// 6. The dialog itself
+		var hasFocus = this._focusedElement;
+		if ( !hasFocus ) {
+			hasFocus = this.element.find( "[autofocus]" );
+		}
+		if ( !hasFocus.length ) {
+			hasFocus = this.element.find( ":tabbable" );
+		}
+		if ( !hasFocus.length ) {
+			hasFocus = this.uiDialogButtonPane.find( ":tabbable" );
+		}
+		if ( !hasFocus.length ) {
+			hasFocus = this.uiDialogTitlebarClose.filter( ":tabbable" );
+		}
+		if ( !hasFocus.length ) {
+			hasFocus = this.uiDialog;
+		}
+		hasFocus.eq( 0 ).trigger( "focus" );
+	},
+
+	_keepFocus: function( event ) {
+		function checkFocus() {
+			var activeElement = $.ui.safeActiveElement( this.document[ 0 ] ),
+				isActive = this.uiDialog[ 0 ] === activeElement ||
+					$.contains( this.uiDialog[ 0 ], activeElement );
+			if ( !isActive ) {
+				this._focusTabbable();
+			}
+		}
+		event.preventDefault();
+		checkFocus.call( this );
+
+		// support: IE
+		// IE <= 8 doesn't prevent moving focus even with event.preventDefault()
+		// so we check again later
+		this._delay( checkFocus );
+	},
+
+	_createWrapper: function() {
+		this.uiDialog = $( "<div>" )
+			.hide()
+			.attr( {
+
+				// Setting tabIndex makes the div focusable
+				tabIndex: -1,
+				role: "dialog"
+			} )
+			.appendTo( this._appendTo() );
+
+		this._addClass( this.uiDialog, "ui-dialog", "ui-widget ui-widget-content ui-front" );
+		this._on( this.uiDialog, {
+			keydown: function( event ) {
+				if ( this.options.closeOnEscape && !event.isDefaultPrevented() && event.keyCode &&
+						event.keyCode === $.ui.keyCode.ESCAPE ) {
+					event.preventDefault();
+					this.close( event );
+					return;
+				}
+
+				// Prevent tabbing out of dialogs
+				if ( event.keyCode !== $.ui.keyCode.TAB || event.isDefaultPrevented() ) {
+					return;
+				}
+				var tabbables = this.uiDialog.find( ":tabbable" ),
+					first = tabbables.filter( ":first" ),
+					last = tabbables.filter( ":last" );
+
+				if ( ( event.target === last[ 0 ] || event.target === this.uiDialog[ 0 ] ) &&
+						!event.shiftKey ) {
+					this._delay( function() {
+						first.trigger( "focus" );
+					} );
+					event.preventDefault();
+				} else if ( ( event.target === first[ 0 ] ||
+						event.target === this.uiDialog[ 0 ] ) && event.shiftKey ) {
+					this._delay( function() {
+						last.trigger( "focus" );
+					} );
+					event.preventDefault();
+				}
+			},
+			mousedown: function( event ) {
+				if ( this._moveToTop( event ) ) {
+					this._focusTabbable();
+				}
+			}
+		} );
+
+		// We assume that any existing aria-describedby attribute means
+		// that the dialog content is marked up properly
+		// otherwise we brute force the content as the description
+		if ( !this.element.find( "[aria-describedby]" ).length ) {
+			this.uiDialog.attr( {
+				"aria-describedby": this.element.uniqueId().attr( "id" )
+			} );
+		}
+	},
+
+	_createTitlebar: function() {
+		var uiDialogTitle;
+
+		this.uiDialogTitlebar = $( "<div>" );
+		this._addClass( this.uiDialogTitlebar,
+			"ui-dialog-titlebar", "ui-widget-header ui-helper-clearfix" );
+		this._on( this.uiDialogTitlebar, {
+			mousedown: function( event ) {
+
+				// Don't prevent click on close button (#8838)
+				// Focusing a dialog that is partially scrolled out of view
+				// causes the browser to scroll it into view, preventing the click event
+				if ( !$( event.target ).closest( ".ui-dialog-titlebar-close" ) ) {
+
+					// Dialog isn't getting focus when dragging (#8063)
+					this.uiDialog.trigger( "focus" );
+				}
+			}
+		} );
+
+		// Support: IE
+		// Use type="button" to prevent enter keypresses in textboxes from closing the
+		// dialog in IE (#9312)
+		this.uiDialogTitlebarClose = $( "<button type='button'></button>" )
+			.button( {
+				label: $( "<a>" ).text( this.options.closeText ).html(),
+				icon: "ui-icon-closethick",
+				showLabel: false
+			} )
+			.appendTo( this.uiDialogTitlebar );
+
+		this._addClass( this.uiDialogTitlebarClose, "ui-dialog-titlebar-close" );
+		this._on( this.uiDialogTitlebarClose, {
+			click: function( event ) {
+				event.preventDefault();
+				this.close( event );
+			}
+		} );
+
+		uiDialogTitle = $( "<span>" ).uniqueId().prependTo( this.uiDialogTitlebar );
+		this._addClass( uiDialogTitle, "ui-dialog-title" );
+		this._title( uiDialogTitle );
+
+		this.uiDialogTitlebar.prependTo( this.uiDialog );
+
+		this.uiDialog.attr( {
+			"aria-labelledby": uiDialogTitle.attr( "id" )
+		} );
+	},
+
+	_title: function( title ) {
+		if ( this.options.title ) {
+			title.text( this.options.title );
+		} else {
+			title.html( "&#160;" );
+		}
+	},
+
+	_createButtonPane: function() {
+		this.uiDialogButtonPane = $( "<div>" );
+		this._addClass( this.uiDialogButtonPane, "ui-dialog-buttonpane",
+			"ui-widget-content ui-helper-clearfix" );
+
+		this.uiButtonSet = $( "<div>" )
+			.appendTo( this.uiDialogButtonPane );
+		this._addClass( this.uiButtonSet, "ui-dialog-buttonset" );
+
+		this._createButtons();
+	},
+
+	_createButtons: function() {
+		var that = this,
+			buttons = this.options.buttons;
+
+		// If we already have a button pane, remove it
+		this.uiDialogButtonPane.remove();
+		this.uiButtonSet.empty();
+
+		if ( $.isEmptyObject( buttons ) || ( $.isArray( buttons ) && !buttons.length ) ) {
+			this._removeClass( this.uiDialog, "ui-dialog-buttons" );
+			return;
+		}
+
+		$.each( buttons, function( name, props ) {
+			var click, buttonOptions;
+			props = $.isFunction( props ) ?
+				{ click: props, text: name } :
+				props;
+
+			// Default to a non-submitting button
+			props = $.extend( { type: "button" }, props );
+
+			// Change the context for the click callback to be the main element
+			click = props.click;
+			buttonOptions = {
+				icon: props.icon,
+				iconPosition: props.iconPosition,
+				showLabel: props.showLabel,
+
+				// Deprecated options
+				icons: props.icons,
+				text: props.text
+			};
+
+			delete props.click;
+			delete props.icon;
+			delete props.iconPosition;
+			delete props.showLabel;
+
+			// Deprecated options
+			delete props.icons;
+			if ( typeof props.text === "boolean" ) {
+				delete props.text;
+			}
+
+			$( "<button></button>", props )
+				.button( buttonOptions )
+				.appendTo( that.uiButtonSet )
+				.on( "click", function() {
+					click.apply( that.element[ 0 ], arguments );
+				} );
+		} );
+		this._addClass( this.uiDialog, "ui-dialog-buttons" );
+		this.uiDialogButtonPane.appendTo( this.uiDialog );
+	},
+
+	_makeDraggable: function() {
+		var that = this,
+			options = this.options;
+
+		function filteredUi( ui ) {
+			return {
+				position: ui.position,
+				offset: ui.offset
+			};
+		}
+
+		this.uiDialog.draggable( {
+			cancel: ".ui-dialog-content, .ui-dialog-titlebar-close",
+			handle: ".ui-dialog-titlebar",
+			containment: "document",
+			start: function( event, ui ) {
+				that._addClass( $( this ), "ui-dialog-dragging" );
+				that._blockFrames();
+				that._trigger( "dragStart", event, filteredUi( ui ) );
+			},
+			drag: function( event, ui ) {
+				that._trigger( "drag", event, filteredUi( ui ) );
+			},
+			stop: function( event, ui ) {
+				var left = ui.offset.left - that.document.scrollLeft(),
+					top = ui.offset.top - that.document.scrollTop();
+
+				options.position = {
+					my: "left top",
+					at: "left" + ( left >= 0 ? "+" : "" ) + left + " " +
+						"top" + ( top >= 0 ? "+" : "" ) + top,
+					of: that.window
+				};
+				that._removeClass( $( this ), "ui-dialog-dragging" );
+				that._unblockFrames();
+				that._trigger( "dragStop", event, filteredUi( ui ) );
+			}
+		} );
+	},
+
+	_makeResizable: function() {
+		var that = this,
+			options = this.options,
+			handles = options.resizable,
+
+			// .ui-resizable has position: relative defined in the stylesheet
+			// but dialogs have to use absolute or fixed positioning
+			position = this.uiDialog.css( "position" ),
+			resizeHandles = typeof handles === "string" ?
+				handles :
+				"n,e,s,w,se,sw,ne,nw";
+
+		function filteredUi( ui ) {
+			return {
+				originalPosition: ui.originalPosition,
+				originalSize: ui.originalSize,
+				position: ui.position,
+				size: ui.size
+			};
+		}
+
+		this.uiDialog.resizable( {
+			cancel: ".ui-dialog-content",
+			containment: "document",
+			alsoResize: this.element,
+			maxWidth: options.maxWidth,
+			maxHeight: options.maxHeight,
+			minWidth: options.minWidth,
+			minHeight: this._minHeight(),
+			handles: resizeHandles,
+			start: function( event, ui ) {
+				that._addClass( $( this ), "ui-dialog-resizing" );
+				that._blockFrames();
+				that._trigger( "resizeStart", event, filteredUi( ui ) );
+			},
+			resize: function( event, ui ) {
+				that._trigger( "resize", event, filteredUi( ui ) );
+			},
+			stop: function( event, ui ) {
+				var offset = that.uiDialog.offset(),
+					left = offset.left - that.document.scrollLeft(),
+					top = offset.top - that.document.scrollTop();
+
+				options.height = that.uiDialog.height();
+				options.width = that.uiDialog.width();
+				options.position = {
+					my: "left top",
+					at: "left" + ( left >= 0 ? "+" : "" ) + left + " " +
+						"top" + ( top >= 0 ? "+" : "" ) + top,
+					of: that.window
+				};
+				that._removeClass( $( this ), "ui-dialog-resizing" );
+				that._unblockFrames();
+				that._trigger( "resizeStop", event, filteredUi( ui ) );
+			}
+		} )
+			.css( "position", position );
+	},
+
+	_trackFocus: function() {
+		this._on( this.widget(), {
+			focusin: function( event ) {
+				this._makeFocusTarget();
+				this._focusedElement = $( event.target );
+			}
+		} );
+	},
+
+	_makeFocusTarget: function() {
+		this._untrackInstance();
+		this._trackingInstances().unshift( this );
+	},
+
+	_untrackInstance: function() {
+		var instances = this._trackingInstances(),
+			exists = $.inArray( this, instances );
+		if ( exists !== -1 ) {
+			instances.splice( exists, 1 );
+		}
+	},
+
+	_trackingInstances: function() {
+		var instances = this.document.data( "ui-dialog-instances" );
+		if ( !instances ) {
+			instances = [];
+			this.document.data( "ui-dialog-instances", instances );
+		}
+		return instances;
+	},
+
+	_minHeight: function() {
+		var options = this.options;
+
+		return options.height === "auto" ?
+			options.minHeight :
+			Math.min( options.minHeight, options.height );
+	},
+
+	_position: function() {
+
+		// Need to show the dialog to get the actual offset in the position plugin
+		var isVisible = this.uiDialog.is( ":visible" );
+		if ( !isVisible ) {
+			this.uiDialog.show();
+		}
+		this.uiDialog.position( this.options.position );
+		if ( !isVisible ) {
+			this.uiDialog.hide();
+		}
+	},
+
+	_setOptions: function( options ) {
+		var that = this,
+			resize = false,
+			resizableOptions = {};
+
+		$.each( options, function( key, value ) {
+			that._setOption( key, value );
+
+			if ( key in that.sizeRelatedOptions ) {
+				resize = true;
+			}
+			if ( key in that.resizableRelatedOptions ) {
+				resizableOptions[ key ] = value;
+			}
+		} );
+
+		if ( resize ) {
+			this._size();
+			this._position();
+		}
+		if ( this.uiDialog.is( ":data(ui-resizable)" ) ) {
+			this.uiDialog.resizable( "option", resizableOptions );
+		}
+	},
+
+	_setOption: function( key, value ) {
+		var isDraggable, isResizable,
+			uiDialog = this.uiDialog;
+
+		if ( key === "disabled" ) {
+			return;
+		}
+
+		this._super( key, value );
+
+		if ( key === "appendTo" ) {
+			this.uiDialog.appendTo( this._appendTo() );
+		}
+
+		if ( key === "buttons" ) {
+			this._createButtons();
+		}
+
+		if ( key === "closeText" ) {
+			this.uiDialogTitlebarClose.button( {
+
+				// Ensure that we always pass a string
+				label: $( "<a>" ).text( "" + this.options.closeText ).html()
+			} );
+		}
+
+		if ( key === "draggable" ) {
+			isDraggable = uiDialog.is( ":data(ui-draggable)" );
+			if ( isDraggable && !value ) {
+				uiDialog.draggable( "destroy" );
+			}
+
+			if ( !isDraggable && value ) {
+				this._makeDraggable();
+			}
+		}
+
+		if ( key === "position" ) {
+			this._position();
+		}
+
+		if ( key === "resizable" ) {
+
+			// currently resizable, becoming non-resizable
+			isResizable = uiDialog.is( ":data(ui-resizable)" );
+			if ( isResizable && !value ) {
+				uiDialog.resizable( "destroy" );
+			}
+
+			// Currently resizable, changing handles
+			if ( isResizable && typeof value === "string" ) {
+				uiDialog.resizable( "option", "handles", value );
+			}
+
+			// Currently non-resizable, becoming resizable
+			if ( !isResizable && value !== false ) {
+				this._makeResizable();
+			}
+		}
+
+		if ( key === "title" ) {
+			this._title( this.uiDialogTitlebar.find( ".ui-dialog-title" ) );
+		}
+	},
+
+	_size: function() {
+
+		// If the user has resized the dialog, the .ui-dialog and .ui-dialog-content
+		// divs will both have width and height set, so we need to reset them
+		var nonContentHeight, minContentHeight, maxContentHeight,
+			options = this.options;
+
+		// Reset content sizing
+		this.element.show().css( {
+			width: "auto",
+			minHeight: 0,
+			maxHeight: "none",
+			height: 0
+		} );
+
+		if ( options.minWidth > options.width ) {
+			options.width = options.minWidth;
+		}
+
+		// Reset wrapper sizing
+		// determine the height of all the non-content elements
+		nonContentHeight = this.uiDialog.css( {
+			height: "auto",
+			width: options.width
+		} )
+			.outerHeight();
+		minContentHeight = Math.max( 0, options.minHeight - nonContentHeight );
+		maxContentHeight = typeof options.maxHeight === "number" ?
+			Math.max( 0, options.maxHeight - nonContentHeight ) :
+			"none";
+
+		if ( options.height === "auto" ) {
+			this.element.css( {
+				minHeight: minContentHeight,
+				maxHeight: maxContentHeight,
+				height: "auto"
+			} );
+		} else {
+			this.element.height( Math.max( 0, options.height - nonContentHeight ) );
+		}
+
+		if ( this.uiDialog.is( ":data(ui-resizable)" ) ) {
+			this.uiDialog.resizable( "option", "minHeight", this._minHeight() );
+		}
+	},
+
+	_blockFrames: function() {
+		this.iframeBlocks = this.document.find( "iframe" ).map( function() {
+			var iframe = $( this );
+
+			return $( "<div>" )
+				.css( {
+					position: "absolute",
+					width: iframe.outerWidth(),
+					height: iframe.outerHeight()
+				} )
+				.appendTo( iframe.parent() )
+				.offset( iframe.offset() )[ 0 ];
+		} );
+	},
+
+	_unblockFrames: function() {
+		if ( this.iframeBlocks ) {
+			this.iframeBlocks.remove();
+			delete this.iframeBlocks;
+		}
+	},
+
+	_allowInteraction: function( event ) {
+		if ( $( event.target ).closest( ".ui-dialog" ).length ) {
+			return true;
+		}
+
+		// TODO: Remove hack when datepicker implements
+		// the .ui-front logic (#8989)
+		return !!$( event.target ).closest( ".ui-datepicker" ).length;
+	},
+
+	_createOverlay: function() {
+		if ( !this.options.modal ) {
+			return;
+		}
+
+		// We use a delay in case the overlay is created from an
+		// event that we're going to be cancelling (#2804)
+		var isOpening = true;
+		this._delay( function() {
+			isOpening = false;
+		} );
+
+		if ( !this.document.data( "ui-dialog-overlays" ) ) {
+
+			// Prevent use of anchors and inputs
+			// Using _on() for an event handler shared across many instances is
+			// safe because the dialogs stack and must be closed in reverse order
+			this._on( this.document, {
+				focusin: function( event ) {
+					if ( isOpening ) {
+						return;
+					}
+
+					if ( !this._allowInteraction( event ) ) {
+						event.preventDefault();
+						this._trackingInstances()[ 0 ]._focusTabbable();
+					}
+				}
+			} );
+		}
+
+		this.overlay = $( "<div>" )
+			.appendTo( this._appendTo() );
+
+		this._addClass( this.overlay, null, "ui-widget-overlay ui-front" );
+		this._on( this.overlay, {
+			mousedown: "_keepFocus"
+		} );
+		this.document.data( "ui-dialog-overlays",
+			( this.document.data( "ui-dialog-overlays" ) || 0 ) + 1 );
+	},
+
+	_destroyOverlay: function() {
+		if ( !this.options.modal ) {
+			return;
+		}
+
+		if ( this.overlay ) {
+			var overlays = this.document.data( "ui-dialog-overlays" ) - 1;
+
+			if ( !overlays ) {
+				this._off( this.document, "focusin" );
+				this.document.removeData( "ui-dialog-overlays" );
+			} else {
+				this.document.data( "ui-dialog-overlays", overlays );
+			}
+
+			this.overlay.remove();
+			this.overlay = null;
+		}
+	}
+} );
+
+// DEPRECATED
+// TODO: switch return back to widget declaration at top of file when this is removed
+if ( $.uiBackCompat !== false ) {
+
+	// Backcompat for dialogClass option
+	$.widget( "ui.dialog", $.ui.dialog, {
+		options: {
+			dialogClass: ""
+		},
+		_createWrapper: function() {
+			this._super();
+			this.uiDialog.addClass( this.options.dialogClass );
+		},
+		_setOption: function( key, value ) {
+			if ( key === "dialogClass" ) {
+				this.uiDialog
+					.removeClass( this.options.dialogClass )
+					.addClass( value );
+			}
+			this._superApply( arguments );
+		}
+	} );
+}
+
+return $.ui.dialog;
+
+} ) );
+
+
+/***/ }),
+/* 70 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
+ * jQuery UI Draggable 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: Draggable
+//>>group: Interactions
+//>>description: Enables dragging functionality for any element.
+//>>docs: http://api.jqueryui.com/draggable/
+//>>demos: http://jqueryui.com/draggable/
+//>>css.structure: ../../themes/base/draggable.css
+
+( function( factory ) {
+	if ( true ) {
+
+		// AMD. Register as an anonymous module.
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
+			__webpack_require__(0),
+			__webpack_require__(14),
+			__webpack_require__(72),
+			__webpack_require__(22),
+			__webpack_require__(9),
+			__webpack_require__(23),
+			__webpack_require__(73),
+			__webpack_require__(1),
+			__webpack_require__(4)
+		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
+				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	} else {
+
+		// Browser globals
+		factory( jQuery );
+	}
+}( function( $ ) {
+
+$.widget( "ui.draggable", $.ui.mouse, {
+	version: "1.12.1",
+	widgetEventPrefix: "drag",
+	options: {
+		addClasses: true,
+		appendTo: "parent",
+		axis: false,
+		connectToSortable: false,
+		containment: false,
+		cursor: "auto",
+		cursorAt: false,
+		grid: false,
+		handle: false,
+		helper: "original",
+		iframeFix: false,
+		opacity: false,
+		refreshPositions: false,
+		revert: false,
+		revertDuration: 500,
+		scope: "default",
+		scroll: true,
+		scrollSensitivity: 20,
+		scrollSpeed: 20,
+		snap: false,
+		snapMode: "both",
+		snapTolerance: 20,
+		stack: false,
+		zIndex: false,
+
+		// Callbacks
+		drag: null,
+		start: null,
+		stop: null
+	},
+	_create: function() {
+
+		if ( this.options.helper === "original" ) {
+			this._setPositionRelative();
+		}
+		if ( this.options.addClasses ) {
+			this._addClass( "ui-draggable" );
+		}
+		this._setHandleClassName();
+
+		this._mouseInit();
+	},
+
+	_setOption: function( key, value ) {
+		this._super( key, value );
+		if ( key === "handle" ) {
+			this._removeHandleClassName();
+			this._setHandleClassName();
+		}
+	},
+
+	_destroy: function() {
+		if ( ( this.helper || this.element ).is( ".ui-draggable-dragging" ) ) {
+			this.destroyOnClear = true;
+			return;
+		}
+		this._removeHandleClassName();
+		this._mouseDestroy();
+	},
+
+	_mouseCapture: function( event ) {
+		var o = this.options;
+
+		// Among others, prevent a drag on a resizable-handle
+		if ( this.helper || o.disabled ||
+				$( event.target ).closest( ".ui-resizable-handle" ).length > 0 ) {
+			return false;
+		}
+
+		//Quit if we're not on a valid handle
+		this.handle = this._getHandle( event );
+		if ( !this.handle ) {
+			return false;
+		}
+
+		this._blurActiveElement( event );
+
+		this._blockFrames( o.iframeFix === true ? "iframe" : o.iframeFix );
+
+		return true;
+
+	},
+
+	_blockFrames: function( selector ) {
+		this.iframeBlocks = this.document.find( selector ).map( function() {
+			var iframe = $( this );
+
+			return $( "<div>" )
+				.css( "position", "absolute" )
+				.appendTo( iframe.parent() )
+				.outerWidth( iframe.outerWidth() )
+				.outerHeight( iframe.outerHeight() )
+				.offset( iframe.offset() )[ 0 ];
+		} );
+	},
+
+	_unblockFrames: function() {
+		if ( this.iframeBlocks ) {
+			this.iframeBlocks.remove();
+			delete this.iframeBlocks;
+		}
+	},
+
+	_blurActiveElement: function( event ) {
+		var activeElement = $.ui.safeActiveElement( this.document[ 0 ] ),
+			target = $( event.target );
+
+		// Don't blur if the event occurred on an element that is within
+		// the currently focused element
+		// See #10527, #12472
+		if ( target.closest( activeElement ).length ) {
+			return;
+		}
+
+		// Blur any element that currently has focus, see #4261
+		$.ui.safeBlur( activeElement );
+	},
+
+	_mouseStart: function( event ) {
+
+		var o = this.options;
+
+		//Create and append the visible helper
+		this.helper = this._createHelper( event );
+
+		this._addClass( this.helper, "ui-draggable-dragging" );
+
+		//Cache the helper size
+		this._cacheHelperProportions();
+
+		//If ddmanager is used for droppables, set the global draggable
+		if ( $.ui.ddmanager ) {
+			$.ui.ddmanager.current = this;
+		}
+
+		/*
+		 * - Position generation -
+		 * This block generates everything position related - it's the core of draggables.
+		 */
+
+		//Cache the margins of the original element
+		this._cacheMargins();
+
+		//Store the helper's css position
+		this.cssPosition = this.helper.css( "position" );
+		this.scrollParent = this.helper.scrollParent( true );
+		this.offsetParent = this.helper.offsetParent();
+		this.hasFixedAncestor = this.helper.parents().filter( function() {
+				return $( this ).css( "position" ) === "fixed";
+			} ).length > 0;
+
+		//The element's absolute position on the page minus margins
+		this.positionAbs = this.element.offset();
+		this._refreshOffsets( event );
+
+		//Generate the original position
+		this.originalPosition = this.position = this._generatePosition( event, false );
+		this.originalPageX = event.pageX;
+		this.originalPageY = event.pageY;
+
+		//Adjust the mouse offset relative to the helper if "cursorAt" is supplied
+		( o.cursorAt && this._adjustOffsetFromHelper( o.cursorAt ) );
+
+		//Set a containment if given in the options
+		this._setContainment();
+
+		//Trigger event + callbacks
+		if ( this._trigger( "start", event ) === false ) {
+			this._clear();
+			return false;
+		}
+
+		//Recache the helper size
+		this._cacheHelperProportions();
+
+		//Prepare the droppable offsets
+		if ( $.ui.ddmanager && !o.dropBehaviour ) {
+			$.ui.ddmanager.prepareOffsets( this, event );
+		}
+
+		// Execute the drag once - this causes the helper not to be visible before getting its
+		// correct position
+		this._mouseDrag( event, true );
+
+		// If the ddmanager is used for droppables, inform the manager that dragging has started
+		// (see #5003)
+		if ( $.ui.ddmanager ) {
+			$.ui.ddmanager.dragStart( this, event );
+		}
+
+		return true;
+	},
+
+	_refreshOffsets: function( event ) {
+		this.offset = {
+			top: this.positionAbs.top - this.margins.top,
+			left: this.positionAbs.left - this.margins.left,
+			scroll: false,
+			parent: this._getParentOffset(),
+			relative: this._getRelativeOffset()
+		};
+
+		this.offset.click = {
+			left: event.pageX - this.offset.left,
+			top: event.pageY - this.offset.top
+		};
+	},
+
+	_mouseDrag: function( event, noPropagation ) {
+
+		// reset any necessary cached properties (see #5009)
+		if ( this.hasFixedAncestor ) {
+			this.offset.parent = this._getParentOffset();
+		}
+
+		//Compute the helpers position
+		this.position = this._generatePosition( event, true );
+		this.positionAbs = this._convertPositionTo( "absolute" );
+
+		//Call plugins and callbacks and use the resulting position if something is returned
+		if ( !noPropagation ) {
+			var ui = this._uiHash();
+			if ( this._trigger( "drag", event, ui ) === false ) {
+				this._mouseUp( new $.Event( "mouseup", event ) );
+				return false;
+			}
+			this.position = ui.position;
+		}
+
+		this.helper[ 0 ].style.left = this.position.left + "px";
+		this.helper[ 0 ].style.top = this.position.top + "px";
+
+		if ( $.ui.ddmanager ) {
+			$.ui.ddmanager.drag( this, event );
+		}
+
+		return false;
+	},
+
+	_mouseStop: function( event ) {
+
+		//If we are using droppables, inform the manager about the drop
+		var that = this,
+			dropped = false;
+		if ( $.ui.ddmanager && !this.options.dropBehaviour ) {
+			dropped = $.ui.ddmanager.drop( this, event );
+		}
+
+		//if a drop comes from outside (a sortable)
+		if ( this.dropped ) {
+			dropped = this.dropped;
+			this.dropped = false;
+		}
+
+		if ( ( this.options.revert === "invalid" && !dropped ) ||
+				( this.options.revert === "valid" && dropped ) ||
+				this.options.revert === true || ( $.isFunction( this.options.revert ) &&
+				this.options.revert.call( this.element, dropped ) )
+		) {
+			$( this.helper ).animate(
+				this.originalPosition,
+				parseInt( this.options.revertDuration, 10 ),
+				function() {
+					if ( that._trigger( "stop", event ) !== false ) {
+						that._clear();
+					}
+				}
+			);
+		} else {
+			if ( this._trigger( "stop", event ) !== false ) {
+				this._clear();
+			}
+		}
+
+		return false;
+	},
+
+	_mouseUp: function( event ) {
+		this._unblockFrames();
+
+		// If the ddmanager is used for droppables, inform the manager that dragging has stopped
+		// (see #5003)
+		if ( $.ui.ddmanager ) {
+			$.ui.ddmanager.dragStop( this, event );
+		}
+
+		// Only need to focus if the event occurred on the draggable itself, see #10527
+		if ( this.handleElement.is( event.target ) ) {
+
+			// The interaction is over; whether or not the click resulted in a drag,
+			// focus the element
+			this.element.trigger( "focus" );
+		}
+
+		return $.ui.mouse.prototype._mouseUp.call( this, event );
+	},
+
+	cancel: function() {
+
+		if ( this.helper.is( ".ui-draggable-dragging" ) ) {
+			this._mouseUp( new $.Event( "mouseup", { target: this.element[ 0 ] } ) );
+		} else {
+			this._clear();
+		}
+
+		return this;
+
+	},
+
+	_getHandle: function( event ) {
+		return this.options.handle ?
+			!!$( event.target ).closest( this.element.find( this.options.handle ) ).length :
+			true;
+	},
+
+	_setHandleClassName: function() {
+		this.handleElement = this.options.handle ?
+			this.element.find( this.options.handle ) : this.element;
+		this._addClass( this.handleElement, "ui-draggable-handle" );
+	},
+
+	_removeHandleClassName: function() {
+		this._removeClass( this.handleElement, "ui-draggable-handle" );
+	},
+
+	_createHelper: function( event ) {
+
+		var o = this.options,
+			helperIsFunction = $.isFunction( o.helper ),
+			helper = helperIsFunction ?
+				$( o.helper.apply( this.element[ 0 ], [ event ] ) ) :
+				( o.helper === "clone" ?
+					this.element.clone().removeAttr( "id" ) :
+					this.element );
+
+		if ( !helper.parents( "body" ).length ) {
+			helper.appendTo( ( o.appendTo === "parent" ?
+				this.element[ 0 ].parentNode :
+				o.appendTo ) );
+		}
+
+		// Http://bugs.jqueryui.com/ticket/9446
+		// a helper function can return the original element
+		// which wouldn't have been set to relative in _create
+		if ( helperIsFunction && helper[ 0 ] === this.element[ 0 ] ) {
+			this._setPositionRelative();
+		}
+
+		if ( helper[ 0 ] !== this.element[ 0 ] &&
+				!( /(fixed|absolute)/ ).test( helper.css( "position" ) ) ) {
+			helper.css( "position", "absolute" );
+		}
+
+		return helper;
+
+	},
+
+	_setPositionRelative: function() {
+		if ( !( /^(?:r|a|f)/ ).test( this.element.css( "position" ) ) ) {
+			this.element[ 0 ].style.position = "relative";
+		}
+	},
+
+	_adjustOffsetFromHelper: function( obj ) {
+		if ( typeof obj === "string" ) {
+			obj = obj.split( " " );
+		}
+		if ( $.isArray( obj ) ) {
+			obj = { left: +obj[ 0 ], top: +obj[ 1 ] || 0 };
+		}
+		if ( "left" in obj ) {
+			this.offset.click.left = obj.left + this.margins.left;
+		}
+		if ( "right" in obj ) {
+			this.offset.click.left = this.helperProportions.width - obj.right + this.margins.left;
+		}
+		if ( "top" in obj ) {
+			this.offset.click.top = obj.top + this.margins.top;
+		}
+		if ( "bottom" in obj ) {
+			this.offset.click.top = this.helperProportions.height - obj.bottom + this.margins.top;
+		}
+	},
+
+	_isRootNode: function( element ) {
+		return ( /(html|body)/i ).test( element.tagName ) || element === this.document[ 0 ];
+	},
+
+	_getParentOffset: function() {
+
+		//Get the offsetParent and cache its position
+		var po = this.offsetParent.offset(),
+			document = this.document[ 0 ];
+
+		// This is a special case where we need to modify a offset calculated on start, since the
+		// following happened:
+		// 1. The position of the helper is absolute, so it's position is calculated based on the
+		// next positioned parent
+		// 2. The actual offset parent is a child of the scroll parent, and the scroll parent isn't
+		// the document, which means that the scroll is included in the initial calculation of the
+		// offset of the parent, and never recalculated upon drag
+		if ( this.cssPosition === "absolute" && this.scrollParent[ 0 ] !== document &&
+				$.contains( this.scrollParent[ 0 ], this.offsetParent[ 0 ] ) ) {
+			po.left += this.scrollParent.scrollLeft();
+			po.top += this.scrollParent.scrollTop();
+		}
+
+		if ( this._isRootNode( this.offsetParent[ 0 ] ) ) {
+			po = { top: 0, left: 0 };
+		}
+
+		return {
+			top: po.top + ( parseInt( this.offsetParent.css( "borderTopWidth" ), 10 ) || 0 ),
+			left: po.left + ( parseInt( this.offsetParent.css( "borderLeftWidth" ), 10 ) || 0 )
+		};
+
+	},
+
+	_getRelativeOffset: function() {
+		if ( this.cssPosition !== "relative" ) {
+			return { top: 0, left: 0 };
+		}
+
+		var p = this.element.position(),
+			scrollIsRootNode = this._isRootNode( this.scrollParent[ 0 ] );
+
+		return {
+			top: p.top - ( parseInt( this.helper.css( "top" ), 10 ) || 0 ) +
+				( !scrollIsRootNode ? this.scrollParent.scrollTop() : 0 ),
+			left: p.left - ( parseInt( this.helper.css( "left" ), 10 ) || 0 ) +
+				( !scrollIsRootNode ? this.scrollParent.scrollLeft() : 0 )
+		};
+
+	},
+
+	_cacheMargins: function() {
+		this.margins = {
+			left: ( parseInt( this.element.css( "marginLeft" ), 10 ) || 0 ),
+			top: ( parseInt( this.element.css( "marginTop" ), 10 ) || 0 ),
+			right: ( parseInt( this.element.css( "marginRight" ), 10 ) || 0 ),
+			bottom: ( parseInt( this.element.css( "marginBottom" ), 10 ) || 0 )
+		};
+	},
+
+	_cacheHelperProportions: function() {
+		this.helperProportions = {
+			width: this.helper.outerWidth(),
+			height: this.helper.outerHeight()
+		};
+	},
+
+	_setContainment: function() {
+
+		var isUserScrollable, c, ce,
+			o = this.options,
+			document = this.document[ 0 ];
+
+		this.relativeContainer = null;
+
+		if ( !o.containment ) {
+			this.containment = null;
+			return;
+		}
+
+		if ( o.containment === "window" ) {
+			this.containment = [
+				$( window ).scrollLeft() - this.offset.relative.left - this.offset.parent.left,
+				$( window ).scrollTop() - this.offset.relative.top - this.offset.parent.top,
+				$( window ).scrollLeft() + $( window ).width() -
+					this.helperProportions.width - this.margins.left,
+				$( window ).scrollTop() +
+					( $( window ).height() || document.body.parentNode.scrollHeight ) -
+					this.helperProportions.height - this.margins.top
+			];
+			return;
+		}
+
+		if ( o.containment === "document" ) {
+			this.containment = [
+				0,
+				0,
+				$( document ).width() - this.helperProportions.width - this.margins.left,
+				( $( document ).height() || document.body.parentNode.scrollHeight ) -
+					this.helperProportions.height - this.margins.top
+			];
+			return;
+		}
+
+		if ( o.containment.constructor === Array ) {
+			this.containment = o.containment;
+			return;
+		}
+
+		if ( o.containment === "parent" ) {
+			o.containment = this.helper[ 0 ].parentNode;
+		}
+
+		c = $( o.containment );
+		ce = c[ 0 ];
+
+		if ( !ce ) {
+			return;
+		}
+
+		isUserScrollable = /(scroll|auto)/.test( c.css( "overflow" ) );
+
+		this.containment = [
+			( parseInt( c.css( "borderLeftWidth" ), 10 ) || 0 ) +
+				( parseInt( c.css( "paddingLeft" ), 10 ) || 0 ),
+			( parseInt( c.css( "borderTopWidth" ), 10 ) || 0 ) +
+				( parseInt( c.css( "paddingTop" ), 10 ) || 0 ),
+			( isUserScrollable ? Math.max( ce.scrollWidth, ce.offsetWidth ) : ce.offsetWidth ) -
+				( parseInt( c.css( "borderRightWidth" ), 10 ) || 0 ) -
+				( parseInt( c.css( "paddingRight" ), 10 ) || 0 ) -
+				this.helperProportions.width -
+				this.margins.left -
+				this.margins.right,
+			( isUserScrollable ? Math.max( ce.scrollHeight, ce.offsetHeight ) : ce.offsetHeight ) -
+				( parseInt( c.css( "borderBottomWidth" ), 10 ) || 0 ) -
+				( parseInt( c.css( "paddingBottom" ), 10 ) || 0 ) -
+				this.helperProportions.height -
+				this.margins.top -
+				this.margins.bottom
+		];
+		this.relativeContainer = c;
+	},
+
+	_convertPositionTo: function( d, pos ) {
+
+		if ( !pos ) {
+			pos = this.position;
+		}
+
+		var mod = d === "absolute" ? 1 : -1,
+			scrollIsRootNode = this._isRootNode( this.scrollParent[ 0 ] );
+
+		return {
+			top: (
+
+				// The absolute mouse position
+				pos.top	+
+
+				// Only for relative positioned nodes: Relative offset from element to offset parent
+				this.offset.relative.top * mod +
+
+				// The offsetParent's offset without borders (offset + border)
+				this.offset.parent.top * mod -
+				( ( this.cssPosition === "fixed" ?
+					-this.offset.scroll.top :
+					( scrollIsRootNode ? 0 : this.offset.scroll.top ) ) * mod )
+			),
+			left: (
+
+				// The absolute mouse position
+				pos.left +
+
+				// Only for relative positioned nodes: Relative offset from element to offset parent
+				this.offset.relative.left * mod +
+
+				// The offsetParent's offset without borders (offset + border)
+				this.offset.parent.left * mod	-
+				( ( this.cssPosition === "fixed" ?
+					-this.offset.scroll.left :
+					( scrollIsRootNode ? 0 : this.offset.scroll.left ) ) * mod )
+			)
+		};
+
+	},
+
+	_generatePosition: function( event, constrainPosition ) {
+
+		var containment, co, top, left,
+			o = this.options,
+			scrollIsRootNode = this._isRootNode( this.scrollParent[ 0 ] ),
+			pageX = event.pageX,
+			pageY = event.pageY;
+
+		// Cache the scroll
+		if ( !scrollIsRootNode || !this.offset.scroll ) {
+			this.offset.scroll = {
+				top: this.scrollParent.scrollTop(),
+				left: this.scrollParent.scrollLeft()
+			};
+		}
+
+		/*
+		 * - Position constraining -
+		 * Constrain the position to a mix of grid, containment.
+		 */
+
+		// If we are not dragging yet, we won't check for options
+		if ( constrainPosition ) {
+			if ( this.containment ) {
+				if ( this.relativeContainer ) {
+					co = this.relativeContainer.offset();
+					containment = [
+						this.containment[ 0 ] + co.left,
+						this.containment[ 1 ] + co.top,
+						this.containment[ 2 ] + co.left,
+						this.containment[ 3 ] + co.top
+					];
+				} else {
+					containment = this.containment;
+				}
+
+				if ( event.pageX - this.offset.click.left < containment[ 0 ] ) {
+					pageX = containment[ 0 ] + this.offset.click.left;
+				}
+				if ( event.pageY - this.offset.click.top < containment[ 1 ] ) {
+					pageY = containment[ 1 ] + this.offset.click.top;
+				}
+				if ( event.pageX - this.offset.click.left > containment[ 2 ] ) {
+					pageX = containment[ 2 ] + this.offset.click.left;
+				}
+				if ( event.pageY - this.offset.click.top > containment[ 3 ] ) {
+					pageY = containment[ 3 ] + this.offset.click.top;
+				}
+			}
+
+			if ( o.grid ) {
+
+				//Check for grid elements set to 0 to prevent divide by 0 error causing invalid
+				// argument errors in IE (see ticket #6950)
+				top = o.grid[ 1 ] ? this.originalPageY + Math.round( ( pageY -
+					this.originalPageY ) / o.grid[ 1 ] ) * o.grid[ 1 ] : this.originalPageY;
+				pageY = containment ? ( ( top - this.offset.click.top >= containment[ 1 ] ||
+					top - this.offset.click.top > containment[ 3 ] ) ?
+						top :
+						( ( top - this.offset.click.top >= containment[ 1 ] ) ?
+							top - o.grid[ 1 ] : top + o.grid[ 1 ] ) ) : top;
+
+				left = o.grid[ 0 ] ? this.originalPageX +
+					Math.round( ( pageX - this.originalPageX ) / o.grid[ 0 ] ) * o.grid[ 0 ] :
+					this.originalPageX;
+				pageX = containment ? ( ( left - this.offset.click.left >= containment[ 0 ] ||
+					left - this.offset.click.left > containment[ 2 ] ) ?
+						left :
+						( ( left - this.offset.click.left >= containment[ 0 ] ) ?
+							left - o.grid[ 0 ] : left + o.grid[ 0 ] ) ) : left;
+			}
+
+			if ( o.axis === "y" ) {
+				pageX = this.originalPageX;
+			}
+
+			if ( o.axis === "x" ) {
+				pageY = this.originalPageY;
+			}
+		}
+
+		return {
+			top: (
+
+				// The absolute mouse position
+				pageY -
+
+				// Click offset (relative to the element)
+				this.offset.click.top -
+
+				// Only for relative positioned nodes: Relative offset from element to offset parent
+				this.offset.relative.top -
+
+				// The offsetParent's offset without borders (offset + border)
+				this.offset.parent.top +
+				( this.cssPosition === "fixed" ?
+					-this.offset.scroll.top :
+					( scrollIsRootNode ? 0 : this.offset.scroll.top ) )
+			),
+			left: (
+
+				// The absolute mouse position
+				pageX -
+
+				// Click offset (relative to the element)
+				this.offset.click.left -
+
+				// Only for relative positioned nodes: Relative offset from element to offset parent
+				this.offset.relative.left -
+
+				// The offsetParent's offset without borders (offset + border)
+				this.offset.parent.left +
+				( this.cssPosition === "fixed" ?
+					-this.offset.scroll.left :
+					( scrollIsRootNode ? 0 : this.offset.scroll.left ) )
+			)
+		};
+
+	},
+
+	_clear: function() {
+		this._removeClass( this.helper, "ui-draggable-dragging" );
+		if ( this.helper[ 0 ] !== this.element[ 0 ] && !this.cancelHelperRemoval ) {
+			this.helper.remove();
+		}
+		this.helper = null;
+		this.cancelHelperRemoval = false;
+		if ( this.destroyOnClear ) {
+			this.destroy();
+		}
+	},
+
+	// From now on bulk stuff - mainly helpers
+
+	_trigger: function( type, event, ui ) {
+		ui = ui || this._uiHash();
+		$.ui.plugin.call( this, type, [ event, ui, this ], true );
+
+		// Absolute position and offset (see #6884 ) have to be recalculated after plugins
+		if ( /^(drag|start|stop)/.test( type ) ) {
+			this.positionAbs = this._convertPositionTo( "absolute" );
+			ui.offset = this.positionAbs;
+		}
+		return $.Widget.prototype._trigger.call( this, type, event, ui );
+	},
+
+	plugins: {},
+
+	_uiHash: function() {
+		return {
+			helper: this.helper,
+			position: this.position,
+			originalPosition: this.originalPosition,
+			offset: this.positionAbs
+		};
+	}
+
+} );
+
+$.ui.plugin.add( "draggable", "connectToSortable", {
+	start: function( event, ui, draggable ) {
+		var uiSortable = $.extend( {}, ui, {
+			item: draggable.element
+		} );
+
+		draggable.sortables = [];
+		$( draggable.options.connectToSortable ).each( function() {
+			var sortable = $( this ).sortable( "instance" );
+
+			if ( sortable && !sortable.options.disabled ) {
+				draggable.sortables.push( sortable );
+
+				// RefreshPositions is called at drag start to refresh the containerCache
+				// which is used in drag. This ensures it's initialized and synchronized
+				// with any changes that might have happened on the page since initialization.
+				sortable.refreshPositions();
+				sortable._trigger( "activate", event, uiSortable );
+			}
+		} );
+	},
+	stop: function( event, ui, draggable ) {
+		var uiSortable = $.extend( {}, ui, {
+			item: draggable.element
+		} );
+
+		draggable.cancelHelperRemoval = false;
+
+		$.each( draggable.sortables, function() {
+			var sortable = this;
+
+			if ( sortable.isOver ) {
+				sortable.isOver = 0;
+
+				// Allow this sortable to handle removing the helper
+				draggable.cancelHelperRemoval = true;
+				sortable.cancelHelperRemoval = false;
+
+				// Use _storedCSS To restore properties in the sortable,
+				// as this also handles revert (#9675) since the draggable
+				// may have modified them in unexpected ways (#8809)
+				sortable._storedCSS = {
+					position: sortable.placeholder.css( "position" ),
+					top: sortable.placeholder.css( "top" ),
+					left: sortable.placeholder.css( "left" )
+				};
+
+				sortable._mouseStop( event );
+
+				// Once drag has ended, the sortable should return to using
+				// its original helper, not the shared helper from draggable
+				sortable.options.helper = sortable.options._helper;
+			} else {
+
+				// Prevent this Sortable from removing the helper.
+				// However, don't set the draggable to remove the helper
+				// either as another connected Sortable may yet handle the removal.
+				sortable.cancelHelperRemoval = true;
+
+				sortable._trigger( "deactivate", event, uiSortable );
+			}
+		} );
+	},
+	drag: function( event, ui, draggable ) {
+		$.each( draggable.sortables, function() {
+			var innermostIntersecting = false,
+				sortable = this;
+
+			// Copy over variables that sortable's _intersectsWith uses
+			sortable.positionAbs = draggable.positionAbs;
+			sortable.helperProportions = draggable.helperProportions;
+			sortable.offset.click = draggable.offset.click;
+
+			if ( sortable._intersectsWith( sortable.containerCache ) ) {
+				innermostIntersecting = true;
+
+				$.each( draggable.sortables, function() {
+
+					// Copy over variables that sortable's _intersectsWith uses
+					this.positionAbs = draggable.positionAbs;
+					this.helperProportions = draggable.helperProportions;
+					this.offset.click = draggable.offset.click;
+
+					if ( this !== sortable &&
+							this._intersectsWith( this.containerCache ) &&
+							$.contains( sortable.element[ 0 ], this.element[ 0 ] ) ) {
+						innermostIntersecting = false;
+					}
+
+					return innermostIntersecting;
+				} );
+			}
+
+			if ( innermostIntersecting ) {
+
+				// If it intersects, we use a little isOver variable and set it once,
+				// so that the move-in stuff gets fired only once.
+				if ( !sortable.isOver ) {
+					sortable.isOver = 1;
+
+					// Store draggable's parent in case we need to reappend to it later.
+					draggable._parent = ui.helper.parent();
+
+					sortable.currentItem = ui.helper
+						.appendTo( sortable.element )
+						.data( "ui-sortable-item", true );
+
+					// Store helper option to later restore it
+					sortable.options._helper = sortable.options.helper;
+
+					sortable.options.helper = function() {
+						return ui.helper[ 0 ];
+					};
+
+					// Fire the start events of the sortable with our passed browser event,
+					// and our own helper (so it doesn't create a new one)
+					event.target = sortable.currentItem[ 0 ];
+					sortable._mouseCapture( event, true );
+					sortable._mouseStart( event, true, true );
+
+					// Because the browser event is way off the new appended portlet,
+					// modify necessary variables to reflect the changes
+					sortable.offset.click.top = draggable.offset.click.top;
+					sortable.offset.click.left = draggable.offset.click.left;
+					sortable.offset.parent.left -= draggable.offset.parent.left -
+						sortable.offset.parent.left;
+					sortable.offset.parent.top -= draggable.offset.parent.top -
+						sortable.offset.parent.top;
+
+					draggable._trigger( "toSortable", event );
+
+					// Inform draggable that the helper is in a valid drop zone,
+					// used solely in the revert option to handle "valid/invalid".
+					draggable.dropped = sortable.element;
+
+					// Need to refreshPositions of all sortables in the case that
+					// adding to one sortable changes the location of the other sortables (#9675)
+					$.each( draggable.sortables, function() {
+						this.refreshPositions();
+					} );
+
+					// Hack so receive/update callbacks work (mostly)
+					draggable.currentItem = draggable.element;
+					sortable.fromOutside = draggable;
+				}
+
+				if ( sortable.currentItem ) {
+					sortable._mouseDrag( event );
+
+					// Copy the sortable's position because the draggable's can potentially reflect
+					// a relative position, while sortable is always absolute, which the dragged
+					// element has now become. (#8809)
+					ui.position = sortable.position;
+				}
+			} else {
+
+				// If it doesn't intersect with the sortable, and it intersected before,
+				// we fake the drag stop of the sortable, but make sure it doesn't remove
+				// the helper by using cancelHelperRemoval.
+				if ( sortable.isOver ) {
+
+					sortable.isOver = 0;
+					sortable.cancelHelperRemoval = true;
+
+					// Calling sortable's mouseStop would trigger a revert,
+					// so revert must be temporarily false until after mouseStop is called.
+					sortable.options._revert = sortable.options.revert;
+					sortable.options.revert = false;
+
+					sortable._trigger( "out", event, sortable._uiHash( sortable ) );
+					sortable._mouseStop( event, true );
+
+					// Restore sortable behaviors that were modfied
+					// when the draggable entered the sortable area (#9481)
+					sortable.options.revert = sortable.options._revert;
+					sortable.options.helper = sortable.options._helper;
+
+					if ( sortable.placeholder ) {
+						sortable.placeholder.remove();
+					}
+
+					// Restore and recalculate the draggable's offset considering the sortable
+					// may have modified them in unexpected ways. (#8809, #10669)
+					ui.helper.appendTo( draggable._parent );
+					draggable._refreshOffsets( event );
+					ui.position = draggable._generatePosition( event, true );
+
+					draggable._trigger( "fromSortable", event );
+
+					// Inform draggable that the helper is no longer in a valid drop zone
+					draggable.dropped = false;
+
+					// Need to refreshPositions of all sortables just in case removing
+					// from one sortable changes the location of other sortables (#9675)
+					$.each( draggable.sortables, function() {
+						this.refreshPositions();
+					} );
+				}
+			}
+		} );
+	}
+} );
+
+$.ui.plugin.add( "draggable", "cursor", {
+	start: function( event, ui, instance ) {
+		var t = $( "body" ),
+			o = instance.options;
+
+		if ( t.css( "cursor" ) ) {
+			o._cursor = t.css( "cursor" );
+		}
+		t.css( "cursor", o.cursor );
+	},
+	stop: function( event, ui, instance ) {
+		var o = instance.options;
+		if ( o._cursor ) {
+			$( "body" ).css( "cursor", o._cursor );
+		}
+	}
+} );
+
+$.ui.plugin.add( "draggable", "opacity", {
+	start: function( event, ui, instance ) {
+		var t = $( ui.helper ),
+			o = instance.options;
+		if ( t.css( "opacity" ) ) {
+			o._opacity = t.css( "opacity" );
+		}
+		t.css( "opacity", o.opacity );
+	},
+	stop: function( event, ui, instance ) {
+		var o = instance.options;
+		if ( o._opacity ) {
+			$( ui.helper ).css( "opacity", o._opacity );
+		}
+	}
+} );
+
+$.ui.plugin.add( "draggable", "scroll", {
+	start: function( event, ui, i ) {
+		if ( !i.scrollParentNotHidden ) {
+			i.scrollParentNotHidden = i.helper.scrollParent( false );
+		}
+
+		if ( i.scrollParentNotHidden[ 0 ] !== i.document[ 0 ] &&
+				i.scrollParentNotHidden[ 0 ].tagName !== "HTML" ) {
+			i.overflowOffset = i.scrollParentNotHidden.offset();
+		}
+	},
+	drag: function( event, ui, i  ) {
+
+		var o = i.options,
+			scrolled = false,
+			scrollParent = i.scrollParentNotHidden[ 0 ],
+			document = i.document[ 0 ];
+
+		if ( scrollParent !== document && scrollParent.tagName !== "HTML" ) {
+			if ( !o.axis || o.axis !== "x" ) {
+				if ( ( i.overflowOffset.top + scrollParent.offsetHeight ) - event.pageY <
+						o.scrollSensitivity ) {
+					scrollParent.scrollTop = scrolled = scrollParent.scrollTop + o.scrollSpeed;
+				} else if ( event.pageY - i.overflowOffset.top < o.scrollSensitivity ) {
+					scrollParent.scrollTop = scrolled = scrollParent.scrollTop - o.scrollSpeed;
+				}
+			}
+
+			if ( !o.axis || o.axis !== "y" ) {
+				if ( ( i.overflowOffset.left + scrollParent.offsetWidth ) - event.pageX <
+						o.scrollSensitivity ) {
+					scrollParent.scrollLeft = scrolled = scrollParent.scrollLeft + o.scrollSpeed;
+				} else if ( event.pageX - i.overflowOffset.left < o.scrollSensitivity ) {
+					scrollParent.scrollLeft = scrolled = scrollParent.scrollLeft - o.scrollSpeed;
+				}
+			}
+
+		} else {
+
+			if ( !o.axis || o.axis !== "x" ) {
+				if ( event.pageY - $( document ).scrollTop() < o.scrollSensitivity ) {
+					scrolled = $( document ).scrollTop( $( document ).scrollTop() - o.scrollSpeed );
+				} else if ( $( window ).height() - ( event.pageY - $( document ).scrollTop() ) <
+						o.scrollSensitivity ) {
+					scrolled = $( document ).scrollTop( $( document ).scrollTop() + o.scrollSpeed );
+				}
+			}
+
+			if ( !o.axis || o.axis !== "y" ) {
+				if ( event.pageX - $( document ).scrollLeft() < o.scrollSensitivity ) {
+					scrolled = $( document ).scrollLeft(
+						$( document ).scrollLeft() - o.scrollSpeed
+					);
+				} else if ( $( window ).width() - ( event.pageX - $( document ).scrollLeft() ) <
+						o.scrollSensitivity ) {
+					scrolled = $( document ).scrollLeft(
+						$( document ).scrollLeft() + o.scrollSpeed
+					);
+				}
+			}
+
+		}
+
+		if ( scrolled !== false && $.ui.ddmanager && !o.dropBehaviour ) {
+			$.ui.ddmanager.prepareOffsets( i, event );
+		}
+
+	}
+} );
+
+$.ui.plugin.add( "draggable", "snap", {
+	start: function( event, ui, i ) {
+
+		var o = i.options;
+
+		i.snapElements = [];
+
+		$( o.snap.constructor !== String ? ( o.snap.items || ":data(ui-draggable)" ) : o.snap )
+			.each( function() {
+				var $t = $( this ),
+					$o = $t.offset();
+				if ( this !== i.element[ 0 ] ) {
+					i.snapElements.push( {
+						item: this,
+						width: $t.outerWidth(), height: $t.outerHeight(),
+						top: $o.top, left: $o.left
+					} );
+				}
+			} );
+
+	},
+	drag: function( event, ui, inst ) {
+
+		var ts, bs, ls, rs, l, r, t, b, i, first,
+			o = inst.options,
+			d = o.snapTolerance,
+			x1 = ui.offset.left, x2 = x1 + inst.helperProportions.width,
+			y1 = ui.offset.top, y2 = y1 + inst.helperProportions.height;
+
+		for ( i = inst.snapElements.length - 1; i >= 0; i-- ) {
+
+			l = inst.snapElements[ i ].left - inst.margins.left;
+			r = l + inst.snapElements[ i ].width;
+			t = inst.snapElements[ i ].top - inst.margins.top;
+			b = t + inst.snapElements[ i ].height;
+
+			if ( x2 < l - d || x1 > r + d || y2 < t - d || y1 > b + d ||
+					!$.contains( inst.snapElements[ i ].item.ownerDocument,
+					inst.snapElements[ i ].item ) ) {
+				if ( inst.snapElements[ i ].snapping ) {
+					( inst.options.snap.release &&
+						inst.options.snap.release.call(
+							inst.element,
+							event,
+							$.extend( inst._uiHash(), { snapItem: inst.snapElements[ i ].item } )
+						) );
+				}
+				inst.snapElements[ i ].snapping = false;
+				continue;
+			}
+
+			if ( o.snapMode !== "inner" ) {
+				ts = Math.abs( t - y2 ) <= d;
+				bs = Math.abs( b - y1 ) <= d;
+				ls = Math.abs( l - x2 ) <= d;
+				rs = Math.abs( r - x1 ) <= d;
+				if ( ts ) {
+					ui.position.top = inst._convertPositionTo( "relative", {
+						top: t - inst.helperProportions.height,
+						left: 0
+					} ).top;
+				}
+				if ( bs ) {
+					ui.position.top = inst._convertPositionTo( "relative", {
+						top: b,
+						left: 0
+					} ).top;
+				}
+				if ( ls ) {
+					ui.position.left = inst._convertPositionTo( "relative", {
+						top: 0,
+						left: l - inst.helperProportions.width
+					} ).left;
+				}
+				if ( rs ) {
+					ui.position.left = inst._convertPositionTo( "relative", {
+						top: 0,
+						left: r
+					} ).left;
+				}
+			}
+
+			first = ( ts || bs || ls || rs );
+
+			if ( o.snapMode !== "outer" ) {
+				ts = Math.abs( t - y1 ) <= d;
+				bs = Math.abs( b - y2 ) <= d;
+				ls = Math.abs( l - x1 ) <= d;
+				rs = Math.abs( r - x2 ) <= d;
+				if ( ts ) {
+					ui.position.top = inst._convertPositionTo( "relative", {
+						top: t,
+						left: 0
+					} ).top;
+				}
+				if ( bs ) {
+					ui.position.top = inst._convertPositionTo( "relative", {
+						top: b - inst.helperProportions.height,
+						left: 0
+					} ).top;
+				}
+				if ( ls ) {
+					ui.position.left = inst._convertPositionTo( "relative", {
+						top: 0,
+						left: l
+					} ).left;
+				}
+				if ( rs ) {
+					ui.position.left = inst._convertPositionTo( "relative", {
+						top: 0,
+						left: r - inst.helperProportions.width
+					} ).left;
+				}
+			}
+
+			if ( !inst.snapElements[ i ].snapping && ( ts || bs || ls || rs || first ) ) {
+				( inst.options.snap.snap &&
+					inst.options.snap.snap.call(
+						inst.element,
+						event,
+						$.extend( inst._uiHash(), {
+							snapItem: inst.snapElements[ i ].item
+						} ) ) );
+			}
+			inst.snapElements[ i ].snapping = ( ts || bs || ls || rs || first );
+
+		}
+
+	}
+} );
+
+$.ui.plugin.add( "draggable", "stack", {
+	start: function( event, ui, instance ) {
+		var min,
+			o = instance.options,
+			group = $.makeArray( $( o.stack ) ).sort( function( a, b ) {
+				return ( parseInt( $( a ).css( "zIndex" ), 10 ) || 0 ) -
+					( parseInt( $( b ).css( "zIndex" ), 10 ) || 0 );
+			} );
+
+		if ( !group.length ) { return; }
+
+		min = parseInt( $( group[ 0 ] ).css( "zIndex" ), 10 ) || 0;
+		$( group ).each( function( i ) {
+			$( this ).css( "zIndex", min + i );
+		} );
+		this.css( "zIndex", ( min + group.length ) );
+	}
+} );
+
+$.ui.plugin.add( "draggable", "zIndex", {
+	start: function( event, ui, instance ) {
+		var t = $( ui.helper ),
+			o = instance.options;
+
+		if ( t.css( "zIndex" ) ) {
+			o._zIndex = t.css( "zIndex" );
+		}
+		t.css( "zIndex", o.zIndex );
+	},
+	stop: function( event, ui, instance ) {
+		var o = instance.options;
+
+		if ( o._zIndex ) {
+			$( ui.helper ).css( "zIndex", o._zIndex );
+		}
+	}
+} );
+
+return $.ui.draggable;
+
+} ) );
+
+
+/***/ }),
+/* 71 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;( function( factory ) {
+	if ( true ) {
+
+		// AMD. Register as an anonymous module.
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
+				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	} else {
+
+		// Browser globals
+		factory( jQuery );
+	}
+} ( function( $ ) {
+
+// This file is deprecated
+return $.ui.ie = !!/msie [\w.]+/.exec( navigator.userAgent.toLowerCase() );
+} ) );
+
+
+/***/ }),
+/* 72 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
+ * jQuery UI :data 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: :data Selector
+//>>group: Core
+//>>description: Selects elements which have data stored under the specified key.
+//>>docs: http://api.jqueryui.com/data-selector/
+
+( function( factory ) {
+	if ( true ) {
+
+		// AMD. Register as an anonymous module.
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
+				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	} else {
+
+		// Browser globals
+		factory( jQuery );
+	}
+} ( function( $ ) {
+return $.extend( $.expr[ ":" ], {
+	data: $.expr.createPseudo ?
+		$.expr.createPseudo( function( dataName ) {
+			return function( elem ) {
+				return !!$.data( elem, dataName );
+			};
+		} ) :
+
+		// Support: jQuery <1.8
+		function( elem, i, match ) {
+			return !!$.data( elem, match[ 3 ] );
+		}
+} );
+} ) );
+
+
+/***/ }),
+/* 73 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
+ * jQuery UI Scroll Parent 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: scrollParent
+//>>group: Core
+//>>description: Get the closest ancestor element that is scrollable.
+//>>docs: http://api.jqueryui.com/scrollParent/
+
+( function( factory ) {
+	if ( true ) {
+
+		// AMD. Register as an anonymous module.
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
+				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	} else {
+
+		// Browser globals
+		factory( jQuery );
+	}
+} ( function( $ ) {
+
+return $.fn.scrollParent = function( includeHidden ) {
+	var position = this.css( "position" ),
+		excludeStaticParent = position === "absolute",
+		overflowRegex = includeHidden ? /(auto|scroll|hidden)/ : /(auto|scroll)/,
+		scrollParent = this.parents().filter( function() {
+			var parent = $( this );
+			if ( excludeStaticParent && parent.css( "position" ) === "static" ) {
+				return false;
+			}
+			return overflowRegex.test( parent.css( "overflow" ) + parent.css( "overflow-y" ) +
+				parent.css( "overflow-x" ) );
+		} ).eq( 0 );
+
+	return position === "fixed" || !scrollParent.length ?
+		$( this[ 0 ].ownerDocument || document ) :
+		scrollParent;
+};
+
+} ) );
+
+
+/***/ }),
+/* 74 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
+ * jQuery UI Resizable 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: Resizable
+//>>group: Interactions
+//>>description: Enables resize functionality for any element.
+//>>docs: http://api.jqueryui.com/resizable/
+//>>demos: http://jqueryui.com/resizable/
+//>>css.structure: ../../themes/base/core.css
+//>>css.structure: ../../themes/base/resizable.css
+//>>css.theme: ../../themes/base/theme.css
+
+( function( factory ) {
+	if ( true ) {
+
+		// AMD. Register as an anonymous module.
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [
+			__webpack_require__(0),
+			__webpack_require__(14),
+			__webpack_require__(75),
+			__webpack_require__(22),
+			__webpack_require__(1),
+			__webpack_require__(4)
+		], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
+				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	} else {
+
+		// Browser globals
+		factory( jQuery );
+	}
+}( function( $ ) {
+
+$.widget( "ui.resizable", $.ui.mouse, {
+	version: "1.12.1",
+	widgetEventPrefix: "resize",
+	options: {
+		alsoResize: false,
+		animate: false,
+		animateDuration: "slow",
+		animateEasing: "swing",
+		aspectRatio: false,
+		autoHide: false,
+		classes: {
+			"ui-resizable-se": "ui-icon ui-icon-gripsmall-diagonal-se"
+		},
+		containment: false,
+		ghost: false,
+		grid: false,
+		handles: "e,s,se",
+		helper: false,
+		maxHeight: null,
+		maxWidth: null,
+		minHeight: 10,
+		minWidth: 10,
+
+		// See #7960
+		zIndex: 90,
+
+		// Callbacks
+		resize: null,
+		start: null,
+		stop: null
+	},
+
+	_num: function( value ) {
+		return parseFloat( value ) || 0;
+	},
+
+	_isNumber: function( value ) {
+		return !isNaN( parseFloat( value ) );
+	},
+
+	_hasScroll: function( el, a ) {
+
+		if ( $( el ).css( "overflow" ) === "hidden" ) {
+			return false;
+		}
+
+		var scroll = ( a && a === "left" ) ? "scrollLeft" : "scrollTop",
+			has = false;
+
+		if ( el[ scroll ] > 0 ) {
+			return true;
+		}
+
+		// TODO: determine which cases actually cause this to happen
+		// if the element doesn't have the scroll set, see if it's possible to
+		// set the scroll
+		el[ scroll ] = 1;
+		has = ( el[ scroll ] > 0 );
+		el[ scroll ] = 0;
+		return has;
+	},
+
+	_create: function() {
+
+		var margins,
+			o = this.options,
+			that = this;
+		this._addClass( "ui-resizable" );
+
+		$.extend( this, {
+			_aspectRatio: !!( o.aspectRatio ),
+			aspectRatio: o.aspectRatio,
+			originalElement: this.element,
+			_proportionallyResizeElements: [],
+			_helper: o.helper || o.ghost || o.animate ? o.helper || "ui-resizable-helper" : null
+		} );
+
+		// Wrap the element if it cannot hold child nodes
+		if ( this.element[ 0 ].nodeName.match( /^(canvas|textarea|input|select|button|img)$/i ) ) {
+
+			this.element.wrap(
+				$( "<div class='ui-wrapper' style='overflow: hidden;'></div>" ).css( {
+					position: this.element.css( "position" ),
+					width: this.element.outerWidth(),
+					height: this.element.outerHeight(),
+					top: this.element.css( "top" ),
+					left: this.element.css( "left" )
+				} )
+			);
+
+			this.element = this.element.parent().data(
+				"ui-resizable", this.element.resizable( "instance" )
+			);
+
+			this.elementIsWrapper = true;
+
+			margins = {
+				marginTop: this.originalElement.css( "marginTop" ),
+				marginRight: this.originalElement.css( "marginRight" ),
+				marginBottom: this.originalElement.css( "marginBottom" ),
+				marginLeft: this.originalElement.css( "marginLeft" )
+			};
+
+			this.element.css( margins );
+			this.originalElement.css( "margin", 0 );
+
+			// support: Safari
+			// Prevent Safari textarea resize
+			this.originalResizeStyle = this.originalElement.css( "resize" );
+			this.originalElement.css( "resize", "none" );
+
+			this._proportionallyResizeElements.push( this.originalElement.css( {
+				position: "static",
+				zoom: 1,
+				display: "block"
+			} ) );
+
+			// Support: IE9
+			// avoid IE jump (hard set the margin)
+			this.originalElement.css( margins );
+
+			this._proportionallyResize();
+		}
+
+		this._setupHandles();
+
+		if ( o.autoHide ) {
+			$( this.element )
+				.on( "mouseenter", function() {
+					if ( o.disabled ) {
+						return;
+					}
+					that._removeClass( "ui-resizable-autohide" );
+					that._handles.show();
+				} )
+				.on( "mouseleave", function() {
+					if ( o.disabled ) {
+						return;
+					}
+					if ( !that.resizing ) {
+						that._addClass( "ui-resizable-autohide" );
+						that._handles.hide();
+					}
+				} );
+		}
+
+		this._mouseInit();
+	},
+
+	_destroy: function() {
+
+		this._mouseDestroy();
+
+		var wrapper,
+			_destroy = function( exp ) {
+				$( exp )
+					.removeData( "resizable" )
+					.removeData( "ui-resizable" )
+					.off( ".resizable" )
+					.find( ".ui-resizable-handle" )
+						.remove();
+			};
+
+		// TODO: Unwrap at same DOM position
+		if ( this.elementIsWrapper ) {
+			_destroy( this.element );
+			wrapper = this.element;
+			this.originalElement.css( {
+				position: wrapper.css( "position" ),
+				width: wrapper.outerWidth(),
+				height: wrapper.outerHeight(),
+				top: wrapper.css( "top" ),
+				left: wrapper.css( "left" )
+			} ).insertAfter( wrapper );
+			wrapper.remove();
+		}
+
+		this.originalElement.css( "resize", this.originalResizeStyle );
+		_destroy( this.originalElement );
+
+		return this;
+	},
+
+	_setOption: function( key, value ) {
+		this._super( key, value );
+
+		switch ( key ) {
+		case "handles":
+			this._removeHandles();
+			this._setupHandles();
+			break;
+		default:
+			break;
+		}
+	},
+
+	_setupHandles: function() {
+		var o = this.options, handle, i, n, hname, axis, that = this;
+		this.handles = o.handles ||
+			( !$( ".ui-resizable-handle", this.element ).length ?
+				"e,s,se" : {
+					n: ".ui-resizable-n",
+					e: ".ui-resizable-e",
+					s: ".ui-resizable-s",
+					w: ".ui-resizable-w",
+					se: ".ui-resizable-se",
+					sw: ".ui-resizable-sw",
+					ne: ".ui-resizable-ne",
+					nw: ".ui-resizable-nw"
+				} );
+
+		this._handles = $();
+		if ( this.handles.constructor === String ) {
+
+			if ( this.handles === "all" ) {
+				this.handles = "n,e,s,w,se,sw,ne,nw";
+			}
+
+			n = this.handles.split( "," );
+			this.handles = {};
+
+			for ( i = 0; i < n.length; i++ ) {
+
+				handle = $.trim( n[ i ] );
+				hname = "ui-resizable-" + handle;
+				axis = $( "<div>" );
+				this._addClass( axis, "ui-resizable-handle " + hname );
+
+				axis.css( { zIndex: o.zIndex } );
+
+				this.handles[ handle ] = ".ui-resizable-" + handle;
+				this.element.append( axis );
+			}
+
+		}
+
+		this._renderAxis = function( target ) {
+
+			var i, axis, padPos, padWrapper;
+
+			target = target || this.element;
+
+			for ( i in this.handles ) {
+
+				if ( this.handles[ i ].constructor === String ) {
+					this.handles[ i ] = this.element.children( this.handles[ i ] ).first().show();
+				} else if ( this.handles[ i ].jquery || this.handles[ i ].nodeType ) {
+					this.handles[ i ] = $( this.handles[ i ] );
+					this._on( this.handles[ i ], { "mousedown": that._mouseDown } );
+				}
+
+				if ( this.elementIsWrapper &&
+						this.originalElement[ 0 ]
+							.nodeName
+							.match( /^(textarea|input|select|button)$/i ) ) {
+					axis = $( this.handles[ i ], this.element );
+
+					padWrapper = /sw|ne|nw|se|n|s/.test( i ) ?
+						axis.outerHeight() :
+						axis.outerWidth();
+
+					padPos = [ "padding",
+						/ne|nw|n/.test( i ) ? "Top" :
+						/se|sw|s/.test( i ) ? "Bottom" :
+						/^e$/.test( i ) ? "Right" : "Left" ].join( "" );
+
+					target.css( padPos, padWrapper );
+
+					this._proportionallyResize();
+				}
+
+				this._handles = this._handles.add( this.handles[ i ] );
+			}
+		};
+
+		// TODO: make renderAxis a prototype function
+		this._renderAxis( this.element );
+
+		this._handles = this._handles.add( this.element.find( ".ui-resizable-handle" ) );
+		this._handles.disableSelection();
+
+		this._handles.on( "mouseover", function() {
+			if ( !that.resizing ) {
+				if ( this.className ) {
+					axis = this.className.match( /ui-resizable-(se|sw|ne|nw|n|e|s|w)/i );
+				}
+				that.axis = axis && axis[ 1 ] ? axis[ 1 ] : "se";
+			}
+		} );
+
+		if ( o.autoHide ) {
+			this._handles.hide();
+			this._addClass( "ui-resizable-autohide" );
+		}
+	},
+
+	_removeHandles: function() {
+		this._handles.remove();
+	},
+
+	_mouseCapture: function( event ) {
+		var i, handle,
+			capture = false;
+
+		for ( i in this.handles ) {
+			handle = $( this.handles[ i ] )[ 0 ];
+			if ( handle === event.target || $.contains( handle, event.target ) ) {
+				capture = true;
+			}
+		}
+
+		return !this.options.disabled && capture;
+	},
+
+	_mouseStart: function( event ) {
+
+		var curleft, curtop, cursor,
+			o = this.options,
+			el = this.element;
+
+		this.resizing = true;
+
+		this._renderProxy();
+
+		curleft = this._num( this.helper.css( "left" ) );
+		curtop = this._num( this.helper.css( "top" ) );
+
+		if ( o.containment ) {
+			curleft += $( o.containment ).scrollLeft() || 0;
+			curtop += $( o.containment ).scrollTop() || 0;
+		}
+
+		this.offset = this.helper.offset();
+		this.position = { left: curleft, top: curtop };
+
+		this.size = this._helper ? {
+				width: this.helper.width(),
+				height: this.helper.height()
+			} : {
+				width: el.width(),
+				height: el.height()
+			};
+
+		this.originalSize = this._helper ? {
+				width: el.outerWidth(),
+				height: el.outerHeight()
+			} : {
+				width: el.width(),
+				height: el.height()
+			};
+
+		this.sizeDiff = {
+			width: el.outerWidth() - el.width(),
+			height: el.outerHeight() - el.height()
+		};
+
+		this.originalPosition = { left: curleft, top: curtop };
+		this.originalMousePosition = { left: event.pageX, top: event.pageY };
+
+		this.aspectRatio = ( typeof o.aspectRatio === "number" ) ?
+			o.aspectRatio :
+			( ( this.originalSize.width / this.originalSize.height ) || 1 );
+
+		cursor = $( ".ui-resizable-" + this.axis ).css( "cursor" );
+		$( "body" ).css( "cursor", cursor === "auto" ? this.axis + "-resize" : cursor );
+
+		this._addClass( "ui-resizable-resizing" );
+		this._propagate( "start", event );
+		return true;
+	},
+
+	_mouseDrag: function( event ) {
+
+		var data, props,
+			smp = this.originalMousePosition,
+			a = this.axis,
+			dx = ( event.pageX - smp.left ) || 0,
+			dy = ( event.pageY - smp.top ) || 0,
+			trigger = this._change[ a ];
+
+		this._updatePrevProperties();
+
+		if ( !trigger ) {
+			return false;
+		}
+
+		data = trigger.apply( this, [ event, dx, dy ] );
+
+		this._updateVirtualBoundaries( event.shiftKey );
+		if ( this._aspectRatio || event.shiftKey ) {
+			data = this._updateRatio( data, event );
+		}
+
+		data = this._respectSize( data, event );
+
+		this._updateCache( data );
+
+		this._propagate( "resize", event );
+
+		props = this._applyChanges();
+
+		if ( !this._helper && this._proportionallyResizeElements.length ) {
+			this._proportionallyResize();
+		}
+
+		if ( !$.isEmptyObject( props ) ) {
+			this._updatePrevProperties();
+			this._trigger( "resize", event, this.ui() );
+			this._applyChanges();
+		}
+
+		return false;
+	},
+
+	_mouseStop: function( event ) {
+
+		this.resizing = false;
+		var pr, ista, soffseth, soffsetw, s, left, top,
+			o = this.options, that = this;
+
+		if ( this._helper ) {
+
+			pr = this._proportionallyResizeElements;
+			ista = pr.length && ( /textarea/i ).test( pr[ 0 ].nodeName );
+			soffseth = ista && this._hasScroll( pr[ 0 ], "left" ) ? 0 : that.sizeDiff.height;
+			soffsetw = ista ? 0 : that.sizeDiff.width;
+
+			s = {
+				width: ( that.helper.width()  - soffsetw ),
+				height: ( that.helper.height() - soffseth )
+			};
+			left = ( parseFloat( that.element.css( "left" ) ) +
+				( that.position.left - that.originalPosition.left ) ) || null;
+			top = ( parseFloat( that.element.css( "top" ) ) +
+				( that.position.top - that.originalPosition.top ) ) || null;
+
+			if ( !o.animate ) {
+				this.element.css( $.extend( s, { top: top, left: left } ) );
+			}
+
+			that.helper.height( that.size.height );
+			that.helper.width( that.size.width );
+
+			if ( this._helper && !o.animate ) {
+				this._proportionallyResize();
+			}
+		}
+
+		$( "body" ).css( "cursor", "auto" );
+
+		this._removeClass( "ui-resizable-resizing" );
+
+		this._propagate( "stop", event );
+
+		if ( this._helper ) {
+			this.helper.remove();
+		}
+
+		return false;
+
+	},
+
+	_updatePrevProperties: function() {
+		this.prevPosition = {
+			top: this.position.top,
+			left: this.position.left
+		};
+		this.prevSize = {
+			width: this.size.width,
+			height: this.size.height
+		};
+	},
+
+	_applyChanges: function() {
+		var props = {};
+
+		if ( this.position.top !== this.prevPosition.top ) {
+			props.top = this.position.top + "px";
+		}
+		if ( this.position.left !== this.prevPosition.left ) {
+			props.left = this.position.left + "px";
+		}
+		if ( this.size.width !== this.prevSize.width ) {
+			props.width = this.size.width + "px";
+		}
+		if ( this.size.height !== this.prevSize.height ) {
+			props.height = this.size.height + "px";
+		}
+
+		this.helper.css( props );
+
+		return props;
+	},
+
+	_updateVirtualBoundaries: function( forceAspectRatio ) {
+		var pMinWidth, pMaxWidth, pMinHeight, pMaxHeight, b,
+			o = this.options;
+
+		b = {
+			minWidth: this._isNumber( o.minWidth ) ? o.minWidth : 0,
+			maxWidth: this._isNumber( o.maxWidth ) ? o.maxWidth : Infinity,
+			minHeight: this._isNumber( o.minHeight ) ? o.minHeight : 0,
+			maxHeight: this._isNumber( o.maxHeight ) ? o.maxHeight : Infinity
+		};
+
+		if ( this._aspectRatio || forceAspectRatio ) {
+			pMinWidth = b.minHeight * this.aspectRatio;
+			pMinHeight = b.minWidth / this.aspectRatio;
+			pMaxWidth = b.maxHeight * this.aspectRatio;
+			pMaxHeight = b.maxWidth / this.aspectRatio;
+
+			if ( pMinWidth > b.minWidth ) {
+				b.minWidth = pMinWidth;
+			}
+			if ( pMinHeight > b.minHeight ) {
+				b.minHeight = pMinHeight;
+			}
+			if ( pMaxWidth < b.maxWidth ) {
+				b.maxWidth = pMaxWidth;
+			}
+			if ( pMaxHeight < b.maxHeight ) {
+				b.maxHeight = pMaxHeight;
+			}
+		}
+		this._vBoundaries = b;
+	},
+
+	_updateCache: function( data ) {
+		this.offset = this.helper.offset();
+		if ( this._isNumber( data.left ) ) {
+			this.position.left = data.left;
+		}
+		if ( this._isNumber( data.top ) ) {
+			this.position.top = data.top;
+		}
+		if ( this._isNumber( data.height ) ) {
+			this.size.height = data.height;
+		}
+		if ( this._isNumber( data.width ) ) {
+			this.size.width = data.width;
+		}
+	},
+
+	_updateRatio: function( data ) {
+
+		var cpos = this.position,
+			csize = this.size,
+			a = this.axis;
+
+		if ( this._isNumber( data.height ) ) {
+			data.width = ( data.height * this.aspectRatio );
+		} else if ( this._isNumber( data.width ) ) {
+			data.height = ( data.width / this.aspectRatio );
+		}
+
+		if ( a === "sw" ) {
+			data.left = cpos.left + ( csize.width - data.width );
+			data.top = null;
+		}
+		if ( a === "nw" ) {
+			data.top = cpos.top + ( csize.height - data.height );
+			data.left = cpos.left + ( csize.width - data.width );
+		}
+
+		return data;
+	},
+
+	_respectSize: function( data ) {
+
+		var o = this._vBoundaries,
+			a = this.axis,
+			ismaxw = this._isNumber( data.width ) && o.maxWidth && ( o.maxWidth < data.width ),
+			ismaxh = this._isNumber( data.height ) && o.maxHeight && ( o.maxHeight < data.height ),
+			isminw = this._isNumber( data.width ) && o.minWidth && ( o.minWidth > data.width ),
+			isminh = this._isNumber( data.height ) && o.minHeight && ( o.minHeight > data.height ),
+			dw = this.originalPosition.left + this.originalSize.width,
+			dh = this.originalPosition.top + this.originalSize.height,
+			cw = /sw|nw|w/.test( a ), ch = /nw|ne|n/.test( a );
+		if ( isminw ) {
+			data.width = o.minWidth;
+		}
+		if ( isminh ) {
+			data.height = o.minHeight;
+		}
+		if ( ismaxw ) {
+			data.width = o.maxWidth;
+		}
+		if ( ismaxh ) {
+			data.height = o.maxHeight;
+		}
+
+		if ( isminw && cw ) {
+			data.left = dw - o.minWidth;
+		}
+		if ( ismaxw && cw ) {
+			data.left = dw - o.maxWidth;
+		}
+		if ( isminh && ch ) {
+			data.top = dh - o.minHeight;
+		}
+		if ( ismaxh && ch ) {
+			data.top = dh - o.maxHeight;
+		}
+
+		// Fixing jump error on top/left - bug #2330
+		if ( !data.width && !data.height && !data.left && data.top ) {
+			data.top = null;
+		} else if ( !data.width && !data.height && !data.top && data.left ) {
+			data.left = null;
+		}
+
+		return data;
+	},
+
+	_getPaddingPlusBorderDimensions: function( element ) {
+		var i = 0,
+			widths = [],
+			borders = [
+				element.css( "borderTopWidth" ),
+				element.css( "borderRightWidth" ),
+				element.css( "borderBottomWidth" ),
+				element.css( "borderLeftWidth" )
+			],
+			paddings = [
+				element.css( "paddingTop" ),
+				element.css( "paddingRight" ),
+				element.css( "paddingBottom" ),
+				element.css( "paddingLeft" )
+			];
+
+		for ( ; i < 4; i++ ) {
+			widths[ i ] = ( parseFloat( borders[ i ] ) || 0 );
+			widths[ i ] += ( parseFloat( paddings[ i ] ) || 0 );
+		}
+
+		return {
+			height: widths[ 0 ] + widths[ 2 ],
+			width: widths[ 1 ] + widths[ 3 ]
+		};
+	},
+
+	_proportionallyResize: function() {
+
+		if ( !this._proportionallyResizeElements.length ) {
+			return;
+		}
+
+		var prel,
+			i = 0,
+			element = this.helper || this.element;
+
+		for ( ; i < this._proportionallyResizeElements.length; i++ ) {
+
+			prel = this._proportionallyResizeElements[ i ];
+
+			// TODO: Seems like a bug to cache this.outerDimensions
+			// considering that we are in a loop.
+			if ( !this.outerDimensions ) {
+				this.outerDimensions = this._getPaddingPlusBorderDimensions( prel );
+			}
+
+			prel.css( {
+				height: ( element.height() - this.outerDimensions.height ) || 0,
+				width: ( element.width() - this.outerDimensions.width ) || 0
+			} );
+
+		}
+
+	},
+
+	_renderProxy: function() {
+
+		var el = this.element, o = this.options;
+		this.elementOffset = el.offset();
+
+		if ( this._helper ) {
+
+			this.helper = this.helper || $( "<div style='overflow:hidden;'></div>" );
+
+			this._addClass( this.helper, this._helper );
+			this.helper.css( {
+				width: this.element.outerWidth(),
+				height: this.element.outerHeight(),
+				position: "absolute",
+				left: this.elementOffset.left + "px",
+				top: this.elementOffset.top + "px",
+				zIndex: ++o.zIndex //TODO: Don't modify option
+			} );
+
+			this.helper
+				.appendTo( "body" )
+				.disableSelection();
+
+		} else {
+			this.helper = this.element;
+		}
+
+	},
+
+	_change: {
+		e: function( event, dx ) {
+			return { width: this.originalSize.width + dx };
+		},
+		w: function( event, dx ) {
+			var cs = this.originalSize, sp = this.originalPosition;
+			return { left: sp.left + dx, width: cs.width - dx };
+		},
+		n: function( event, dx, dy ) {
+			var cs = this.originalSize, sp = this.originalPosition;
+			return { top: sp.top + dy, height: cs.height - dy };
+		},
+		s: function( event, dx, dy ) {
+			return { height: this.originalSize.height + dy };
+		},
+		se: function( event, dx, dy ) {
+			return $.extend( this._change.s.apply( this, arguments ),
+				this._change.e.apply( this, [ event, dx, dy ] ) );
+		},
+		sw: function( event, dx, dy ) {
+			return $.extend( this._change.s.apply( this, arguments ),
+				this._change.w.apply( this, [ event, dx, dy ] ) );
+		},
+		ne: function( event, dx, dy ) {
+			return $.extend( this._change.n.apply( this, arguments ),
+				this._change.e.apply( this, [ event, dx, dy ] ) );
+		},
+		nw: function( event, dx, dy ) {
+			return $.extend( this._change.n.apply( this, arguments ),
+				this._change.w.apply( this, [ event, dx, dy ] ) );
+		}
+	},
+
+	_propagate: function( n, event ) {
+		$.ui.plugin.call( this, n, [ event, this.ui() ] );
+		( n !== "resize" && this._trigger( n, event, this.ui() ) );
+	},
+
+	plugins: {},
+
+	ui: function() {
+		return {
+			originalElement: this.originalElement,
+			element: this.element,
+			helper: this.helper,
+			position: this.position,
+			size: this.size,
+			originalSize: this.originalSize,
+			originalPosition: this.originalPosition
+		};
+	}
+
+} );
+
+/*
+ * Resizable Extensions
+ */
+
+$.ui.plugin.add( "resizable", "animate", {
+
+	stop: function( event ) {
+		var that = $( this ).resizable( "instance" ),
+			o = that.options,
+			pr = that._proportionallyResizeElements,
+			ista = pr.length && ( /textarea/i ).test( pr[ 0 ].nodeName ),
+			soffseth = ista && that._hasScroll( pr[ 0 ], "left" ) ? 0 : that.sizeDiff.height,
+			soffsetw = ista ? 0 : that.sizeDiff.width,
+			style = {
+				width: ( that.size.width - soffsetw ),
+				height: ( that.size.height - soffseth )
+			},
+			left = ( parseFloat( that.element.css( "left" ) ) +
+				( that.position.left - that.originalPosition.left ) ) || null,
+			top = ( parseFloat( that.element.css( "top" ) ) +
+				( that.position.top - that.originalPosition.top ) ) || null;
+
+		that.element.animate(
+			$.extend( style, top && left ? { top: top, left: left } : {} ), {
+				duration: o.animateDuration,
+				easing: o.animateEasing,
+				step: function() {
+
+					var data = {
+						width: parseFloat( that.element.css( "width" ) ),
+						height: parseFloat( that.element.css( "height" ) ),
+						top: parseFloat( that.element.css( "top" ) ),
+						left: parseFloat( that.element.css( "left" ) )
+					};
+
+					if ( pr && pr.length ) {
+						$( pr[ 0 ] ).css( { width: data.width, height: data.height } );
+					}
+
+					// Propagating resize, and updating values for each animation step
+					that._updateCache( data );
+					that._propagate( "resize", event );
+
+				}
+			}
+		);
+	}
+
+} );
+
+$.ui.plugin.add( "resizable", "containment", {
+
+	start: function() {
+		var element, p, co, ch, cw, width, height,
+			that = $( this ).resizable( "instance" ),
+			o = that.options,
+			el = that.element,
+			oc = o.containment,
+			ce = ( oc instanceof $ ) ?
+				oc.get( 0 ) :
+				( /parent/.test( oc ) ) ? el.parent().get( 0 ) : oc;
+
+		if ( !ce ) {
+			return;
+		}
+
+		that.containerElement = $( ce );
+
+		if ( /document/.test( oc ) || oc === document ) {
+			that.containerOffset = {
+				left: 0,
+				top: 0
+			};
+			that.containerPosition = {
+				left: 0,
+				top: 0
+			};
+
+			that.parentData = {
+				element: $( document ),
+				left: 0,
+				top: 0,
+				width: $( document ).width(),
+				height: $( document ).height() || document.body.parentNode.scrollHeight
+			};
+		} else {
+			element = $( ce );
+			p = [];
+			$( [ "Top", "Right", "Left", "Bottom" ] ).each( function( i, name ) {
+				p[ i ] = that._num( element.css( "padding" + name ) );
+			} );
+
+			that.containerOffset = element.offset();
+			that.containerPosition = element.position();
+			that.containerSize = {
+				height: ( element.innerHeight() - p[ 3 ] ),
+				width: ( element.innerWidth() - p[ 1 ] )
+			};
+
+			co = that.containerOffset;
+			ch = that.containerSize.height;
+			cw = that.containerSize.width;
+			width = ( that._hasScroll ( ce, "left" ) ? ce.scrollWidth : cw );
+			height = ( that._hasScroll ( ce ) ? ce.scrollHeight : ch ) ;
+
+			that.parentData = {
+				element: ce,
+				left: co.left,
+				top: co.top,
+				width: width,
+				height: height
+			};
+		}
+	},
+
+	resize: function( event ) {
+		var woset, hoset, isParent, isOffsetRelative,
+			that = $( this ).resizable( "instance" ),
+			o = that.options,
+			co = that.containerOffset,
+			cp = that.position,
+			pRatio = that._aspectRatio || event.shiftKey,
+			cop = {
+				top: 0,
+				left: 0
+			},
+			ce = that.containerElement,
+			continueResize = true;
+
+		if ( ce[ 0 ] !== document && ( /static/ ).test( ce.css( "position" ) ) ) {
+			cop = co;
+		}
+
+		if ( cp.left < ( that._helper ? co.left : 0 ) ) {
+			that.size.width = that.size.width +
+				( that._helper ?
+					( that.position.left - co.left ) :
+					( that.position.left - cop.left ) );
+
+			if ( pRatio ) {
+				that.size.height = that.size.width / that.aspectRatio;
+				continueResize = false;
+			}
+			that.position.left = o.helper ? co.left : 0;
+		}
+
+		if ( cp.top < ( that._helper ? co.top : 0 ) ) {
+			that.size.height = that.size.height +
+				( that._helper ?
+					( that.position.top - co.top ) :
+					that.position.top );
+
+			if ( pRatio ) {
+				that.size.width = that.size.height * that.aspectRatio;
+				continueResize = false;
+			}
+			that.position.top = that._helper ? co.top : 0;
+		}
+
+		isParent = that.containerElement.get( 0 ) === that.element.parent().get( 0 );
+		isOffsetRelative = /relative|absolute/.test( that.containerElement.css( "position" ) );
+
+		if ( isParent && isOffsetRelative ) {
+			that.offset.left = that.parentData.left + that.position.left;
+			that.offset.top = that.parentData.top + that.position.top;
+		} else {
+			that.offset.left = that.element.offset().left;
+			that.offset.top = that.element.offset().top;
+		}
+
+		woset = Math.abs( that.sizeDiff.width +
+			( that._helper ?
+				that.offset.left - cop.left :
+				( that.offset.left - co.left ) ) );
+
+		hoset = Math.abs( that.sizeDiff.height +
+			( that._helper ?
+				that.offset.top - cop.top :
+				( that.offset.top - co.top ) ) );
+
+		if ( woset + that.size.width >= that.parentData.width ) {
+			that.size.width = that.parentData.width - woset;
+			if ( pRatio ) {
+				that.size.height = that.size.width / that.aspectRatio;
+				continueResize = false;
+			}
+		}
+
+		if ( hoset + that.size.height >= that.parentData.height ) {
+			that.size.height = that.parentData.height - hoset;
+			if ( pRatio ) {
+				that.size.width = that.size.height * that.aspectRatio;
+				continueResize = false;
+			}
+		}
+
+		if ( !continueResize ) {
+			that.position.left = that.prevPosition.left;
+			that.position.top = that.prevPosition.top;
+			that.size.width = that.prevSize.width;
+			that.size.height = that.prevSize.height;
+		}
+	},
+
+	stop: function() {
+		var that = $( this ).resizable( "instance" ),
+			o = that.options,
+			co = that.containerOffset,
+			cop = that.containerPosition,
+			ce = that.containerElement,
+			helper = $( that.helper ),
+			ho = helper.offset(),
+			w = helper.outerWidth() - that.sizeDiff.width,
+			h = helper.outerHeight() - that.sizeDiff.height;
+
+		if ( that._helper && !o.animate && ( /relative/ ).test( ce.css( "position" ) ) ) {
+			$( this ).css( {
+				left: ho.left - cop.left - co.left,
+				width: w,
+				height: h
+			} );
+		}
+
+		if ( that._helper && !o.animate && ( /static/ ).test( ce.css( "position" ) ) ) {
+			$( this ).css( {
+				left: ho.left - cop.left - co.left,
+				width: w,
+				height: h
+			} );
+		}
+	}
+} );
+
+$.ui.plugin.add( "resizable", "alsoResize", {
+
+	start: function() {
+		var that = $( this ).resizable( "instance" ),
+			o = that.options;
+
+		$( o.alsoResize ).each( function() {
+			var el = $( this );
+			el.data( "ui-resizable-alsoresize", {
+				width: parseFloat( el.width() ), height: parseFloat( el.height() ),
+				left: parseFloat( el.css( "left" ) ), top: parseFloat( el.css( "top" ) )
+			} );
+		} );
+	},
+
+	resize: function( event, ui ) {
+		var that = $( this ).resizable( "instance" ),
+			o = that.options,
+			os = that.originalSize,
+			op = that.originalPosition,
+			delta = {
+				height: ( that.size.height - os.height ) || 0,
+				width: ( that.size.width - os.width ) || 0,
+				top: ( that.position.top - op.top ) || 0,
+				left: ( that.position.left - op.left ) || 0
+			};
+
+			$( o.alsoResize ).each( function() {
+				var el = $( this ), start = $( this ).data( "ui-resizable-alsoresize" ), style = {},
+					css = el.parents( ui.originalElement[ 0 ] ).length ?
+							[ "width", "height" ] :
+							[ "width", "height", "top", "left" ];
+
+				$.each( css, function( i, prop ) {
+					var sum = ( start[ prop ] || 0 ) + ( delta[ prop ] || 0 );
+					if ( sum && sum >= 0 ) {
+						style[ prop ] = sum || null;
+					}
+				} );
+
+				el.css( style );
+			} );
+	},
+
+	stop: function() {
+		$( this ).removeData( "ui-resizable-alsoresize" );
+	}
+} );
+
+$.ui.plugin.add( "resizable", "ghost", {
+
+	start: function() {
+
+		var that = $( this ).resizable( "instance" ), cs = that.size;
+
+		that.ghost = that.originalElement.clone();
+		that.ghost.css( {
+			opacity: 0.25,
+			display: "block",
+			position: "relative",
+			height: cs.height,
+			width: cs.width,
+			margin: 0,
+			left: 0,
+			top: 0
+		} );
+
+		that._addClass( that.ghost, "ui-resizable-ghost" );
+
+		// DEPRECATED
+		// TODO: remove after 1.12
+		if ( $.uiBackCompat !== false && typeof that.options.ghost === "string" ) {
+
+			// Ghost option
+			that.ghost.addClass( this.options.ghost );
+		}
+
+		that.ghost.appendTo( that.helper );
+
+	},
+
+	resize: function() {
+		var that = $( this ).resizable( "instance" );
+		if ( that.ghost ) {
+			that.ghost.css( {
+				position: "relative",
+				height: that.size.height,
+				width: that.size.width
+			} );
+		}
+	},
+
+	stop: function() {
+		var that = $( this ).resizable( "instance" );
+		if ( that.ghost && that.helper ) {
+			that.helper.get( 0 ).removeChild( that.ghost.get( 0 ) );
+		}
+	}
+
+} );
+
+$.ui.plugin.add( "resizable", "grid", {
+
+	resize: function() {
+		var outerDimensions,
+			that = $( this ).resizable( "instance" ),
+			o = that.options,
+			cs = that.size,
+			os = that.originalSize,
+			op = that.originalPosition,
+			a = that.axis,
+			grid = typeof o.grid === "number" ? [ o.grid, o.grid ] : o.grid,
+			gridX = ( grid[ 0 ] || 1 ),
+			gridY = ( grid[ 1 ] || 1 ),
+			ox = Math.round( ( cs.width - os.width ) / gridX ) * gridX,
+			oy = Math.round( ( cs.height - os.height ) / gridY ) * gridY,
+			newWidth = os.width + ox,
+			newHeight = os.height + oy,
+			isMaxWidth = o.maxWidth && ( o.maxWidth < newWidth ),
+			isMaxHeight = o.maxHeight && ( o.maxHeight < newHeight ),
+			isMinWidth = o.minWidth && ( o.minWidth > newWidth ),
+			isMinHeight = o.minHeight && ( o.minHeight > newHeight );
+
+		o.grid = grid;
+
+		if ( isMinWidth ) {
+			newWidth += gridX;
+		}
+		if ( isMinHeight ) {
+			newHeight += gridY;
+		}
+		if ( isMaxWidth ) {
+			newWidth -= gridX;
+		}
+		if ( isMaxHeight ) {
+			newHeight -= gridY;
+		}
+
+		if ( /^(se|s|e)$/.test( a ) ) {
+			that.size.width = newWidth;
+			that.size.height = newHeight;
+		} else if ( /^(ne)$/.test( a ) ) {
+			that.size.width = newWidth;
+			that.size.height = newHeight;
+			that.position.top = op.top - oy;
+		} else if ( /^(sw)$/.test( a ) ) {
+			that.size.width = newWidth;
+			that.size.height = newHeight;
+			that.position.left = op.left - ox;
+		} else {
+			if ( newHeight - gridY <= 0 || newWidth - gridX <= 0 ) {
+				outerDimensions = that._getPaddingPlusBorderDimensions( this );
+			}
+
+			if ( newHeight - gridY > 0 ) {
+				that.size.height = newHeight;
+				that.position.top = op.top - oy;
+			} else {
+				newHeight = gridY - outerDimensions.height;
+				that.size.height = newHeight;
+				that.position.top = op.top + os.height - newHeight;
+			}
+			if ( newWidth - gridX > 0 ) {
+				that.size.width = newWidth;
+				that.position.left = op.left - ox;
+			} else {
+				newWidth = gridX - outerDimensions.width;
+				that.size.width = newWidth;
+				that.position.left = op.left + os.width - newWidth;
+			}
+		}
+	}
+
+} );
+
+return $.ui.resizable;
+
+} ) );
+
+
+/***/ }),
+/* 75 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
+ * jQuery UI Disable Selection 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: disableSelection
+//>>group: Core
+//>>description: Disable selection of text content within the set of matched elements.
+//>>docs: http://api.jqueryui.com/disableSelection/
+
+// This file is deprecated
+( function( factory ) {
+	if ( true ) {
+
+		// AMD. Register as an anonymous module.
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
+				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	} else {
+
+		// Browser globals
+		factory( jQuery );
+	}
+} ( function( $ ) {
+
+return $.fn.extend( {
+	disableSelection: ( function() {
+		var eventType = "onselectstart" in document.createElement( "div" ) ?
+			"selectstart" :
+			"mousedown";
+
+		return function() {
+			return this.on( eventType + ".ui-disableSelection", function( event ) {
+				event.preventDefault();
+			} );
+		};
+	} )(),
+
+	enableSelection: function() {
+		return this.off( ".ui-disableSelection" );
+	}
+} );
+
+} ) );
+
+
+/***/ }),
+/* 76 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
+ * jQuery UI Tabbable 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: :tabbable Selector
+//>>group: Core
+//>>description: Selects elements which can be tabbed to.
+//>>docs: http://api.jqueryui.com/tabbable-selector/
+
+( function( factory ) {
+	if ( true ) {
+
+		// AMD. Register as an anonymous module.
+		!(__WEBPACK_AMD_DEFINE_ARRAY__ = [ __webpack_require__(0), __webpack_require__(1), __webpack_require__(24) ], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
+				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
+				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	} else {
+
+		// Browser globals
+		factory( jQuery );
+	}
+} ( function( $ ) {
+
+return $.extend( $.expr[ ":" ], {
+	tabbable: function( element ) {
+		var tabIndex = $.attr( element, "tabindex" ),
+			hasTabindex = tabIndex != null;
+		return ( !hasTabindex || tabIndex >= 0 ) && $.ui.focusable( element, hasTabindex );
+	}
+} );
+
+} ) );
+
+
+/***/ }),
+/* 77 */
+/***/ (function(module, exports, __webpack_require__) {
+
+
+var content = __webpack_require__(78);
+
+if(typeof content === 'string') content = [[module.i, content, '']];
+
+var transform;
+var insertInto;
+
+
+
+var options = {"hmr":true}
+
+options.transform = transform
+options.insertInto = undefined;
+
+var update = __webpack_require__(3)(content, options);
+
+if(content.locals) module.exports = content.locals;
+
+if(false) {
+	module.hot.accept("!!../../../css-loader/index.js!./dialog.css", function() {
+		var newContent = require("!!../../../css-loader/index.js!./dialog.css");
+
+		if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+
+		var locals = (function(a, b) {
+			var key, idx = 0;
+
+			for(key in a) {
+				if(!b || a[key] !== b[key]) return false;
+				idx++;
+			}
+
+			for(key in b) idx--;
+
+			return idx === 0;
+		}(content.locals, newContent.locals));
+
+		if(!locals) throw new Error('Aborting CSS HMR due to changed css-modules locals.');
+
+		update(newContent);
+	});
+
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 78 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(2)(false);
+// imports
+
+
+// module
+exports.push([module.i, "/*!\n * jQuery UI Dialog 1.12.1\n * http://jqueryui.com\n *\n * Copyright jQuery Foundation and other contributors\n * Released under the MIT license.\n * http://jquery.org/license\n *\n * http://api.jqueryui.com/dialog/#theming\n */\n.ui-dialog {\n\tposition: absolute;\n\ttop: 0;\n\tleft: 0;\n\tpadding: .2em;\n\toutline: 0;\n}\n.ui-dialog .ui-dialog-titlebar {\n\tpadding: .4em 1em;\n\tposition: relative;\n}\n.ui-dialog .ui-dialog-title {\n\tfloat: left;\n\tmargin: .1em 0;\n\twhite-space: nowrap;\n\twidth: 90%;\n\toverflow: hidden;\n\ttext-overflow: ellipsis;\n}\n.ui-dialog .ui-dialog-titlebar-close {\n\tposition: absolute;\n\tright: .3em;\n\ttop: 50%;\n\twidth: 20px;\n\tmargin: -10px 0 0 0;\n\tpadding: 1px;\n\theight: 20px;\n}\n.ui-dialog .ui-dialog-content {\n\tposition: relative;\n\tborder: 0;\n\tpadding: .5em 1em;\n\tbackground: none;\n\toverflow: auto;\n}\n.ui-dialog .ui-dialog-buttonpane {\n\ttext-align: left;\n\tborder-width: 1px 0 0 0;\n\tbackground-image: none;\n\tmargin-top: .5em;\n\tpadding: .3em 1em .5em .4em;\n}\n.ui-dialog .ui-dialog-buttonpane .ui-dialog-buttonset {\n\tfloat: right;\n}\n.ui-dialog .ui-dialog-buttonpane button {\n\tmargin: .5em .4em .5em 0;\n\tcursor: pointer;\n}\n.ui-dialog .ui-resizable-n {\n\theight: 2px;\n\ttop: 0;\n}\n.ui-dialog .ui-resizable-e {\n\twidth: 2px;\n\tright: 0;\n}\n.ui-dialog .ui-resizable-s {\n\theight: 2px;\n\tbottom: 0;\n}\n.ui-dialog .ui-resizable-w {\n\twidth: 2px;\n\tleft: 0;\n}\n.ui-dialog .ui-resizable-se,\n.ui-dialog .ui-resizable-sw,\n.ui-dialog .ui-resizable-ne,\n.ui-dialog .ui-resizable-nw {\n\twidth: 7px;\n\theight: 7px;\n}\n.ui-dialog .ui-resizable-se {\n\tright: 0;\n\tbottom: 0;\n}\n.ui-dialog .ui-resizable-sw {\n\tleft: 0;\n\tbottom: 0;\n}\n.ui-dialog .ui-resizable-ne {\n\tright: 0;\n\ttop: 0;\n}\n.ui-dialog .ui-resizable-nw {\n\tleft: 0;\n\ttop: 0;\n}\n.ui-draggable .ui-dialog-titlebar {\n\tcursor: move;\n}\n", ""]);
+
+// exports
+
+
+/***/ }),
+/* 79 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var map = {
+	"./dialog-brush/": 80,
+	"./dialog-colors/": 83,
+	"./dialog-field-fill/": 86,
+	"./dialog-field-settings/": 89,
+	"./dialog-rule/": 92,
+	"./dialog-speed.js": 97
+};
+function webpackContext(req) {
+	return __webpack_require__(webpackContextResolve(req));
+};
+function webpackContextResolve(req) {
+	var id = map[req];
+	if(!(id + 1)) // check for number or string
+		throw new Error("Cannot find module '" + req + "'.");
+	return id;
+};
+webpackContext.keys = function webpackContextKeys() {
+	return Object.keys(map);
+};
+webpackContext.resolve = webpackContextResolve;
+module.exports = webpackContext;
+webpackContext.id = 79;
+
+/***/ }),
+/* 80 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* WEBPACK VAR INJECTION */(function($) {
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _config = __webpack_require__(5);
+
+var _config2 = _interopRequireDefault(_config);
+
+var _ca = __webpack_require__(6);
+
+var _ca2 = _interopRequireDefault(_ca);
+
+__webpack_require__(81);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var colorSelectTemplate = function colorSelectTemplate(colors) {
+  return colors.map(function (n) {
+    return '\n  <div class="ca-state" ca-state="' + n.state + '">\n    <div>\n      <span class="ca-state-name">' + n.label + '</span>\n      <span class="ca-state-color" style="background-color: ' + n.color + '"></span>\n    </div>\n  </div>';
+  }).join('');
+};
+
+var brush = null;
+
+exports.default = {
+  template: '\n<div id="ca-brush" title="Brush">\n  <div id="brush-wrapper" class="cells-field-wrapper"></div>\n  <div class="ca-state-select"></div>\n</div>',
+  width: 400,
+  create: function create() {
+    var BRUSH_SIZE = _config2.default.BRUSH_SIZE;
+
+    _ca2.default.view.brush = new _ca.CA.CellField(BRUSH_SIZE);
+    _ca2.default.view.brush.data[BRUSH_SIZE / 2 | 0][BRUSH_SIZE / 2 | 0] = 1;
+
+    brush = new _ca.CA.CellFieldView({
+      field: _ca2.default.view.brush.clone(),
+      wrapper: '#brush-wrapper',
+      cellSide: 12,
+      cellBorder: 1,
+      brush: new _ca.CA.CellField(1).fill(function () {
+        return 1;
+      })
+    });
+
+    $(this).find('.ca-state-select').on('click', '.ca-state', function () {
+      var $this = $(this);
+      $this.parent().find('.ui-state-active').removeClass('ui-state-active');
+      $this.addClass('ui-state-active');
+      brush.brush.data[0][0] = +$this.attr('ca-state');
+    });
+  },
+  open: function open() {
+    brush.setColors(_ca2.default.view.colors);
+    brush.field.copy(_ca2.default.view.brush);
+    brush.render();
+
+    $(this).find('.ca-state-select').html(colorSelectTemplate($.map(brush.colors, function (n, i) {
+      return isNaN(i) ? null : {
+        label: (+i).toString(16).toUpperCase(),
+        state: i,
+        color: n
+      };
+    }))).find('[ca-state="' + brush.brush.data[0][0] + '"]').addClass('ui-state-active');
+  },
+  ok: function ok() {
+    _ca2.default.view.brush.copy(brush.field);
+  }
+};
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(0)))
+
+/***/ }),
+/* 81 */
+/***/ (function(module, exports, __webpack_require__) {
+
+
+var content = __webpack_require__(82);
+
+if(typeof content === 'string') content = [[module.i, content, '']];
+
+var transform;
+var insertInto;
+
+
+
+var options = {"hmr":true}
+
+options.transform = transform
+options.insertInto = undefined;
+
+var update = __webpack_require__(3)(content, options);
+
+if(content.locals) module.exports = content.locals;
+
+if(false) {
+	module.hot.accept("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/sass-loader/lib/loader.js!./style.scss", function() {
+		var newContent = require("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/sass-loader/lib/loader.js!./style.scss");
+
+		if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+
+		var locals = (function(a, b) {
+			var key, idx = 0;
+
+			for(key in a) {
+				if(!b || a[key] !== b[key]) return false;
+				idx++;
+			}
+
+			for(key in b) idx--;
+
+			return idx === 0;
+		}(content.locals, newContent.locals));
+
+		if(!locals) throw new Error('Aborting CSS HMR due to changed css-modules locals.');
+
+		update(newContent);
+	});
+
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 82 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(2)(false);
+// imports
+
+
+// module
+exports.push([module.i, "#ca-brush {\n  display: flex;\n  justify-content: space-between; }\n  #ca-brush .ca-state-select {\n    display: inline-grid;\n    grid: repeat(4, 1fr)/repeat(4, 1fr); }\n    #ca-brush .ca-state-select .ca-state {\n      cursor: pointer; }\n", ""]);
+
+// exports
+
+
+/***/ }),
+/* 83 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* WEBPACK VAR INJECTION */(function($) {
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _config = __webpack_require__(5);
+
+var _config2 = _interopRequireDefault(_config);
+
+var _ca = __webpack_require__(6);
+
+var _ca2 = _interopRequireDefault(_ca);
+
+__webpack_require__(84);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var colorsListTemplate = function colorsListTemplate(colors) {
+  return '\n  <div class="ca-state-select">\n    ' + colors.map(function (n) {
+    return '\n    <div class="ca-state">\n      <div>\n        <span class="ca-state-name">' + n.label + '</span>\n        <input type="text" class="jscolor" color-name="' + n.color + '" readonly="readonly">\n      </div>\n    </div>\n    ';
+  }).join('') + '\n  </div>';
+};
+
+exports.default = {
+  template: '<div id="ca-colors" title="Colors"></div>',
+  width: 320,
+  height: 420,
+  create: function create() {
+    var $this = $(this);
+
+    $this.append(colorsListTemplate($.map(_ca2.default.view.colors, function (n, i) {
+      return {
+        color: i,
+        label: isNaN(i) ? i : (+i).toString(16).toUpperCase()
+      };
+    }))).find('.jscolor').each(function () {
+      this.jscolor = new jscolor(this, {
+        hash: true
+      });
+    });
+  },
+  open: function open() {
+    $(this).find('.jscolor').each(function () {
+      var $this = $(this);
+      $this.val(_ca2.default.view.colors[$this.attr('color-name')]);
+      this.jscolor.importColor();
+    });
+  },
+  ok: function ok() {
+    var newColors = {};
+
+    this.find('.jscolor').each(function () {
+      var $this = $(this);
+      newColors[$this.attr('color-name')] = $this.val();
+    });
+
+    _ca2.default.view.setColors(newColors);
+    _ca2.default.view.resize();
+  }
+};
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(0)))
+
+/***/ }),
+/* 84 */
+/***/ (function(module, exports, __webpack_require__) {
+
+
+var content = __webpack_require__(85);
+
+if(typeof content === 'string') content = [[module.i, content, '']];
+
+var transform;
+var insertInto;
+
+
+
+var options = {"hmr":true}
+
+options.transform = transform
+options.insertInto = undefined;
+
+var update = __webpack_require__(3)(content, options);
+
+if(content.locals) module.exports = content.locals;
+
+if(false) {
+	module.hot.accept("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/sass-loader/lib/loader.js!./style.scss", function() {
+		var newContent = require("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/sass-loader/lib/loader.js!./style.scss");
+
+		if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+
+		var locals = (function(a, b) {
+			var key, idx = 0;
+
+			for(key in a) {
+				if(!b || a[key] !== b[key]) return false;
+				idx++;
+			}
+
+			for(key in b) idx--;
+
+			return idx === 0;
+		}(content.locals, newContent.locals));
+
+		if(!locals) throw new Error('Aborting CSS HMR due to changed css-modules locals.');
+
+		update(newContent);
+	});
+
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 85 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(2)(false);
+// imports
+
+
+// module
+exports.push([module.i, "#ca-colors .ca-state-select {\n  display: flex;\n  flex-flow: row wrap;\n  justify-content: flex-end; }\n  #ca-colors .ca-state-select .ca-state {\n    padding: 5px 10px; }\n    #ca-colors .ca-state-select .ca-state input.jscolor {\n      width: 6em;\n      text-align: right;\n      font-family: \"Lucida Console\", monospace;\n      padding-right: .2em;\n      box-sizing: border-box; }\n", ""]);
+
+// exports
+
+
+/***/ }),
+/* 86 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* WEBPACK VAR INJECTION */(function($) {
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _config = __webpack_require__(5);
+
+var _config2 = _interopRequireDefault(_config);
+
+var _ca = __webpack_require__(6);
+
+var _ca2 = _interopRequireDefault(_ca);
+
+__webpack_require__(87);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var bitPlanesListTemplate = function bitPlanesListTemplate(bitPlanes) {
+  return '\n  <table class="ca-options-table" style="table-layout: fixed;">\n    <tr>\n      <th width="65px">Bit plane</th>\n      <th width="100px">Method</th>\n      <th width="185px"></th>\n      <th width="35px">Fill</th>\n    </tr>\n    ' + bitPlanes.map(function (n) {
+    return '\n    <tr data-bit-plane="' + n + '">\n      <td class="ca-bit-plane">' + n + '</td>\n      <td>\n        <select class="ca-filling-method" dir="rtl">\n          <option value="random">Random</option>\n          <option value="copy">Copy</option>\n          <option value="invert">Invert</option>\n          <option value="all1">All 1</option>\n          <option value="all0">All 0</option>\n        </select>\n      </td>\n      <td class="ca-filling-options">\n        <div class="ca-filling-random">\n          <span class="ca-filling-options-note">density, \u2030</span>\n          <input type="text">\n        </div>\n        <div class="ca-filling-copy">\n          <span class="ca-filling-options-note">from plane</span>\n          <input type="text" readonly="readonly">\n        </div>\n      </td>\n      <td class="ca-bit-plane">\n        <input type="checkbox" id="ca-filling-fill-plane-' + n + '" class="ca-bit-plane-cb">\n        <label for="ca-filling-fill-plane-' + n + '"></label>\n      </td>\n    </tr>\n    ';
+  }).join('') + '\n  </table>';
+};
+
+exports.default = {
+  template: '<div id="ca-filling" title="Cells field filling"></div>',
+  width: 480,
+  create: function create() {
+    var planesList = _ca2.default.cells.curr.bitPlanesList,
+        planesHTML = bitPlanesListTemplate(planesList),
+        max = _ca2.default.cells.curr.randomFillDensityDescritization;
+
+    $(this).append(planesHTML).find('.ca-filling-random > input').spinner({
+      min: 0,
+      max: max,
+      step: 1
+    }).val(max * _config2.default.DEFAULT_FILL_DENSITY | 0).end().find('select').selectmenu({
+      width: 100
+    }).on('selectmenuchange', function (e, ui) {
+      $(this).closest('tr').find('.ca-filling-options').find('>').hide().end().find('.ca-filling-' + (ui ? ui.item.value : this.value)).show();
+    }).trigger('selectmenuchange').end().find('.ca-filling-copy > input').autocomplete({
+      source: function source(request, response) {
+        var ownPlane = +this.element.closest('tr').attr('data-bit-plane');
+
+        response(planesList.filter(function (n) {
+          return n !== ownPlane;
+        }).map(function (n) {
+          return n.toString();
+        }));
+      }
+    }).end().find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
+  },
+  ok: function ok() {
+    var invert = [],
+        random = {},
+        copy = {};
+
+    this.find('.ca-bit-plane-cb:checked').each(function () {
+      var $tr = $(this).closest('tr'),
+          plane = $tr.attr('data-bit-plane');
+
+      switch ($tr.find('.ca-filling-method').val()) {
+        case 'invert':
+          invert.push(plane);break;
+        case 'all1':
+          random[plane] = _ca2.default.cells.curr.randomFillDensityDescritization;break;
+        case 'all0':
+          random[plane] = 0;break;
+        case 'random':
+          random[plane] = $tr.find('.ca-filling-random input').val();break;
+        case 'copy':
+          copy[plane] = $tr.find('.ca-filling-copy input').val();break;
+      }
+    });
+
+    _ca2.default.fill({ invert: invert, random: random, copy: copy });
+  }
+};
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(0)))
+
+/***/ }),
+/* 87 */
+/***/ (function(module, exports, __webpack_require__) {
+
+
+var content = __webpack_require__(88);
+
+if(typeof content === 'string') content = [[module.i, content, '']];
+
+var transform;
+var insertInto;
+
+
+
+var options = {"hmr":true}
+
+options.transform = transform
+options.insertInto = undefined;
+
+var update = __webpack_require__(3)(content, options);
+
+if(content.locals) module.exports = content.locals;
+
+if(false) {
+	module.hot.accept("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/sass-loader/lib/loader.js!./style.scss", function() {
+		var newContent = require("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/sass-loader/lib/loader.js!./style.scss");
+
+		if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+
+		var locals = (function(a, b) {
+			var key, idx = 0;
+
+			for(key in a) {
+				if(!b || a[key] !== b[key]) return false;
+				idx++;
+			}
+
+			for(key in b) idx--;
+
+			return idx === 0;
+		}(content.locals, newContent.locals));
+
+		if(!locals) throw new Error('Aborting CSS HMR due to changed css-modules locals.');
+
+		update(newContent);
+	});
+
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 88 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(2)(false);
+// imports
+
+
+// module
+exports.push([module.i, ".ca-filling-options .ca-filling-options-note {\n  display: inline-block;\n  width: 5em;\n  vertical-align: middle; }\n\n.ca-filling-options .ui-spinner-input {\n  padding: 6px 6px 4px 6px;\n  margin: 0;\n  margin-right: 2em; }\n\n.ca-filling-options .ca-filling-copy > input {\n  padding: 6px 6px 4px 6px;\n  margin: 0 .4em;\n  vertical-align: middle; }\n  .ca-filling-options .ca-filling-copy > input[type=\"text\"] {\n    width: 4.5em; }\n\n.ca-filling-options .ca-filling-random > .ui-spinner {\n  margin: 0 .4em; }\n  .ca-filling-options .ca-filling-random > .ui-spinner > input {\n    width: 2.5em; }\n", ""]);
+
+// exports
+
+
+/***/ }),
+/* 89 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* WEBPACK VAR INJECTION */(function($) {
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _config = __webpack_require__(5);
+
+var _config2 = _interopRequireDefault(_config);
+
+var _ca = __webpack_require__(6);
+
+var _ca2 = _interopRequireDefault(_ca);
+
+__webpack_require__(90);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var X_SIZE_MIN = _config2.default.X_SIZE_MIN,
+    Y_SIZE_MIN = _config2.default.Y_SIZE_MIN,
+    X_SIZE_MAX = _config2.default.X_SIZE_MAX,
+    Y_SIZE_MAX = _config2.default.Y_SIZE_MAX,
+    CELL_SIDE_MIN = _config2.default.CELL_SIDE_MIN,
+    CELL_SIDE_MAX = _config2.default.CELL_SIDE_MAX,
+    CELL_BORDER_MIN = _config2.default.CELL_BORDER_MIN,
+    CELL_BORDER_MAX = _config2.default.CELL_BORDER_MAX;
+
+
+var bitPlanesListTemplate = function bitPlanesListTemplate(bitPlanes) {
+  return '\n  <table class="ca-options-table">\n    ' + bitPlanes.map(function (n) {
+    return '\n    <tr>\n      <td class="ca-bit-plane">' + n + '</td>\n      <td class="ca-bit-plane">\n        <input type="checkbox" id="ca-show-plane-' + n + '" class="ca-bit-plane-cb">\n        <label for="ca-show-plane-' + n + '"></label>\n      </td>\n    </tr>\n    ';
+  }).join('') + '\n  </table>';
+};
+
+exports.default = {
+  template: '\n<div id="ca-field" title="Cells field">\n  <fieldset id="ca-field-sizes">\n    <legend>Sizes</legend>\n    <table class="ca-options-table">\n      <tr><td>Field width</td><td><input id="ca-field-x-size" type="text" class="ca-start-disable"></td></tr>\n      <tr><td>Field height</td><td><input id="ca-field-y-size" type="text" class="ca-start-disable"></td></tr>\n      <tr><td>Cell side</td><td><input id="ca-field-cell-side" type="text"></td></tr>\n      <tr><td>Cell border</td><td><input id="ca-field-cell-border" type="text"></td></tr>\n    </table>\n  </fieldset>\n  <fieldset id="ca-field-planes">\n    <legend>Show bit planes</legend>\n  </fieldset>\n</div>',
+  width: 460,
+  height: 380,
+  create: function create() {
+    var $this = $(this);
+
+    [['#ca-field-x-size', X_SIZE_MIN, X_SIZE_MAX], ['#ca-field-y-size', Y_SIZE_MIN, Y_SIZE_MAX], ['#ca-field-cell-side', CELL_SIDE_MIN, CELL_SIDE_MAX], ['#ca-field-cell-border', CELL_BORDER_MIN, CELL_BORDER_MAX]].forEach(function (n) {
+      return $this.find(n[0]).spinner({
+        min: n[1],
+        max: n[2],
+        step: 1
+      }).filter('.ca-start-disable').closest('td').find('.ui-button').addClass('ca-start-disable');
+    });
+
+    $this.find('#ca-field-planes').append(bitPlanesListTemplate(_ca2.default.cells.curr.bitPlanesList)).find('.ca-bit-plane-cb').checkboxradio().attr('checked', 'checked').change();
+  },
+  open: function open() {
+    $(this).find('#ca-field-x-size').val(_ca2.default.cells.curr.xSize).end().find('#ca-field-y-size').val(_ca2.default.cells.curr.ySize).end().find('#ca-field-cell-side').val(_ca2.default.view.cellSide).end().find('#ca-field-cell-border').val(_ca2.default.view.cellBorder).end().find('.ca-bit-plane-cb').each(function (i) {
+      this.checked = !!(_ca2.default.view.showBitPlanes & 1 << i);
+    }).change();
+  },
+  ok: function ok() {
+    _ca2.default.view.showBitPlanes = this.find('.ca-bit-plane-cb').toArray().reduce(function (planes, cb, i) {
+      return planes | cb.checked << i;
+    }, 0);
+
+    _ca2.default.resize({
+      xSize: this.find('#ca-field-x-size').val() | 0,
+      ySize: this.find('#ca-field-y-size').val() | 0,
+      cellSide: this.find('#ca-field-cell-side').val() | 0,
+      cellBorder: this.find('#ca-field-cell-border').val() | 0
+    });
+  }
+};
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(0)))
+
+/***/ }),
+/* 90 */
+/***/ (function(module, exports, __webpack_require__) {
+
+
+var content = __webpack_require__(91);
+
+if(typeof content === 'string') content = [[module.i, content, '']];
+
+var transform;
+var insertInto;
+
+
+
+var options = {"hmr":true}
+
+options.transform = transform
+options.insertInto = undefined;
+
+var update = __webpack_require__(3)(content, options);
+
+if(content.locals) module.exports = content.locals;
+
+if(false) {
+	module.hot.accept("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/sass-loader/lib/loader.js!./style.scss", function() {
+		var newContent = require("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/sass-loader/lib/loader.js!./style.scss");
+
+		if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+
+		var locals = (function(a, b) {
+			var key, idx = 0;
+
+			for(key in a) {
+				if(!b || a[key] !== b[key]) return false;
+				idx++;
+			}
+
+			for(key in b) idx--;
+
+			return idx === 0;
+		}(content.locals, newContent.locals));
+
+		if(!locals) throw new Error('Aborting CSS HMR due to changed css-modules locals.');
+
+		update(newContent);
+	});
+
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 91 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(2)(false);
+// imports
+
+
+// module
+exports.push([module.i, "#ca-field fieldset {\n  display: inline-block;\n  border: 1px solid #bbb;\n  padding: 0 10px 10px 10px;\n  margin: 0 5px;\n  height: 100%;\n  box-sizing: border-box; }\n  #ca-field fieldset legend {\n    padding: 0 5px; }\n  #ca-field fieldset#ca-field-sizes {\n    width: 250px; }\n  #ca-field fieldset#ca-field-planes {\n    width: 150px; }\n  #ca-field fieldset tr {\n    height: 55px; }\n", ""]);
+
+// exports
+
+
+/***/ }),
+/* 92 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* WEBPACK VAR INJECTION */(function($) {
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _config = __webpack_require__(5);
+
+var _config2 = _interopRequireDefault(_config);
+
+var _ca = __webpack_require__(6);
+
+var _ca2 = _interopRequireDefault(_ca);
+
+var _toastr = __webpack_require__(93);
+
+var _toastr2 = _interopRequireDefault(_toastr);
+
+__webpack_require__(95);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+exports.default = {
+  template: '\n<div id="ca-rule" title="Rule">\n  <div class="controls">\n    <div id="ca-rule-name"></div>\n    <button id="ca-rule-save" title="Save rule into localStorage">\n      <span class="ui-icon ui-icon-disk"></span>\n    </button>\n    <button id="ca-rule-delete" title="Delete rule from localStorage">\n      <span class="ui-icon ui-icon-trash"></span>\n    </button>\n    <textarea id="ca-rule-code" autofocus></textarea>\n  </div>\n</div>',
+  width: '80%',
+  create: function create() {
+    var $this = $(this);
+
+    $this.find('#ca-rule-name').inputWithButton({
+      icon: 'ui-icon-close',
+      title: 'Clear rule name',
+      placeholder: 'enter rule name...',
+      click: function click() {
+        $(this).inputWithButton('value', '');
+      }
+    }).find('input').autocomplete({
+      source: function source(request, response) {
+        var term = request.term.toLowerCase();
+
+        response(_ca.CA.Rules.get().filter(function (n) {
+          return !!n.name.toLowerCase().match(term);
+        }).map(function (n) {
+          return {
+            matched: n.name.replace(new RegExp('(' + request.term + ')', 'i'), '<span class="matched-text">$1</span>'),
+            label: n.name,
+            value: n.code,
+            predefined: n.predefined
+          };
+        }));
+      },
+      select: function select(e, ui) {
+        $(this).val(ui.item.label);
+        $('#ca-rule-code').val(ui.item.value);
+
+        return false;
+      }
+    }).data('ui-autocomplete')._renderItem = function (ul, item) {
+      var $item = $('<div></div>').html(item.matched);
+      if (item.predefined) {
+        $item.addClass('predefined-rule');
+      }
+
+      return $('<li></li>').data('item.autocomplete', item).append($item).appendTo(ul);
+    };
+
+    $this.find('#ca-rule-save').button().click(function () {
+      var result = _ca.CA.Rules.save($('#ca-rule-name').inputWithButton('value'), $('#ca-rule-code').val());
+      _toastr2.default[result.status ? 'success' : 'error'](result.message);
+    }).end().find('#ca-rule-delete').button().click(function () {
+      var result = _ca.CA.Rules.del($('#ca-rule-name').inputWithButton('value'));
+      _toastr2.default[result.status ? 'success' : 'error'](result.message);
+    });
+
+    $this.find('#ca-rule-code').keydown(function (e) {
+      if (e.keyCode === 9) {
+        var start = this.selectionStart,
+            end = this.selectionEnd,
+            $this = $(this),
+            value = $this.val(),
+            tab = Array(5).join(' ');
+
+        $this.val(value.substring(0, start) + tab + value.substring(end));
+
+        this.selectionStart = this.selectionEnd = start + tab.length;
+
+        e.preventDefault();
+      }
+    });
+  },
+  open: function open() {
+    $('#ca-rule-code').val(_ca2.default.rule);
+  },
+  ok: function ok() {
+    try {
+      _ca2.default.rule = $('#ca-rule-code').val();
+    } catch (e) {
+      _toastr2.default.error(e.message || e);
+      return false;
+    }
+  }
+};
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(0)))
+
+/***/ }),
+/* 93 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*
@@ -25141,11 +26240,11 @@ var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*
         })();
     }).apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),
 				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-}(__webpack_require__(66)));
+}(__webpack_require__(94)));
 
 
 /***/ }),
-/* 66 */
+/* 94 */
 /***/ (function(module, exports) {
 
 module.exports = function() {
@@ -25154,11 +26253,11 @@ module.exports = function() {
 
 
 /***/ }),
-/* 67 */
+/* 95 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(68);
+var content = __webpack_require__(96);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -25172,13 +26271,13 @@ var options = {"hmr":true}
 options.transform = transform
 options.insertInto = undefined;
 
-var update = __webpack_require__(4)(content, options);
+var update = __webpack_require__(3)(content, options);
 
 if(content.locals) module.exports = content.locals;
 
 if(false) {
-	module.hot.accept("!!../css-loader/index.js!../sass-loader/lib/loader.js!./toastr.scss", function() {
-		var newContent = require("!!../css-loader/index.js!../sass-loader/lib/loader.js!./toastr.scss");
+	module.hot.accept("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/sass-loader/lib/loader.js!./style.scss", function() {
+		var newContent = require("!!../../../../node_modules/css-loader/index.js!../../../../node_modules/sass-loader/lib/loader.js!./style.scss");
 
 		if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
 
@@ -25204,1346 +26303,122 @@ if(false) {
 }
 
 /***/ }),
-/* 68 */
+/* 96 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(3)(false);
+exports = module.exports = __webpack_require__(2)(false);
 // imports
 
 
 // module
-exports.push([module.i, ".toast-title {\n  font-weight: bold; }\n\n.toast-message {\n  -ms-word-wrap: break-word;\n  word-wrap: break-word; }\n\n.toast-message a,\n.toast-message label {\n  color: #ffffff; }\n\n.toast-message a:hover {\n  color: #cccccc;\n  text-decoration: none; }\n\n.toast-close-button {\n  position: relative;\n  right: -0.3em;\n  top: -0.3em;\n  float: right;\n  font-size: 20px;\n  font-weight: bold;\n  color: #ffffff;\n  -webkit-text-shadow: 0 1px 0 #ffffff;\n  text-shadow: 0 1px 0 #ffffff;\n  opacity: 0.8;\n  -ms-filter: progid:DXImageTransform.Microsoft.Alpha(Opacity=80);\n  filter: alpha(opacity=80); }\n\n.toast-close-button:hover,\n.toast-close-button:focus {\n  color: #000000;\n  text-decoration: none;\n  cursor: pointer;\n  opacity: 0.4;\n  -ms-filter: progid:DXImageTransform.Microsoft.Alpha(Opacity=40);\n  filter: alpha(opacity=40); }\n\n/*Additional properties for button version\n iOS requires the button element instead of an anchor tag.\n If you want the anchor version, it requires `href=\"#\"`.*/\nbutton.toast-close-button {\n  padding: 0;\n  cursor: pointer;\n  background: transparent;\n  border: 0;\n  -webkit-appearance: none; }\n\n.toast-top-center {\n  top: 0;\n  right: 0;\n  width: 100%; }\n\n.toast-bottom-center {\n  bottom: 0;\n  right: 0;\n  width: 100%; }\n\n.toast-top-full-width {\n  top: 0;\n  right: 0;\n  width: 100%; }\n\n.toast-bottom-full-width {\n  bottom: 0;\n  right: 0;\n  width: 100%; }\n\n.toast-top-left {\n  top: 12px;\n  left: 12px; }\n\n.toast-top-right {\n  top: 12px;\n  right: 12px; }\n\n.toast-bottom-right {\n  right: 12px;\n  bottom: 12px; }\n\n.toast-bottom-left {\n  bottom: 12px;\n  left: 12px; }\n\n#toast-container {\n  position: fixed;\n  z-index: 999999;\n  /*overrides*/ }\n\n#toast-container * {\n  -moz-box-sizing: border-box;\n  -webkit-box-sizing: border-box;\n  box-sizing: border-box; }\n\n#toast-container > div {\n  position: relative;\n  overflow: hidden;\n  margin: 0 0 6px;\n  padding: 15px 15px 15px 50px;\n  width: 300px;\n  -moz-border-radius: 3px 3px 3px 3px;\n  -webkit-border-radius: 3px 3px 3px 3px;\n  border-radius: 3px 3px 3px 3px;\n  background-position: 15px center;\n  background-repeat: no-repeat;\n  -moz-box-shadow: 0 0 12px #999999;\n  -webkit-box-shadow: 0 0 12px #999999;\n  box-shadow: 0 0 12px #999999;\n  color: #ffffff;\n  opacity: 0.8;\n  -ms-filter: progid:DXImageTransform.Microsoft.Alpha(Opacity=80);\n  filter: alpha(opacity=80); }\n\n#toast-container > div:hover {\n  -moz-box-shadow: 0 0 12px #000000;\n  -webkit-box-shadow: 0 0 12px #000000;\n  box-shadow: 0 0 12px #000000;\n  opacity: 1;\n  -ms-filter: progid:DXImageTransform.Microsoft.Alpha(Opacity=100);\n  filter: alpha(opacity=100);\n  cursor: pointer; }\n\n#toast-container > .toast-info {\n  background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAGwSURBVEhLtZa9SgNBEMc9sUxxRcoUKSzSWIhXpFMhhYWFhaBg4yPYiWCXZxBLERsLRS3EQkEfwCKdjWJAwSKCgoKCcudv4O5YLrt7EzgXhiU3/4+b2ckmwVjJSpKkQ6wAi4gwhT+z3wRBcEz0yjSseUTrcRyfsHsXmD0AmbHOC9Ii8VImnuXBPglHpQ5wwSVM7sNnTG7Za4JwDdCjxyAiH3nyA2mtaTJufiDZ5dCaqlItILh1NHatfN5skvjx9Z38m69CgzuXmZgVrPIGE763Jx9qKsRozWYw6xOHdER+nn2KkO+Bb+UV5CBN6WC6QtBgbRVozrahAbmm6HtUsgtPC19tFdxXZYBOfkbmFJ1VaHA1VAHjd0pp70oTZzvR+EVrx2Ygfdsq6eu55BHYR8hlcki+n+kERUFG8BrA0BwjeAv2M8WLQBtcy+SD6fNsmnB3AlBLrgTtVW1c2QN4bVWLATaIS60J2Du5y1TiJgjSBvFVZgTmwCU+dAZFoPxGEEs8nyHC9Bwe2GvEJv2WXZb0vjdyFT4Cxk3e/kIqlOGoVLwwPevpYHT+00T+hWwXDf4AJAOUqWcDhbwAAAAASUVORK5CYII=\") !important; }\n\n#toast-container > .toast-error {\n  background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHOSURBVEhLrZa/SgNBEMZzh0WKCClSCKaIYOED+AAKeQQLG8HWztLCImBrYadgIdY+gIKNYkBFSwu7CAoqCgkkoGBI/E28PdbLZmeDLgzZzcx83/zZ2SSXC1j9fr+I1Hq93g2yxH4iwM1vkoBWAdxCmpzTxfkN2RcyZNaHFIkSo10+8kgxkXIURV5HGxTmFuc75B2RfQkpxHG8aAgaAFa0tAHqYFfQ7Iwe2yhODk8+J4C7yAoRTWI3w/4klGRgR4lO7Rpn9+gvMyWp+uxFh8+H+ARlgN1nJuJuQAYvNkEnwGFck18Er4q3egEc/oO+mhLdKgRyhdNFiacC0rlOCbhNVz4H9FnAYgDBvU3QIioZlJFLJtsoHYRDfiZoUyIxqCtRpVlANq0EU4dApjrtgezPFad5S19Wgjkc0hNVnuF4HjVA6C7QrSIbylB+oZe3aHgBsqlNqKYH48jXyJKMuAbiyVJ8KzaB3eRc0pg9VwQ4niFryI68qiOi3AbjwdsfnAtk0bCjTLJKr6mrD9g8iq/S/B81hguOMlQTnVyG40wAcjnmgsCNESDrjme7wfftP4P7SP4N3CJZdvzoNyGq2c/HWOXJGsvVg+RA/k2MC/wN6I2YA2Pt8GkAAAAASUVORK5CYII=\") !important; }\n\n#toast-container > .toast-success {\n  background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADsSURBVEhLY2AYBfQMgf///3P8+/evAIgvA/FsIF+BavYDDWMBGroaSMMBiE8VC7AZDrIFaMFnii3AZTjUgsUUWUDA8OdAH6iQbQEhw4HyGsPEcKBXBIC4ARhex4G4BsjmweU1soIFaGg/WtoFZRIZdEvIMhxkCCjXIVsATV6gFGACs4Rsw0EGgIIH3QJYJgHSARQZDrWAB+jawzgs+Q2UO49D7jnRSRGoEFRILcdmEMWGI0cm0JJ2QpYA1RDvcmzJEWhABhD/pqrL0S0CWuABKgnRki9lLseS7g2AlqwHWQSKH4oKLrILpRGhEQCw2LiRUIa4lwAAAABJRU5ErkJggg==\") !important; }\n\n#toast-container > .toast-warning {\n  background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAGYSURBVEhL5ZSvTsNQFMbXZGICMYGYmJhAQIJAICYQPAACiSDB8AiICQQJT4CqQEwgJvYASAQCiZiYmJhAIBATCARJy+9rTsldd8sKu1M0+dLb057v6/lbq/2rK0mS/TRNj9cWNAKPYIJII7gIxCcQ51cvqID+GIEX8ASG4B1bK5gIZFeQfoJdEXOfgX4QAQg7kH2A65yQ87lyxb27sggkAzAuFhbbg1K2kgCkB1bVwyIR9m2L7PRPIhDUIXgGtyKw575yz3lTNs6X4JXnjV+LKM/m3MydnTbtOKIjtz6VhCBq4vSm3ncdrD2lk0VgUXSVKjVDJXJzijW1RQdsU7F77He8u68koNZTz8Oz5yGa6J3H3lZ0xYgXBK2QymlWWA+RWnYhskLBv2vmE+hBMCtbA7KX5drWyRT/2JsqZ2IvfB9Y4bWDNMFbJRFmC9E74SoS0CqulwjkC0+5bpcV1CZ8NMej4pjy0U+doDQsGyo1hzVJttIjhQ7GnBtRFN1UarUlH8F3xict+HY07rEzoUGPlWcjRFRr4/gChZgc3ZL2d8oAAAAASUVORK5CYII=\") !important; }\n\n#toast-container.toast-top-center > div,\n#toast-container.toast-bottom-center > div {\n  width: 300px;\n  margin-left: auto;\n  margin-right: auto; }\n\n#toast-container.toast-top-full-width > div,\n#toast-container.toast-bottom-full-width > div {\n  width: 96%;\n  margin-left: auto;\n  margin-right: auto; }\n\n.toast {\n  background-color: #030303; }\n\n.toast-success {\n  background-color: #51a351; }\n\n.toast-error {\n  background-color: #bd362f; }\n\n.toast-info {\n  background-color: #2f96b4; }\n\n.toast-warning {\n  background-color: #f89406; }\n\n.toast-progress {\n  position: absolute;\n  left: 0;\n  bottom: 0;\n  height: 4px;\n  background-color: #000000;\n  opacity: 0.4;\n  -ms-filter: progid:DXImageTransform.Microsoft.Alpha(Opacity=40);\n  filter: alpha(opacity=40); }\n\n/*Responsive Design*/\n@media all and (max-width: 240px) {\n  #toast-container > div {\n    padding: 8px 8px 8px 50px;\n    width: 11em; }\n  #toast-container .toast-close-button {\n    right: -0.2em;\n    top: -0.2em; } }\n\n@media all and (min-width: 241px) and (max-width: 480px) {\n  #toast-container > div {\n    padding: 8px 8px 8px 50px;\n    width: 18em; }\n  #toast-container .toast-close-button {\n    right: -0.2em;\n    top: -0.2em; } }\n\n@media all and (min-width: 481px) and (max-width: 768px) {\n  #toast-container > div {\n    padding: 15px 15px 15px 50px;\n    width: 25em; } }\n", ""]);
+exports.push([module.i, "#ca-rule-code {\n  width: 100%;\n  height: 100%;\n  min-width: 400px;\n  min-height: 300px;\n  padding: 5px;\n  font-family: monospace;\n  box-sizing: border-box;\n  resize: none; }\n\n.predefined-rule {\n  background-color: #eee; }\n\n.matched-text {\n  text-decoration: underline;\n  font-weight: bold; }\n", ""]);
 
 // exports
 
 
 /***/ }),
-/* 69 */
+/* 97 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-
+/* WEBPACK VAR INJECTION */(function($) {
 
 Object.defineProperty(exports, "__esModule", {
-    value: true
+  value: true
 });
-exports.Rules = exports.CellularAutomaton = exports.CellFieldView = exports.CellField = undefined;
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-var _utils = __webpack_require__(7);
-
-var _rules = __webpack_require__(23);
-
-var _rules2 = _interopRequireDefault(_rules);
-
-var _history = __webpack_require__(70);
-
-var _history2 = _interopRequireDefault(_history);
-
-var _generations = __webpack_require__(71);
-
-var _generations2 = _interopRequireDefault(_generations);
-
-var _cellField = __webpack_require__(73);
-
-var _cellField2 = _interopRequireDefault(_cellField);
-
-var _cellFieldView = __webpack_require__(74);
-
-var _cellFieldView2 = _interopRequireDefault(_cellFieldView);
-
-var _config = __webpack_require__(13);
+var _config = __webpack_require__(5);
 
 var _config2 = _interopRequireDefault(_config);
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+var _ca = __webpack_require__(6);
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var defaultOptions = {
-    _intervalID: null,
-    _stepDuration: _config2.default.DEFAULT_STEP_DURATION,
-    _generationsPerStep: _config2.default.DEFAULT_GENERATIONS_PER_STEP
-};
-
-var CellularAutomaton = function () {
-    function CellularAutomaton(options) {
-        _classCallCheck(this, CellularAutomaton);
-
-        Object.assign(this, defaultOptions);
-
-        this.cells = {
-            curr: new _cellField2.default(options.xSize, options.ySize)
-        };
-        this.cells.next = this.cells.curr.clone();
-        this.cells.next._shift = this.cells.curr._shift; // чтобы не заниматься синхронизацией, просто сделаем объект смещения общим
-
-        this.view = new _cellFieldView2.default(this.cells.curr, options.view);
-
-        this.generations = new _generations2.default({
-            cells: this.cells,
-            view: this.view
-        });
-
-        this.history = new _history2.default({
-            cells: this.cells,
-            generations: this.generations
-        });
-
-        this.generations.rule = options.ruleCode || _rules2.default.get(options.ruleName || 'default');
-    }
-
-    _createClass(CellularAutomaton, [{
-        key: 'resize',
-        value: function resize() {
-            var sizes = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-
-            if (!isNaN(sizes.xSize) && !isNaN(sizes.ySize)) {
-                if (this.cells.curr.xSize !== sizes.xSize || this.cells.curr.ySize !== sizes.ySize) {
-                    this.cells.curr.resize(sizes.xSize, sizes.ySize);
-                    this.cells.next.conform(this.cells.curr);
-                }
-            }
-
-            this.view.resize(sizes.cellSide, sizes.cellBorder);
-        }
-    }, {
-        key: 'fill',
-        value: function fill() {
-            var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
-                _ref$invert = _ref.invert,
-                invert = _ref$invert === undefined ? [] : _ref$invert,
-                _ref$random = _ref.random,
-                random = _ref$random === undefined ? {} : _ref$random,
-                _ref$copy = _ref.copy,
-                copy = _ref$copy === undefined ? {} : _ref$copy;
-
-            this.cells.curr.invertBitPlane(invert).fillRandom(random).copyBitPlane(copy);
-            this.view.render();
-        }
-    }, {
-        key: 'clear',
-        value: function clear() {
-            this.cells.curr.fill(function () {
-                return 0;
-            });
-            this.view.render();
-        }
-    }, {
-        key: 'newGeneration',
-        value: function newGeneration(n) {
-            if (!this._intervalID) {
-                if (!this.history.data) {
-                    this.history.save();
-                }
-
-                this.generations.next(n);
-                this.view.render();
-            }
-        }
-    }, {
-        key: 'rotateClockwise',
-        value: function rotateClockwise() {
-            this.cells.curr.rotateClockwise();
-            this.cells.next.conform(this.cells.curr);
-            this.view.resize();
-        }
-    }, {
-        key: 'rotateCounterclockwise',
-        value: function rotateCounterclockwise() {
-            this.cells.curr.rotateCounterclockwise();
-            this.cells.next.conform(this.cells.curr);
-            this.view.resize();
-        }
-    }, {
-        key: 'start',
-        value: function start() {
-            var _this = this;
-
-            if (this._intervalID) {
-                return false;
-            }
-
-            this._intervalID = setInterval(function () {
-                _this.generations.next(_this.generationsPerStep);
-                _this.view.render();
-            }, this.stepDuration);
-
-            this.history.save();
-
-            document.dispatchEvent(new CustomEvent('ca-start', {
-                detail: this
-            }));
-
-            return true;
-        }
-    }, {
-        key: 'stop',
-        value: function stop() {
-            if (!this._intervalID) {
-                return false;
-            }
-
-            clearInterval(this._intervalID);
-            this._intervalID = null;
-
-            document.dispatchEvent(new CustomEvent('ca-stop', {
-                detail: this
-            }));
-
-            return true;
-        }
-    }, {
-        key: 'back',
-        value: function back() {
-            if (this.history.data) {
-                this.stop();
-                this.history.back();
-                this.view.resize();
-            }
-        }
-    }, {
-        key: 'generationsPerStep',
-        get: function get() {
-            return this._generationsPerStep;
-        },
-        set: function set(value) {
-            this._generationsPerStep = (0, _utils.limitation)(value, _config2.default.GENERATIONS_PER_STEP_MIN, _config2.default.GENERATIONS_PER_STEP_MAX);
-        }
-    }, {
-        key: 'stepDuration',
-        get: function get() {
-            return this._stepDuration;
-        },
-        set: function set(value) {
-            this._stepDuration = (0, _utils.limitation)(value, _config2.default.STEP_DURATION_MIN, _config2.default.STEP_DURATION_MAX);
-            if (this._intervalID) {
-                this.stop();
-                this.start();
-            }
-        }
-    }, {
-        key: 'rule',
-        get: function get() {
-            return this.generations.rule;
-        },
-        set: function set(code) {
-            this.generations.rule = code;
-        }
-    }]);
-
-    return CellularAutomaton;
-}();
-
-exports.CellField = _cellField2.default;
-exports.CellFieldView = _cellFieldView2.default;
-exports.CellularAutomaton = CellularAutomaton;
-exports.Rules = _rules2.default;
-
-/***/ }),
-/* 70 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-    value: true
-});
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var History = function () {
-    function History(options) {
-        _classCallCheck(this, History);
-
-        Object.assign(this, options);
-
-        this.data = null;
-    }
-
-    _createClass(History, [{
-        key: "save",
-        value: function save() {
-            this.data = {
-                cells: this.cells.curr.clone(),
-                time: this.generations.time
-            };
-        }
-    }, {
-        key: "back",
-        value: function back() {
-            if (this.data) {
-                this.cells.curr.conform(this.data.cells);
-                this.cells.next.conform(this.data.cells);
-                this.generations.time = this.data.time;
-                this.data = null;
-            }
-        }
-    }]);
-
-    return History;
-}();
-
-exports.default = History;
-
-/***/ }),
-/* 71 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-    value: true
-});
-exports.default = undefined;
-
-var _dec, _desc, _value, _class;
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-var _utils = __webpack_require__(7);
-
-var _rules = __webpack_require__(23);
-
-var _rules2 = _interopRequireDefault(_rules);
-
-var _neighborhood = __webpack_require__(72);
-
-var _neighborhood2 = _interopRequireDefault(_neighborhood);
+var _ca2 = _interopRequireDefault(_ca);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
-    var desc = {};
-    Object['ke' + 'ys'](descriptor).forEach(function (key) {
-        desc[key] = descriptor[key];
+exports.default = {
+  template: '\n<div id="ca-speed" title="Speed">\n  <table class="ca-options-table">\n    <tr>\n      <td>Generations per step</td>\n      <td>\n        <input id="generations-per-step" type="text">\n      </td>\n    </tr>\n    <tr>\n      <td>Step duration, ms</td>\n      <td>\n        <input id="step-duration" type="text">\n      </td>\n    </tr>\n  </table>\n</div>',
+  width: 320,
+  create: function create() {
+    $(this).find('#generations-per-step').spinner({
+      min: _config2.default.GENERATIONS_PER_STEP_MIN,
+      max: _config2.default.GENERATIONS_PER_STEP_MAX,
+      step: _config2.default.GENERATIONS_PER_STEP_CHANGE
+    }).end().find('#step-duration').spinner({
+      min: _config2.default.STEP_DURATION_MIN,
+      max: _config2.default.STEP_DURATION_MAX,
+      step: _config2.default.STEP_DURATION_CHANGE
     });
-    desc.enumerable = !!desc.enumerable;
-    desc.configurable = !!desc.configurable;
-
-    if ('value' in desc || desc.initializer) {
-        desc.writable = true;
-    }
-
-    desc = decorators.slice().reverse().reduce(function (desc, decorator) {
-        return decorator(target, property, desc) || desc;
-    }, desc);
-
-    if (context && desc.initializer !== void 0) {
-        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
-        desc.initializer = undefined;
-    }
-
-    if (desc.initializer === void 0) {
-        Object['define' + 'Property'](target, property, desc);
-        desc = null;
-    }
-
-    return desc;
-}
-
-function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var codeTemplate = {
-
-    indexToNeighbor: function indexToNeighbor(name, mask, position, index) {
-        return name + ': (i & ' + (mask << position) + ') >> ' + position;
-    },
-
-    neighborToIndex: function neighborToIndex(code, mask, position, shift) {
-        return '((((' + code + ') & ' + (mask << shift) + ') >> ' + shift + ') << ' + position + ')';
-    },
-
-    nextStateFromTable: function nextStateFromTable(neighbors, shift) {
-        return '(table_' + shift + '[' + neighbors.join('|') + '] << ' + shift + ')';
-    },
-
-    nextStateCalculation: function nextStateCalculation(neighbors, numBitPlanes) {
-        return 'main({' + neighbors.map(function (n) {
-            return n.name + ':' + n.code;
-        }).join(',') + '}) & ' + (0, _utils.bitMask)(numBitPlanes);
-    },
-
-    tableProc: function tableProc(neighborsCode) {
-        return '\n(function(nextState, neighborhoodSize) {\nvar table = new Array(Math.pow(2, neighborhoodSize));\n\nfor (var i = 0; i < table.length; i++) {\n    table[i] = nextState({\n        ' + neighborsCode.join(',') + '\n    }) & 3;\n}\n\nreturn table;\n})';
-    },
-
-    nextGeneration: function nextGeneration(nextStateCode) {
-        return '\n(function(d, newD) {\nvar table_0 = this.CAA.table,\n    table_2 = this.CAB.table,\n    xSize = d.length,\n    ySize = d[0].length,\n    fixX = cells._shift.x,\n    fixY = cells._shift.y,\n    time = this.time,\n    t = time & 1;\n\nfor (var x = 0; x < xSize; x++) {\n    var newDX = newD[x],\n        xPrev = x === 0 ? xSize - 1 : x - 1,\n        xNext = x === xSize - 1 ? 0 : x + 1,\n        dXCurr = d[x],\n        dXPrev = d[xPrev],\n        dXNext = d[xNext],\n        h = (x ^ fixX) & 1;\n\n    for (var y = 0; y < ySize; y++) {\n        var yPrev = y === 0 ? ySize - 1 : y - 1,\n            yNext = y === ySize - 1 ? 0 : y + 1,\n            v = (y ^ fixY) & 1;\n\n        newDX[y] = ' + nextStateCode + ';\n    }\n}\n})';
-    }
+  },
+  open: function open() {
+    $(this).find('#generations-per-step').val(_ca2.default.generationsPerStep).end().find('#step-duration').val(_ca2.default.stepDuration);
+  },
+  ok: function ok() {
+    _ca2.default.generationsPerStep = this.find('#generations-per-step').val();
+    _ca2.default.stepDuration = this.find('#step-duration').val();
+  }
 };
-
-var Compiler = function () {
-    function Compiler(shift, neighborhood) {
-        _classCallCheck(this, Compiler);
-
-        this.shift = shift;
-        this.customNeighborhood = neighborhood instanceof Object ? neighborhood : {};
-    }
-
-    _createClass(Compiler, [{
-        key: 'setNeighborhoods',
-        value: function setNeighborhoods(neighborhoods) {
-            var _this = this;
-
-            var
-            // основная окрестность может быть одна и только одна
-            main = _neighborhood2.default.main['Moore'],
-
-            // дополнительных окрестностей можно подключить сколько угодно
-            extra = [];
-
-            [].concat(neighborhoods).forEach(function (n) {
-                if (_neighborhood2.default.main[n]) {
-                    main = _neighborhood2.default.main[n];
-                } else {
-                    extra.push(n);
-                }
-            });
-
-            this.neighbors = Array.prototype.concat.apply([], [_neighborhood2.default.base, main].concat(_toConsumableArray(extra.map(function (n) {
-                var name = n instanceof Object ? n.name : n,
-                    val = _this.customNeighborhood[name] || _neighborhood2.default.extra[name];
-
-                return val instanceof Function ? val(n.data) : val;
-            }).filter(function (n) {
-                return !!n;
-            }))));
-        }
-    }, {
-        key: 'getNextStateCode',
-        value: function getNextStateCode() {
-            var shift = this.shift,
-                neighborsCode = [],
-                nextStateCode = [];
-
-            var neighborhoodSize = this.neighbors.reduce(function (size, neighbor) {
-                var mask = (0, _utils.bitMask)(neighbor.size);
-
-                neighborsCode.push(codeTemplate.indexToNeighbor(neighbor.name, mask, size));
-                nextStateCode.push(codeTemplate.neighborToIndex(neighbor.code, mask, size, shift));
-
-                return size + neighbor.size;
-            }, 0);
-
-            var tableProc = eval(codeTemplate.tableProc(neighborsCode));
-            this.table = tableProc(this.nextState, neighborhoodSize);
-
-            return codeTemplate.nextStateFromTable(nextStateCode, shift);
-        }
-    }]);
-
-    return Compiler;
-}();
-
-var defaultOptions = function defaultOptions() {
-    return {
-        on: {},
-        calculateNewGeneration: null,
-        main: null,
-        time: 0
-    };
-};
-
-var Generations = (_dec = (0, _utils.logExecutionTime)('new generation'), (_class = function () {
-    function Generations(options) {
-        _classCallCheck(this, Generations);
-
-        Object.assign(this, options);
-
-        this.setNeighborhoods = this.setNeighborhoods.bind(this);
-        this.makeTable = this.makeTable.bind(this);
-
-        this.CAA = new Compiler(0, { _center: [{ name: '_center', size: 2, code: '(dXCurr[y] & 12) >> 2' }] }), this.CAB = new Compiler(2, { _center: [{ name: '_center', size: 2, code: '(dXCurr[y] &  3) << 2' }] });
-
-        this.rules = _rules2.default;
-    }
-
-    _createClass(Generations, [{
-        key: 'setNeighborhoods',
-        value: function setNeighborhoods(a, b) {
-            this.CAA.setNeighborhoods(a);
-            this.CAB.setNeighborhoods(b);
-        }
-    }, {
-        key: 'makeTable',
-        value: function makeTable(a, b) {
-            this.CAA.nextState = a;
-            this.CAB.nextState = b;
-        }
-    }, {
-        key: 'next',
-        value: function next(count) {
-            if (isNaN(count) || count < 1) {
-                count = 1;
-            }
-
-            var _cells = this.cells,
-                curr = _cells.curr,
-                next = _cells.next;
-
-
-            for (var i = 0; i < count; i++) {
-                if (this.on.beforeNewGeneration instanceof Function) {
-                    this.on.beforeNewGeneration.call(this);
-                }
-
-                this.calculateNewGeneration(curr.data, next.data);
-                var _ref = [curr.data, next.data];
-                next.data = _ref[0];
-                curr.data = _ref[1];
-
-
-                this.time++;
-
-                if (this.on.afterNewGeneration instanceof Function) {
-                    this.on.afterNewGeneration.call(this);
-                }
-            }
-        }
-    }, {
-        key: 'rule',
-        get: function get() {
-            return this._rule;
-        },
-        set: function set(code) {
-            Object.assign(this, defaultOptions());
-            this.view.setColors(null, true);
-            this.setNeighborhoods();
-
-            var view = this.view,
-                rules = this.rules,
-                setNeighborhoods = this.setNeighborhoods,
-                makeTable = this.makeTable,
-                on = this.on,
-                main = this.main,
-                cells = this.cells.curr;
-
-
-            eval(code);
-
-            var nextStateCode = typeof main === 'function' ? codeTemplate.nextStateCalculation(this.CAA.neighbors, cells.numBitPlanes) : [this.CAA, this.CAB].filter(function (n) {
-                return n.nextState instanceof Function;
-            }).map(function (n) {
-                return n.getNextStateCode();
-            }).join('|');
-
-            this.calculateNewGeneration = eval(codeTemplate.nextGeneration(nextStateCode));
-
-            this._rule = code;
-        }
-    }]);
-
-    return Generations;
-}(), (_applyDecoratedDescriptor(_class.prototype, 'next', [_dec], Object.getOwnPropertyDescriptor(_class.prototype, 'next'), _class.prototype)), _class));
-exports.default = Generations;
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(0)))
 
 /***/ }),
-/* 72 */
+/* 98 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 Object.defineProperty(exports, "__esModule", {
-    value: true
+  value: true
 });
 
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+var _jquery = __webpack_require__(0);
 
-var neighborhood = {
-    base: [{ name: 'center', size: 2, code: 'dXCurr[y]' }],
-    main: {
-        Neumann: [{ name: 'north', size: 2, code: 'dXCurr[yPrev]' }, { name: 'south', size: 2, code: 'dXCurr[yNext]' }, { name: 'west', size: 2, code: 'dXPrev[y]' }, { name: 'east', size: 2, code: 'dXNext[y]' }],
-        Moore: [{ name: 'north', size: 1, code: 'dXCurr[yPrev]' }, { name: 'south', size: 1, code: 'dXCurr[yNext]' }, { name: 'west', size: 1, code: 'dXPrev[y]' }, { name: 'east', size: 1, code: 'dXNext[y]' }, { name: 'n_west', size: 1, code: 'dXPrev[yPrev]' }, { name: 's_west', size: 1, code: 'dXPrev[yNext]' }, { name: 'n_east', size: 1, code: 'dXNext[yPrev]' }, { name: 's_east', size: 1, code: 'dXNext[yNext]' }],
-        Margolus: [{ name: 'cw', size: 2, code: 't ? (h ^ v ? (h ? dXNext : dXPrev) : dXCurr)[h ^ v ? y : (v ? yNext : yPrev)] : (h ^ v ? (h ? dXPrev : dXNext) : dXCurr)[h ^ v ? y : (v ? yPrev : yNext)]' }, { name: 'ccw', size: 2, code: 't ? (h ^ v ? dXCurr : (h ? dXNext : dXPrev))[h ^ v ? (v ? yNext : yPrev) : y] : (h ^ v ? dXCurr : (h ? dXPrev : dXNext))[h ^ v ? (v ? yPrev : yNext) : y]' }, { name: 'opp', size: 2, code: 't ? (h ? dXNext : dXPrev)[v ? yNext : yPrev] : (h ? dXPrev : dXNext)[v ? yPrev : yNext]' }]
-    },
-    extra: {
-        phase: [{ name: 'phase', size: 2, code: 'time' }],
-        hv: [{ name: 'horz', size: 1, code: 'h' }, { name: 'vert', size: 1, code: 'v' }],
-        prob: function prob(data) {
-            return {
-                name: 'prob',
-                size: data.length,
-                code: data.map(function (n, i) {
-                    return '((Math.random() < ' + n + ') << ' + i + ')';
-                }).join('|')
-            };
-        }
-    }
-};
-neighborhood.main['Moore-thick'] = neighborhood.main.Moore.map(function (n) {
-    return _extends({}, n, { size: 2 });
-});
+var _jquery2 = _interopRequireDefault(_jquery);
 
-exports.default = neighborhood;
+var _ca = __webpack_require__(6);
 
-/***/ }),
-/* 73 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-    value: true
-});
-exports.default = undefined;
-
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-var _dec, _dec2, _desc, _value, _class;
-
-var _utils = __webpack_require__(7);
-
-function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
-    var desc = {};
-    Object['ke' + 'ys'](descriptor).forEach(function (key) {
-        desc[key] = descriptor[key];
-    });
-    desc.enumerable = !!desc.enumerable;
-    desc.configurable = !!desc.configurable;
-
-    if ('value' in desc || desc.initializer) {
-        desc.writable = true;
-    }
-
-    desc = decorators.slice().reverse().reduce(function (desc, decorator) {
-        return decorator(target, property, desc) || desc;
-    }, desc);
-
-    if (context && desc.initializer !== void 0) {
-        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
-        desc.initializer = undefined;
-    }
-
-    if (desc.initializer === void 0) {
-        Object['define' + 'Property'](target, property, desc);
-        desc = null;
-    }
-
-    return desc;
-}
-
-function rotateField(sizeField) {
-    return function (target, key, descriptor) {
-        var original = descriptor.value;
-
-        descriptor.value = function () {
-            this.data = original(this.data, this._shift, this[sizeField]);
-            var _ref = [this.ySize, this.xSize];
-            this.xSize = _ref[0];
-            this.ySize = _ref[1];
-
-
-            return this;
-        };
-
-        return descriptor;
-    };
-}
-
-var CellField = (_dec = rotateField('ySize'), _dec2 = rotateField('xSize'), (_class = function () {
-    function CellField(x, y) {
-        _classCallCheck(this, CellField);
-
-        this.resize(x, y);
-    }
-
-    _createClass(CellField, [{
-        key: 'resize',
-        value: function resize(x) {
-            var y = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : x;
-            var shift = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : { x: 0, y: 0 };
-
-            this.xSize = x;
-            this.ySize = y;
-            this._shift = _extends({}, shift);
-            this.data = [].concat(_toConsumableArray(Array(x))).map(function () {
-                return Array(y).fill(0);
-            });
-
-            return this;
-        }
-    }, {
-        key: 'fill',
-        value: function fill(f) {
-            var _this = this;
-
-            this.data = this.data.map(function (col, x) {
-                return col.map(function (cell, y) {
-                    return f.call(_this, x, y, cell);
-                });
-            });
-
-            return this;
-        }
-    }, {
-        key: 'shift',
-        value: function shift(x, y) {
-            x = x | 0;
-            y = y | 0;
-
-            (0, _utils.rotateArray)(this.data, x);
-            this.data.forEach(function (col) {
-                return (0, _utils.rotateArray)(col, y);
-            });
-
-            this._shift.x = (this._shift.x + x) % this.xSize;
-            this._shift.y = (this._shift.y + y) % this.ySize;
-
-            return this;
-        }
-    }, {
-        key: 'rotateClockwise',
-        value: function rotateClockwise(data, shift, size) {
-            Object.assign(shift, { x: (size - shift.y) % size, y: shift.x });
-            return data[0].map(function (cell, y) {
-                return data.map(function (col, x) {
-                    return data[x][size - y - 1];
-                });
-            });
-        }
-    }, {
-        key: 'rotateCounterclockwise',
-        value: function rotateCounterclockwise(data, shift, size) {
-            Object.assign(shift, { x: shift.y, y: (size - shift.x) % size });
-            return data[0].map(function (cell, y) {
-                return data.map(function (col, x) {
-                    return data[size - x - 1][y];
-                });
-            });
-        }
-    }, {
-        key: 'clone',
-        value: function clone() {
-            return new CellField(this.xSize, this.ySize, this._shift).copy(this);
-        }
-    }, {
-        key: 'conform',
-        value: function conform(f) {
-            this.data = f.data.map(function (col) {
-                return [].concat(_toConsumableArray(col));
-            });
-            var _ref2 = [f.xSize, f.ySize];
-            this.xSize = _ref2[0];
-            this.ySize = _ref2[1];
-
-            Object.assign(this._shift, f._shift);
-            return this;
-        }
-    }, {
-        key: 'copy',
-        value: function copy(source, options) {
-            options = _extends({ x: 0, y: 0 }, options);
-
-            for (var i = 0, x = options.x; i < source.xSize; i++, x++) {
-                if (x === this.xSize) {
-                    x = 0;
-                }
-
-                for (var j = 0, y = options.y; j < source.ySize; j++, y++) {
-                    if (y === this.ySize) {
-                        y = 0;
-                    }
-
-                    var t = source.data[i][j];
-                    if (!options.skipZeros || t !== 0) {
-                        this.data[x][y] = options.setZeros ? 0 : t;
-                    }
-                }
-            }
-
-            return this;
-        }
-    }, {
-        key: 'getBitPlanes',
-        value: function getBitPlanes() {
-            return [].concat(_toConsumableArray(Array(this.numBitPlanes))).map(function (n, i) {
-                return i;
-            });
-        }
-
-        // bitPlanes - массив номеров битовых плоскостей
-
-    }, {
-        key: 'invertBitPlane',
-        value: function invertBitPlane(bitPlanes) {
-            var mask = bitPlanes.reduce(function (mask, plane) {
-                return mask | 1 << plane;
-            }, 0);
-
-            return mask ? this.fill(function (x, y, value) {
-                return value ^ mask;
-            }) : this;
-        }
-
-        // bitPlanes - объект вида { <номер заполняемой битовой плоскости>: <номер копируемой битовой плоскости>, ... }
-
-    }, {
-        key: 'copyBitPlane',
-        value: function copyBitPlane(bitPlanes) {
-            for (var i in bitPlanes) {
-                if (isNaN(parseInt(bitPlanes[i], 10))) {
-                    delete bitPlanes[i];
-                }
-            }
-
-            return Object.keys(bitPlanes).length ? this.fill(function (x, y, value) {
-                var newVal = value;
-
-                for (var _i in bitPlanes) {
-                    newVal = newVal & ~(1 << _i) | (value & 1 << bitPlanes[_i]) >> bitPlanes[_i] << _i;
-                }
-
-                return newVal;
-            }) : this;
-        }
-
-        // bitPlanes - объект вида { <номер битовой плоскости>: <плотность заполнения>, ... }
-
-    }, {
-        key: 'fillRandom',
-        value: function fillRandom(bitPlanes) {
-            return Object.keys(bitPlanes).length ? this.fill(function (x, y, value) {
-                for (var i in bitPlanes) {
-                    var mask = 1 << i;
-
-                    if ((Math.random() * this.randomFillDensityDescritization | 0) < bitPlanes[i]) {
-                        value |= mask;
-                    } else {
-                        value &= ~mask;
-                    }
-                }
-
-                return value;
-            }) : this;
-        }
-    }, {
-        key: 'randomFillDensityDescritization',
-        get: function get() {
-            return 1000;
-        }
-    }, {
-        key: 'numBitPlanes',
-        get: function get() {
-            return 4;
-        }
-    }, {
-        key: 'numCellStates',
-        get: function get() {
-            return Math.pow(2, this.numBitPlanes);
-        }
-    }]);
-
-    return CellField;
-}(), (_applyDecoratedDescriptor(_class.prototype, 'rotateClockwise', [_dec], Object.getOwnPropertyDescriptor(_class.prototype, 'rotateClockwise'), _class.prototype), _applyDecoratedDescriptor(_class.prototype, 'rotateCounterclockwise', [_dec2], Object.getOwnPropertyDescriptor(_class.prototype, 'rotateCounterclockwise'), _class.prototype)), _class));
-exports.default = CellField;
-
-/***/ }),
-/* 74 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", {
-    value: true
-});
-exports.default = undefined;
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-var _dec, _dec2, _desc, _value, _class;
-
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
-
-var _utils = __webpack_require__(7);
-
-var _config = __webpack_require__(13);
-
-var _config2 = _interopRequireDefault(_config);
+var _ca2 = _interopRequireDefault(_ca);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+var modeList = [{ name: 'edit', title: 'Edit', icon: 'pencil', classes: ['ca-start-disable'] }, { name: 'shift', title: 'Shift', icon: 'arrow-4' }, { name: 'zoom.in', title: 'Zoom out', icon: 'zoomin' }, { name: 'zoom.out', title: 'Zoom in', icon: 'zoomout' }];
 
-function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
-    var desc = {};
-    Object['ke' + 'ys'](descriptor).forEach(function (key) {
-        desc[key] = descriptor[key];
+var buttonTemplate = function buttonTemplate(mode) {
+  return '\n  <input id="mode-' + mode.name + '" type="radio" name="mode" value="' + mode.name + '">\n  <label for="mode-' + mode.name + '" title="' + mode.title + '" class="' + (mode.classes || []).join('') + '">\n    <span class="ui-icon ui-icon-' + mode.icon + '"></span>\n  </label>\n';
+};
+
+function update() {
+  (0, _jquery2.default)('#cell-field-mode').find('[for="mode-' + _ca2.default.view.mode + '"]').click();
+}
+
+exports.default = {
+  init: function init() {
+    (0, _jquery2.default)('#cell-field-mode').append(modeList.map(buttonTemplate).join('')).buttonset({
+      items: 'input'
+    }).find('.ui-checkboxradio-radio-label').removeClass('ui-checkboxradio-radio-label').end().click(function (e) {
+      var mode = (0, _jquery2.default)(e.target).val();
+      if (mode && _ca2.default.view.mode !== mode) {
+        _ca2.default.view.mode = mode;
+      }
+    }).find('[for="mode-' + _ca2.default.view.mode + '"]').click();
+
+    (0, _jquery2.default)(document).on('cell-field-mode', function (e) {
+      if (e.detail === _ca2.default.view) {
+        update();
+      }
     });
-    desc.enumerable = !!desc.enumerable;
-    desc.configurable = !!desc.configurable;
 
-    if ('value' in desc || desc.initializer) {
-        desc.writable = true;
-    }
-
-    desc = decorators.slice().reverse().reduce(function (desc, decorator) {
-        return decorator(target, property, desc) || desc;
-    }, desc);
-
-    if (context && desc.initializer !== void 0) {
-        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
-        desc.initializer = undefined;
-    }
-
-    if (desc.initializer === void 0) {
-        Object['define' + 'Property'](target, property, desc);
-        desc = null;
-    }
-
-    return desc;
-}
-
-function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
-
-function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
-
-var defaultColors = _config2.default.DEFAULT_COLORS;
-
-var mouseButtons = {
-    left: 1,
-    right: 2
+    update();
+  }
 };
-
-var scale = {
-    up: 1,
-    down: -1
-};
-
-var eventHandlers = [{
-    events: ['contextmenu'],
-    handler: function handler(e) {
-        // контекстное меню доступно при зажатом ctrl
-        return e.ctrlKey;
-    }
-}, {
-    events: ['mouseup', 'mouseleave'],
-    handler: function handler(e) {
-        this.oldEventCoord = {};
-    }
-}, {
-    events: ['mousedown', 'mousemove'],
-    handler: function handler(e) {
-        e.preventDefault();
-
-        if (![mouseButtons.left, mouseButtons.right].includes(e.buttons)) {
-            return;
-        }
-
-        var oldCoord = this.oldEventCoord || {},
-            newCoord = detectEventCoord(this, e);
-
-        if (newCoord.x === oldCoord.x && newCoord.y === oldCoord.y) {
-            return;
-        }
-
-        var action = userActions[this.mode];
-        if (action.events.indexOf(e.type) !== -1 && action.handler.call(this, e, newCoord, oldCoord) !== false) {
-
-            this.oldEventCoord = newCoord;
-        }
-    }
-}, {
-    wrapper: true,
-    events: ['scroll'],
-    handler: function handler(e) {
-        scrollFix(this);
-        this.render();
-    }
-}, {
-    wrapper: true,
-    events: ['wheel'],
-    handler: function handler(e) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        changeScale(this, e.deltaY > 0 ? scale.down : scale.up, detectEventCoord(this, e));
-    }
-}];
-
-var userActions = {
-    edit: {
-        events: ['mousedown', 'mousemove'],
-        handler: function handler(e, newCoord, oldCoord) {
-            var x = newCoord.x,
-                y = newCoord.y,
-                f = this.field,
-                b = this.brush;
-
-            if (x >= f.xSize || y >= f.ySize || x < 0 || y < 0 || !b || e.ctrlKey) {
-                return false;
-            }
-
-            var coord = (0, _utils.getLineCoord)(newCoord, _extends({}, newCoord, oldCoord));
-            for (var i = 0; i < coord.length; i++) {
-                x = (coord[i].x - Math.floor(b.xSize / 2) + f.xSize) % f.xSize;
-                y = (coord[i].y - Math.floor(b.ySize / 2) + f.ySize) % f.ySize;
-
-                f.copy(b, {
-                    x: x,
-                    y: y,
-                    skipZeros: true,
-                    setZeros: e.buttons === mouseButtons.right
-                });
-                this.renderPartial({ x: x, y: y, xSize: b.xSize, ySize: b.ySize });
-            }
-        }
-    },
-    shift: {
-        events: ['mousemove'],
-        handler: function handler(e, newCoord, oldCoord) {
-            this.field.shift(oldCoord.x - newCoord.x, oldCoord.y - newCoord.y);
-            this.render();
-        }
-    },
-    scale: {
-        events: ['mousedown'],
-        handler: function handler(e, newCoord, oldCoord) {
-            var _mouseButtons$left$mo;
-
-            changeScale(this, (_mouseButtons$left$mo = {}, _defineProperty(_mouseButtons$left$mo, mouseButtons.left, scale.up), _defineProperty(_mouseButtons$left$mo, mouseButtons.right, scale.down), _mouseButtons$left$mo)[e.buttons] || 0, newCoord);
-        }
-    }
-};
-
-function changeScale(view, change, coord) {
-    if (!view.scaling) {
-        return;
-    }
-
-    var oldCellSide = view.cellSide,
-        newCellSide = (0, _utils.limitation)(oldCellSide + change, view.scaling.min, view.scaling.max);
-
-    if (oldCellSide !== newCellSide) {
-        var w = view.wrapper,
-            oldScrollX = w.scrollLeft,
-            oldScrollY = w.scrollTop,
-            newScrollX = coord.x * (newCellSide - oldCellSide) + oldScrollX,
-            newScrollY = coord.y * (newCellSide - oldCellSide) + oldScrollY;
-
-        view.resize(newCellSide);
-
-        var maxScrollX = w.scrollWidth - w.clientWidth,
-            maxScrollY = w.scrollHeight - w.clientHeight,
-            fixScrollX = 0,
-            fixScrollY = 0;
-
-        if (newScrollX < 0) {
-            fixScrollX = Math.round(newScrollX / (newCellSide + view.cellBorder));
-            newScrollX = 0;
-        }
-        if (newScrollX > maxScrollX) {
-            fixScrollX = Math.round((newScrollX - maxScrollX) / (newCellSide + view.cellBorder));
-            newScrollX = maxScrollX;
-        }
-        if (newScrollY < 0) {
-            fixScrollY = Math.round(newScrollY / (newCellSide + view.cellBorder));
-            newScrollY = 0;
-        }
-        if (newScrollY > maxScrollY) {
-            fixScrollY = Math.round((newScrollY - maxScrollY) / (newCellSide + view.cellBorder));
-            newScrollY = maxScrollY;
-        }
-
-        w.scrollLeft = newScrollX;
-        w.scrollTop = newScrollY;
-
-        if (fixScrollX || fixScrollY) {
-            view.field.shift(fixScrollX, fixScrollY);
-            view.render();
-        }
-    }
-}
-
-function getFullSize(view) {
-    var f = view.field,
-        b = view.cellBorder,
-        s = view.cellSide + b;
-
-    return {
-        width: f.xSize * s + b,
-        height: f.ySize * s + b
-    };
-}
-
-// левый верхний угол canvas'а совпадает с левым верхним углом клетки (если возможно)
-function scrollFix(view) {
-    var s = view.cellSide + view.cellBorder,
-        w = view.wrapper,
-        size = getFullSize(view);
-
-    w.scrollLeft = Math.min(Math.round(w.scrollLeft / s) * s, size.width - w.clientWidth);
-    w.scrollTop = Math.min(Math.round(w.scrollTop / s) * s, size.height - w.clientHeight);
-}
-
-function detectEventCoord(view, e) {
-    var b = view.cellBorder,
-        t = Math.round(b / 2),
-        w = view.wrapper;
-
-    return {
-        x: Math.floor((e.offsetX + w.scrollLeft - t) / (view.cellSide + b)),
-        y: Math.floor((e.offsetY + w.scrollTop - t) / (view.cellSide + b))
-    };
-}
-
-function detectViewCoord(view) {
-    var w = view.wrapper,
-        t = w.classList.contains('scrollable'),
-        s = view.cellSide + view.cellBorder;
-
-    return {
-        x: t ? Math.floor(w.scrollLeft / s) : 0,
-        y: t ? Math.floor(w.scrollTop / s) : 0,
-        xSize: t ? Math.ceil(view.imageData.width / s) : view.field.xSize,
-        ySize: t ? Math.ceil(view.imageData.height / s) : view.field.ySize
-    };
-}
-
-var limit = _utils.limitation;
-
-/*
- * собственные методы отрисовки под различные размеры клетки
- *
- * прирост скорости отрисовки - до ~2 раз (чем меньше размер - тем больше эффект),
- * за счёт отсутствия накладных расходов на организацию циклов по пикселям отдельной клетки
- */
-var cellFieldRenderFunction = function cellFieldRenderFunction(cellRenderCode) {
-    return eval('\n(function() {\n    var coord = detectViewCoord(this),\n        mask = this.showBitPlanes,\n        cells = this.field.data,\n        maxX = limit(coord.x + coord.xSize, 0, this.field.xSize),\n        maxY = limit(coord.y + coord.ySize, 0, this.field.ySize),\n        border = this.cellBorder,\n        side = this.cellSide,\n        sideFull = side + border,\n        image = this.buf32,\n        width = this.imageData.width,\n        colors = this.colorsForRender;\n\n    for (var i = 0, x = coord.x; x < maxX; x++, i++) {\n        var column = cells[x];\n\n        for (var j = 0, y = coord.y; y < maxY; y++, j++) {\n            var color = colors[column[y] & mask];\n\n            ' + cellRenderCode + '\n        }\n    }\n\n    this.imageData.data.set(this.buf8);\n    this.context.putImageData(\n        this.imageData,\n        -(this.wrapper.scrollLeft % sideFull),\n        -(this.wrapper.scrollTop % sideFull)\n    );\n})\n');
-};
-
-var cellPixelRenderCode = function cellPixelRenderCode(i, j) {
-    return 'image[i * sideFull + border + ' + i + ' + (j * sideFull + border + ' + j + ') * width] = color;';
-};
-
-var cellRenderCode = function cellRenderCode(cellSide) {
-    return [].concat(_toConsumableArray(Array(cellSide * cellSide))).map(function (n, i) {
-        return cellPixelRenderCode(i / cellSide | 0, i % cellSide);
-    }).join('');
-};
-
-var renderFunctions = {
-    default: cellFieldRenderFunction('\n        for (var imageX = i * sideFull + border, n = 0; n < side; n++, imageX++) {\n            for (var imageY = j * sideFull + border, m = 0; m < side; m++, imageY++) {\n                image[imageX + imageY * width] = color;\n            }\n        }\n    ')
-};
-
-var CellFieldView = (_dec = (0, _utils.logExecutionTime)('renderPartial'), _dec2 = (0, _utils.logExecutionTime)('render'), (_class = function () {
-    function CellFieldView(field, options) {
-        _classCallCheck(this, CellFieldView);
-
-        var o = Object.assign(this, options);
-
-        o.field = field;
-        o.wrapper = o.wrapper instanceof HTMLElement ? o.wrapper : document.querySelector(o.wrapper);
-        o.cellSide = o.cellSide << 0;
-        o.cellBorder = o.cellBorder << 0;
-        o.showBitPlanes = isNaN(o.showBitPlanes) ? (0, _utils.bitMask)(o.field.numBitPlanes) : +o.showBitPlanes;
-
-        if (o.wrapper.classList.contains('scrollable')) {
-            o.wrapperScroll = document.createElement('div');
-            o.wrapperScroll.classList.add('cells-field-wrapper-scroll');
-            o.wrapper.appendChild(o.wrapperScroll);
-        } else {
-            var size = getFullSize(o);
-            o.wrapper.style.width = size.width + 'px';
-            o.wrapper.style.height = size.height + 'px';
-        }
-
-        o.canvas = document.createElement('canvas');
-        o.wrapper.appendChild(o.canvas);
-
-        eventHandlers.forEach(function (eh) {
-            eh.events.forEach(function (eventName) {
-                var elem = eh.wrapper ? o.wrapper : o.canvas;
-                elem['on' + eventName] = eh.handler.bind(o);
-            });
-        });
-
-        o.setColors(null);
-        o.resize(o.cellSide);
-
-        o.mode = 'edit';
-    }
-
-    _createClass(CellFieldView, [{
-        key: 'renderPartial',
-        value: function renderPartial(coord) {
-            var mask = this.showBitPlanes,
-                cells = this.field.data,
-                maxX = this.field.xSize,
-                maxY = this.field.ySize,
-                border = this.cellBorder,
-                side = this.cellSide,
-                sideFull = side + border,
-                fixX = border - this.wrapper.scrollLeft,
-                fixY = border - this.wrapper.scrollTop,
-                c = this.context;
-
-            for (var x = coord.x, i = 0; i < coord.xSize; i++, x++) {
-                if (x === maxX) {
-                    x = 0;
-                }
-
-                for (var y = coord.y, j = 0; j < coord.ySize; j++, y++) {
-                    if (y === maxY) {
-                        y = 0;
-                    }
-
-                    c.fillStyle = this.colors[cells[x][y] & mask];
-                    c.fillRect(x * sideFull + fixX, y * sideFull + fixY, side, side);
-                }
-            }
-        }
-    }, {
-        key: 'render',
-        value: function render() {
-            (renderFunctions[this.cellSide] || renderFunctions['default']).call(this);
-        }
-    }, {
-        key: 'resize',
-        value: function resize() {
-            var cellSide = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : this.cellSide;
-            var cellBorder = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.cellBorder || 0;
-
-            if (isNaN(cellSide) || cellSide < 1) {
-                return;
-            }
-
-            var canvas = this.canvas,
-                context = this.context = canvas.getContext('2d'),
-                side = this.cellSide = cellSide,
-                border = this.cellBorder = cellBorder,
-                sideFull = side + border,
-                size = getFullSize(this),
-                isScroll = !!this.wrapperScroll,
-                width = isScroll ? this.wrapper.clientWidth || 1 : size.width,
-                height = isScroll ? this.wrapper.clientHeight || 1 : size.height;
-
-            if (isScroll) {
-                this.wrapperScroll.style.width = Math.max(size.width, width) + 'px';
-                this.wrapperScroll.style.height = Math.max(size.height, height) + 'px';
-            }
-
-            canvas.width = context.width = width;
-            canvas.height = context.height = height;
-
-            this.imageData = context.createImageData(Math.min(size.width, Math.ceil(width / sideFull) * sideFull), Math.min(size.height, Math.ceil(height / sideFull) * sideFull));
-            this.imageBuff = new ArrayBuffer(this.imageData.data.length);
-            this.buf8 = new Uint8ClampedArray(this.imageBuff);
-            this.buf32 = new Uint32Array(this.imageBuff);
-
-            this.buf32.fill(this.colorsForRender.background);
-
-            if (!renderFunctions.hasOwnProperty(cellSide) && cellSide <= _config2.default.MAX_CELL_SIDE_WITH_OWN_RENDER) {
-                renderFunctions[cellSide] = cellFieldRenderFunction(cellRenderCode(cellSide));
-            }
-
-            scrollFix(this);
-            this.render();
-        }
-    }, {
-        key: 'setColors',
-        value: function setColors(colors, forceRender) {
-            var oldColors = this.colors || defaultColors,
-                newColors = {},
-                colorsForRender = {};
-
-            colors = Object.assign({}, oldColors, colors || defaultColors);
-
-            for (var i in defaultColors) {
-                var color = colors[i] || oldColors[i];
-                if (color[0] !== '#') {
-                    color = '#' + color;
-                }
-
-                newColors[i] = color;
-                colorsForRender[i] = (0, _utils.transformColor)(color);
-            }
-
-            this.colors = newColors;
-            this.colorsForRender = colorsForRender;
-
-            if (forceRender) {
-                this.render();
-            }
-        }
-    }, {
-        key: 'gradient',
-        value: function gradient(from, to) {
-            var items = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : this.field.numCellStates;
-
-            var componentsFrom = (0, _utils.getColorComponents)(from),
-                componentsTo = (0, _utils.getColorComponents)(to),
-                componentsItems = componentsFrom.map(function (n, i) {
-                return (n - componentsTo[i]) / (items - 1);
-            });
-
-            return [].concat(_toConsumableArray(Array(items))).map(function (n, i) {
-                return componentsFrom.map(function (m, j) {
-                    return (m - i * componentsItems[j] | 0).toString(16).padStart(2, '0');
-                }).join('');
-            });
-        }
-    }, {
-        key: 'download',
-        value: function download() {
-            var filename = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : Date.now().toString() + '.png';
-
-            /*
-             * отдельный canvas - чтобы результирующее изображение содержало
-             * только данные из this.imageData; актуально для случаев, когда
-             * размеры this.imageData меньше, чем размеры wrapper'а
-             */
-            var canvas = document.createElement('canvas');
-            var ctx = canvas.getContext('2d');
-            canvas.width = this.imageData.width;
-            canvas.height = this.imageData.height;
-            ctx.putImageData(this.imageData, 0, 0);
-
-            var a = document.createElement('a');
-            a.href = canvas.toDataURL();
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
-    }, {
-        key: 'mode',
-        get: function get() {
-            return this._mode;
-        },
-        set: function set(value) {
-            this._mode = value;
-            this.canvas.dispatchEvent(new CustomEvent('cell-field-mode'));
-            this.canvas.setAttribute('data-mode', value);
-        }
-    }]);
-
-    return CellFieldView;
-}(), (_applyDecoratedDescriptor(_class.prototype, 'renderPartial', [_dec], Object.getOwnPropertyDescriptor(_class.prototype, 'renderPartial'), _class.prototype), _applyDecoratedDescriptor(_class.prototype, 'render', [_dec2], Object.getOwnPropertyDescriptor(_class.prototype, 'render'), _class.prototype)), _class));
-exports.default = CellFieldView;
 
 /***/ }),
-/* 75 */
+/* 99 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
-var content = __webpack_require__(76);
+var content = __webpack_require__(100);
 
 if(typeof content === 'string') content = [[module.i, content, '']];
 
@@ -26557,7 +26432,7 @@ var options = {"hmr":true}
 options.transform = transform
 options.insertInto = undefined;
 
-var update = __webpack_require__(4)(content, options);
+var update = __webpack_require__(3)(content, options);
 
 if(content.locals) module.exports = content.locals;
 
@@ -26589,16 +26464,16 @@ if(false) {
 }
 
 /***/ }),
-/* 76 */
+/* 100 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var escape = __webpack_require__(20);
-exports = module.exports = __webpack_require__(3)(false);
+var escape = __webpack_require__(18);
+exports = module.exports = __webpack_require__(2)(false);
 // imports
 
 
 // module
-exports.push([module.i, "/*-CSS-reset----------------------------------------------------------------*/\nhtml, body, div, span, applet, object, iframe,\nh1, h2, h3, h4, h5, h6, p, blockquote, pre,\na, abbr, acronym, address, big, cite, code,\ndel, dfn, em, img, ins, kbd, q, s, samp,\nsmall, strike, strong, sub, sup, tt, var,\nb, u, i, center,\ndl, dt, dd, ol, ul, li,\nfieldset, form, label, legend,\ntable, caption, tbody, tfoot, thead, tr, th, td,\narticle, aside, canvas, details, embed,\nfigure, figcaption, footer, header, hgroup,\nmenu, nav, output, ruby, section, summary,\ntime, mark, audio, video {\n  margin: 0;\n  padding: 0;\n  border: 0;\n  font-size: 100%;\n  font: inherit;\n  vertical-align: baseline; }\n\narticle, aside, details, figcaption, figure,\nfooter, header, hgroup, menu, nav, section {\n  display: block; }\n\nbody {\n  line-height: 1; }\n\nol, ul {\n  list-style: none; }\n\nblockquote, q {\n  quotes: none; }\n\nblockquote:before, blockquote:after,\nq:before, q:after {\n  content: '';\n  content: none; }\n\ntable {\n  border-collapse: collapse;\n  border-spacing: 0; }\n\n/*--------------------------------------------------------------------------*/\nhtml, body {\n  font-family: sans-serif;\n  height: 100%; }\n\n#toast-container > div {\n  border-radius: 0; }\n\n.content {\n  width: 100%;\n  height: 100%;\n  display: flex;\n  flex-direction: column;\n  box-sizing: border-box; }\n\n.controls {\n  padding: 15px 10px;\n  width: 100%;\n  box-sizing: border-box;\n  flex: 0; }\n  .controls > * {\n    vertical-align: top;\n    margin: 5px 1px 5px 0;\n    display: inline-block; }\n  .controls > .ui-controlgroup > .ui-controlgroup-item {\n    margin-right: -1px; }\n\n.cells-field-wrapper {\n  display: flex;\n  overflow: hidden;\n  padding: 0;\n  flex: 1; }\n  .cells-field-wrapper.scrollable {\n    overflow: scroll;\n    position: relative; }\n  .cells-field-wrapper .cells-field-wrapper-scroll {\n    position: absolute; }\n  .cells-field-wrapper canvas {\n    position: sticky;\n    left: 0;\n    top: 0; }\n    .cells-field-wrapper canvas[data-mode=\"edit\"] {\n      cursor: default; }\n    .cells-field-wrapper canvas[data-mode=\"shift\"] {\n      cursor: move; }\n    .cells-field-wrapper canvas[data-mode=\"scale\"] {\n      cursor: zoom-in; }\n\n.ca-options-table {\n  width: 100%; }\n  .ca-options-table td,\n  .ca-options-table th {\n    padding: 10px 0 10px 15px;\n    vertical-align: middle; }\n  .ca-options-table input[type=\"text\"] {\n    width: 3em; }\n  .ca-options-table input[type=\"checkbox\"] {\n    width: 16px;\n    height: 16px; }\n  .ca-options-table .ca-bit-plane {\n    text-align: center; }\n  .ca-options-table .ca-filling-options .ca-filling-options-note {\n    display: inline-block;\n    width: 5em;\n    vertical-align: middle; }\n  .ca-options-table .ca-filling-options .ui-spinner-input {\n    padding: 6px 6px 4px 6px;\n    margin: 0;\n    margin-right: 2em; }\n  .ca-options-table .ca-filling-options .ca-filling-copy > input {\n    padding: 6px 6px 4px 6px;\n    margin: 0 .4em;\n    vertical-align: middle; }\n    .ca-options-table .ca-filling-options .ca-filling-copy > input[type=\"text\"] {\n      width: 4.5em; }\n  .ca-options-table .ca-filling-options .ca-filling-random > .ui-spinner {\n    margin: 0 .4em; }\n    .ca-options-table .ca-filling-options .ca-filling-random > .ui-spinner > input {\n      width: 2.5em; }\n\n#ca-brush {\n  display: flex;\n  justify-content: space-between; }\n\n.ca-state-select.grid {\n  display: inline-grid;\n  grid: repeat(4, 1fr)/repeat(4, 1fr); }\n  .ca-state-select.grid .ca-state {\n    cursor: pointer; }\n\n.ca-state-select.row {\n  display: flex;\n  flex-flow: row wrap;\n  justify-content: flex-end; }\n  .ca-state-select.row .ca-state {\n    padding: 5px 10px; }\n    .ca-state-select.row .ca-state input.jscolor {\n      width: 6em;\n      text-align: right;\n      font-family: \"Lucida Console\", monospace;\n      padding-right: .2em;\n      box-sizing: border-box; }\n\n.ca-state-select .ca-state {\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n  padding: 5px;\n  border: 1px solid transparent; }\n  .ca-state-select .ca-state .ca-state-name {\n    display: inline-block;\n    font-size: 18px;\n    margin-right: 5px;\n    font-family: \"Lucida Console\", monospace; }\n  .ca-state-select .ca-state .ca-state-color {\n    display: inline-block;\n    vertical-align: top;\n    margin-right: 5px;\n    width: 16px;\n    height: 16px;\n    border: 1px solid black;\n    box-sizing: border-box; }\n\n#ca-rule-code {\n  width: 100%;\n  height: 100%;\n  min-width: 400px;\n  min-height: 300px;\n  padding: 5px;\n  font-family: monospace;\n  box-sizing: border-box;\n  resize: none; }\n\n.predefined-rule {\n  background-color: #eee; }\n\n.matched-text {\n  text-decoration: underline;\n  font-weight: bold; }\n\nbutton,\ninput,\ntextarea,\nselect,\nli,\n.ui-selectmenu-button {\n  outline: 0;\n  border: 1px solid #c5c5c5; }\n\n.ui-button {\n  padding: 6px 6px 4px 6px; }\n\n.ui-autocomplete {\n  max-height: 300px;\n  overflow-x: hidden;\n  overflow-y: auto; }\n\n.ui-menu li,\n.ui-menu .ui-menu-item-wrapper {\n  border: 0; }\n\n.ui-tabs.ui-widget.ui-widget-content {\n  border: 0;\n  padding: 0; }\n\n.ui-tabs .ui-tabs-nav {\n  border: 0;\n  padding-top: 0;\n  background-color: transparent; }\n  .ui-tabs .ui-tabs-nav .ui-tabs-anchor {\n    padding: .2em .4em; }\n\n.ui-tabs .ui-tabs-panel {\n  border-top-width: 1px;\n  padding: .5em 0 0 0; }\n\n.ui-visual-focus,\n.ui-state-focus {\n  box-shadow: none; }\n\n.ui-corner-all, .ui-corner-top, .ui-corner-right, .ui-corner-left, .ui-corner-bottom, .ui-corner-tr {\n  border-top-left-radius: 0;\n  border-top-right-radius: 0;\n  border-bottom-right-radius: 0;\n  border-bottom-left-radius: 0; }\n\n.ui-controlgroup[role=\"toolbar\"] {\n  margin-right: 3px; }\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active, .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active:hover {\n    z-index: 99; }\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active:hover .ui-icon,\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active .ui-icon {\n    background-image: url(" + escape(__webpack_require__(22)) + "); }\n\n.input-with-button {\n  margin-right: 2px;\n  display: inline-flex; }\n  .input-with-button > input {\n    margin: 0;\n    padding: 5px; }\n  .input-with-button > button, .input-with-button > button:hover, .input-with-button > button:focus {\n    margin: 0;\n    border-width: 0;\n    border-left-width: 1px; }\n", ""]);
+exports.push([module.i, "/*-CSS-reset----------------------------------------------------------------*/\nhtml, body, div, span, applet, object, iframe,\nh1, h2, h3, h4, h5, h6, p, blockquote, pre,\na, abbr, acronym, address, big, cite, code,\ndel, dfn, em, img, ins, kbd, q, s, samp,\nsmall, strike, strong, sub, sup, tt, var,\nb, u, i, center,\ndl, dt, dd, ol, ul, li,\nfieldset, form, label, legend,\ntable, caption, tbody, tfoot, thead, tr, th, td,\narticle, aside, canvas, details, embed,\nfigure, figcaption, footer, header, hgroup,\nmenu, nav, output, ruby, section, summary,\ntime, mark, audio, video {\n  margin: 0;\n  padding: 0;\n  border: 0;\n  font-size: 100%;\n  font: inherit;\n  vertical-align: baseline; }\n\narticle, aside, details, figcaption, figure,\nfooter, header, hgroup, menu, nav, section {\n  display: block; }\n\nbody {\n  line-height: 1; }\n\nol, ul {\n  list-style: none; }\n\nblockquote, q {\n  quotes: none; }\n\nblockquote:before, blockquote:after,\nq:before, q:after {\n  content: '';\n  content: none; }\n\ntable {\n  border-collapse: collapse;\n  border-spacing: 0; }\n\n/*--------------------------------------------------------------------------*/\nhtml, body {\n  font-family: sans-serif;\n  height: 100%; }\n\n#toast-container > div {\n  border-radius: 0; }\n\n.content {\n  width: 100%;\n  height: 100%;\n  display: flex;\n  flex-direction: column;\n  box-sizing: border-box; }\n\n.controls {\n  padding: 15px 10px;\n  width: 100%;\n  box-sizing: border-box;\n  flex: 0; }\n  .controls > * {\n    vertical-align: top;\n    margin: 5px 1px 5px 0; }\n  .controls > .ui-controlgroup > .ui-controlgroup-item {\n    margin-right: -1px; }\n\n.ca-options-table {\n  width: 100%; }\n  .ca-options-table td,\n  .ca-options-table th {\n    padding: 10px 0 10px 15px;\n    vertical-align: middle; }\n  .ca-options-table input[type=\"text\"] {\n    width: 3em; }\n  .ca-options-table input[type=\"checkbox\"] {\n    width: 16px;\n    height: 16px; }\n  .ca-options-table .ca-bit-plane {\n    text-align: center; }\n\n.ca-state-select .ca-state {\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n  padding: 5px;\n  border: 1px solid transparent; }\n  .ca-state-select .ca-state .ca-state-name {\n    display: inline-block;\n    font-size: 18px;\n    margin-right: 5px;\n    font-family: \"Lucida Console\", monospace; }\n  .ca-state-select .ca-state .ca-state-color {\n    display: inline-block;\n    vertical-align: top;\n    margin-right: 5px;\n    width: 16px;\n    height: 16px;\n    border: 1px solid black;\n    box-sizing: border-box; }\n\nbutton,\ninput,\ntextarea,\nselect,\nli,\n.ui-selectmenu-button {\n  outline: 0;\n  border: 1px solid #c5c5c5; }\n\n.ui-button {\n  padding: 6px 6px 4px 6px; }\n\n.ui-autocomplete {\n  max-height: 300px;\n  overflow-x: hidden;\n  overflow-y: auto; }\n\n.ui-menu li,\n.ui-menu .ui-menu-item-wrapper {\n  border: 0; }\n\n.ui-visual-focus,\n.ui-state-focus {\n  box-shadow: none; }\n\n.ui-corner-all, .ui-corner-top, .ui-corner-right, .ui-corner-left, .ui-corner-bottom, .ui-corner-tr {\n  border-top-left-radius: 0;\n  border-top-right-radius: 0;\n  border-bottom-right-radius: 0;\n  border-bottom-left-radius: 0; }\n\n.ui-controlgroup[role=\"toolbar\"] {\n  margin-right: 3px; }\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active, .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active:hover {\n    z-index: 99; }\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active:hover .ui-icon,\n  .ui-controlgroup[role=\"toolbar\"] .ui-checkboxradio-label.ui-state-active .ui-icon {\n    background-image: url(" + escape(__webpack_require__(20)) + "); }\n", ""]);
 
 // exports
 
