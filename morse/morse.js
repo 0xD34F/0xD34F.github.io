@@ -333,6 +333,7 @@
                 message: nowPlaying
             });
 
+            context.resume();
             play(getTiming(str));
 
             return true;
