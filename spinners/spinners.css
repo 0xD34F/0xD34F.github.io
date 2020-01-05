@@ -917,42 +917,27 @@
     width: 2em;
     height: 2em;
     position: absolute;
-    left: 6em;
-    top: 8em;
     background-color: black;
     border-radius: 50%;
-    animation: spinner-collisions 2s infinite linear;
+    animation: spinner-collisions-x 1.5s infinite linear, spinner-collisions-y 3.5s infinite linear;
 }
-@keyframes spinner-collisions {
+@keyframes spinner-collisions-x {
     0%, 100% {
-        transform: translate(0em, 0em);
-    }
-    12% {
-        transform: translate(6em, -6em);
-    }
-    16% {
-        transform: translate(4em, -8em);
-    }
-    34% {
-        transform: translate(-4em, 0em);
-    }
-    38% {
-        transform: translate(-6em, -2em);
+        left: 0em;
     }
     50% {
-        transform: translate(0em, -8em);
+        left: 12em;
     }
-    62% {
-        transform: translate(6em, -2em);
+}
+@keyframes spinner-collisions-y {
+    0%, 100% {
+        top: 4em;
     }
-    66% {
-        transform: translate(4em, 0em);
+    25% {
+        top: 8em;
     }
-    84% {
-        transform: translate(-4em, -8em);
-    }
-    88% {
-        transform: translate(-6em, -6em);
+    75% {
+        top: 0em;
     }
 }
 

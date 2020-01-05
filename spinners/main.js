@@ -949,42 +949,27 @@ var spinners = {
     width: 2em;\n\
     height: 2em;\n\
     position: absolute;\n\
-    left: 6em;\n\
-    top: 8em;\n\
     background-color: black;\n\
     border-radius: 50%;\n\
-    animation: spinner-collisions 2s infinite linear;\n\
+    animation: spinner-collisions-x 1.5s infinite linear, spinner-collisions-y 3.5s infinite linear;\n\
 }\n\
-@keyframes spinner-collisions {\n\
+@keyframes spinner-collisions-x {\n\
     0%, 100% {\n\
-        transform: translate(0em, 0em);\n\
-    }\n\
-    12% {\n\
-        transform: translate(6em, -6em);\n\
-    }\n\
-    16% {\n\
-        transform: translate(4em, -8em);\n\
-    }\n\
-    34% {\n\
-        transform: translate(-4em, 0em);\n\
-    }\n\
-    38% {\n\
-        transform: translate(-6em, -2em);\n\
+        left: 0em;\n\
     }\n\
     50% {\n\
-        transform: translate(0em, -8em);\n\
+        left: 12em;\n\
     }\n\
-    62% {\n\
-        transform: translate(6em, -2em);\n\
+}\n\
+@keyframes spinner-collisions-y {\n\
+    0%, 100% {\n\
+        top: 4em;\n\
     }\n\
-    66% {\n\
-        transform: translate(4em, 0em);\n\
+    25% {\n\
+        top: 8em;\n\
     }\n\
-    84% {\n\
-        transform: translate(-4em, -8em);\n\
-    }\n\
-    88% {\n\
-        transform: translate(-6em, -6em);\n\
+    75% {\n\
+        top: 0em;\n\
     }\n\
 }'
     },
